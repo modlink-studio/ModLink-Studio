@@ -1,16 +1,26 @@
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
-    CaptionLabel,
     ComboBox,
     FluentIcon as FIF,
     PrimaryPushButton,
+    SingleDirectionScrollArea,
+    SmoothMode,
     SubtitleLabel,
 )
 
-from ...backend import GanglionBackendBase, LabelsEvent, RecordEvent, RecordSession, StateEvent
-from ..widgets import PanelWidget
+from ...backend import (
+    DeviceState,
+    GanglionBackendBase,
+    LabelsEvent,
+    RecordEvent,
+    RecordSession,
+    SaveDirEvent,
+    StateEvent,
+    StreamChunk,
+)
+from ..widgets import StreamPlotWidget
 
 
 class AcquisitionPage(QWidget):
@@ -18,6 +28,7 @@ class AcquisitionPage(QWidget):
         super().__init__(parent=parent)
         self.backend = backend
         self.setObjectName("acquisition-page")
+        self.current_state = backend.state
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(36, 28, 36, 28)
@@ -33,9 +44,28 @@ class AcquisitionPage(QWidget):
         root_layout.addWidget(header_label)
         root_layout.addWidget(intro_label)
 
+        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setSmoothMode(SmoothMode.NO_SMOOTH)
+        self.scroll_area.enableTransparentBackground()
+
+        self.scroll_widget = QWidget(self.scroll_area)
+        self.scroll_widget.setObjectName("acquisition-scroll-widget")
+        self.scroll_widget.setStyleSheet(
+            "QWidget#acquisition-scroll-widget { background: transparent; }"
+        )
+
+        scroll_layout = QVBoxLayout(self.scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(20)
+
         self.recording_enabled = False
         self.available_labels = list(self.backend.labels)
-        self.control_bar = QFrame(self)
+        self.default_save_dir = self.backend.default_save_dir
+
+        self.control_bar = QFrame(self.scroll_widget)
         self.control_bar.setObjectName("acquisition-control-bar")
         self.control_bar.setStyleSheet(
             """
@@ -64,102 +94,76 @@ class AcquisitionPage(QWidget):
         control_row.addWidget(self.label_selector, 1)
         control_row.addWidget(self.record_button, 0, Qt.AlignmentFlag.AlignRight)
 
-        root_layout.addWidget(self.control_bar)
+        self.stream_plot = StreamPlotWidget(parent=self.scroll_widget)
 
-        metrics_layout = QGridLayout()
-        metrics_layout.setHorizontalSpacing(16)
-        metrics_layout.setVerticalSpacing(16)
+        scroll_layout.addWidget(self.control_bar)
+        scroll_layout.addWidget(self.stream_plot)
+        scroll_layout.addStretch(1)
 
-        self.backend_panel = PanelWidget("后端状态", "等待 backend 状态信号...", self)
-        self.session_panel = PanelWidget(
-            "采集会话",
-            "这里预留受试者、任务名、保存目录和录制状态。",
-            self,
-        )
-        self.signal_panel = PanelWidget(
-            "信号区",
-            "这里预留实时波形、通道状态、采样率、缓冲区统计。",
-            self,
-        )
-
-        metrics_layout.addWidget(self.backend_panel, 0, 0)
-        metrics_layout.addWidget(self.session_panel, 0, 1)
-        metrics_layout.addWidget(self.signal_panel, 1, 0, 1, 2)
-        metrics_layout.setColumnStretch(0, 1)
-        metrics_layout.setColumnStretch(1, 1)
-
-        root_layout.addLayout(metrics_layout)
-
-        footer = CaptionLabel(
-            "当前先保留结构和状态占位，后面可以逐步替换成图表、表单和操作按钮。",
-            self,
-        )
-        footer.setWordWrap(True)
-        root_layout.addWidget(footer)
+        self.scroll_area.setWidget(self.scroll_widget)
+        root_layout.addWidget(self.scroll_area, 1)
 
         self.backend.sig_record.connect(self._on_record_changed)
         self.backend.sig_labels.connect(self._on_labels_changed)
+        self.backend.sig_save_dir.connect(self._on_save_dir_changed)
+        self.backend.sig_stream.connect(self._on_stream_received)
+
         self._sync_record_button()
-        self._update_session_panel()
 
     def update_state(self, event: StateEvent) -> None:
-        self.backend_panel.set_description(
-            f"后端实现: {type(self.backend).__name__}\n"
-            f"设备名称: {event.device_name}\n"
-            f"当前状态: {event.state.value}\n"
-            f"最近消息: {event.message or '-'}"
-        )
+        self.current_state = event.state
+        self.stream_plot.set_state(event)
+        self._sync_record_button()
 
     def _toggle_recording(self) -> None:
         if self.recording_enabled:
             self.backend.stop_record()
-            self.recording_enabled = False
         else:
             session_id = self._current_label()
             self.backend.start_record(
                 RecordSession(
                     session_id=session_id,
-                    save_dir="./mock_data",
+                    save_dir=self.default_save_dir,
                 )
             )
-            self.recording_enabled = True
-        self._sync_record_button()
-        self._update_session_panel()
 
     def _on_record_changed(self, event: RecordEvent) -> None:
         self.recording_enabled = event.is_recording
+        self.stream_plot.update_record_state(event)
         self._sync_record_button()
-        self._update_session_panel(
-            session_id=event.session_id or self._current_label(),
-            save_dir=event.save_dir or "./mock_data",
-        )
 
     def _on_labels_changed(self, event: LabelsEvent) -> None:
         current_label = self._current_label()
         self.available_labels = list(event.labels)
         self._refresh_label_selector(current_label)
-        self._update_session_panel()
+
+    def _on_save_dir_changed(self, event: SaveDirEvent) -> None:
+        self.default_save_dir = event.save_dir
+
+    def _on_stream_received(self, chunk: StreamChunk) -> None:
+        self.stream_plot.update_stream(chunk)
 
     def _sync_record_button(self) -> None:
+        can_record = self.current_state in {DeviceState.PREVIEWING, DeviceState.RECORDING}
+        self.record_button.setEnabled(can_record)
+
         if self.recording_enabled:
             self.record_button.setText("结束录制")
             self.record_button.setIcon(FIF.PAUSE_BOLD)
             return
 
+        if self.current_state == DeviceState.CONNECTING:
+            self.record_button.setText("连接中")
+            self.record_button.setIcon(FIF.SYNC)
+            return
+
+        if self.current_state in {DeviceState.DISCONNECTED, DeviceState.DISCONNECTING, DeviceState.ERROR}:
+            self.record_button.setText("等待连接")
+            self.record_button.setIcon(FIF.PLAY_SOLID)
+            return
+
         self.record_button.setText("开始录制")
         self.record_button.setIcon(FIF.PLAY_SOLID)
-
-    def _update_session_panel(
-        self,
-        session_id: str | None = None,
-        save_dir: str = "./mock_data",
-    ) -> None:
-        current_session = session_id or self._current_label()
-        self.session_panel.set_description(
-            f"当前 session: {current_session}\n"
-            f"保存目录: {save_dir}\n"
-            f"录制状态: {'recording' if self.recording_enabled else 'idle'}"
-        )
 
     def _refresh_label_selector(self, preferred_label: str | None = None) -> None:
         current = preferred_label or self._current_label(fallback="")

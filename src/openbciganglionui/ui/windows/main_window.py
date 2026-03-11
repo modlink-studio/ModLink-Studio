@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from PyQt6.QtGui import QIcon
 from qfluentwidgets import FluentIcon as FIF, FluentWindow, NavigationItemPosition
 
 from ...backend import GanglionBackendBase, StateEvent
@@ -21,10 +24,15 @@ class MainWindow(FluentWindow):
             NavigationItemPosition.BOTTOM,
         )
 
-        self.resize(1320, 860)
-        self.setMinimumWidth(1040)
+        self.resize(792, 516)
+        self.setMinimumWidth(792)
+        self.setWindowIcon(
+            QIcon(str(Path(__file__).resolve().parents[2] / "assets" / "app_icon.png"))
+        )
         self.setWindowTitle("OpenBCI Ganglion UI")
 
+        self.navigationInterface.setIndicatorAnimationEnabled(False)
+        self.stackedWidget.setAnimationEnabled(False)
         self.backend.sig_state.connect(self._on_state_changed)
         self._on_state_changed(
             StateEvent(
@@ -39,3 +47,7 @@ class MainWindow(FluentWindow):
     def _on_state_changed(self, event: StateEvent) -> None:
         self.acquisition_page.update_state(event)
         self.setWindowTitle(f"OpenBCI Ganglion UI [{event.state.value}]")
+
+    def switchTo(self, interface) -> None:
+        self.stackedWidget.setAnimationEnabled(interface is self.settings_page)
+        super().switchTo(interface)

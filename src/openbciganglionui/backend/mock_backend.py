@@ -20,6 +20,7 @@ from .models import (
     MarkerEvent,
     RecordEvent,
     RecordSession,
+    SaveDirEvent,
     SearchEvent,
     StateEvent,
     StreamChunk,
@@ -27,6 +28,14 @@ from .models import (
 
 
 class MockGanglionBackend(GanglionBackendBase):
+    """Reference backend used for UI development and contract validation.
+
+    Mock-specific behavior:
+    - auto-starts preview immediately after a successful connection
+    - resets stream indices on reconnect/disconnect
+    - persists labels and default save directory to app-data files
+    """
+
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
 
@@ -35,6 +44,8 @@ class MockGanglionBackend(GanglionBackendBase):
         self._device_address = ""
         self._labels_path = self._resolve_labels_path()
         self._labels = self._read_labels_from_disk()
+        self._save_dir_path = self._resolve_save_dir_path()
+        self._default_save_dir = self._read_save_dir_from_disk()
 
         self._config = ConnectConfig()
         self._channel_names: tuple[str, ...] = tuple(
@@ -83,6 +94,10 @@ class MockGanglionBackend(GanglionBackendBase):
     @property
     def labels(self) -> tuple[str, ...]:
         return tuple(self._labels)
+
+    @property
+    def default_save_dir(self) -> str:
+        return self._default_save_dir
 
     def connect_device(self, config: Optional[ConnectConfig] = None) -> None:
         if self._state not in {DeviceState.DISCONNECTED, DeviceState.ERROR}:
@@ -159,6 +174,19 @@ class MockGanglionBackend(GanglionBackendBase):
         self._write_labels_to_disk()
         self._emit_labels("标签已删除")
 
+    def load_save_dir(self) -> None:
+        self._default_save_dir = self._read_save_dir_from_disk()
+        self._emit_save_dir("保存目录已加载")
+
+    def set_save_dir(self, save_dir: str) -> None:
+        normalized = str(Path(save_dir).expanduser())
+        if not normalized:
+            return
+
+        self._default_save_dir = normalized
+        self._write_save_dir_to_disk()
+        self._emit_save_dir("保存目录已更新")
+
     def disconnect_device(self) -> None:
         if self._state not in {
             DeviceState.CONNECTED,
@@ -200,7 +228,7 @@ class MockGanglionBackend(GanglionBackendBase):
         if session is None:
             session = RecordSession(
                 session_id=time.strftime("%Y%m%d_%H%M%S"),
-                save_dir="./mock_data",
+                save_dir=self._default_save_dir,
             )
 
         self._record_session = session
@@ -215,6 +243,7 @@ class MockGanglionBackend(GanglionBackendBase):
                 ts=time.time(),
                 session_id=session.session_id,
                 save_dir=session.save_dir,
+                sample_index=self._sample_index,
             )
         )
         self._set_state(DeviceState.RECORDING, "开始录制")
@@ -236,6 +265,7 @@ class MockGanglionBackend(GanglionBackendBase):
                 ts=time.time(),
                 session_id=session.session_id if session else None,
                 save_dir=session.save_dir if session else None,
+                sample_index=self._sample_index,
             )
         )
 
@@ -266,6 +296,7 @@ class MockGanglionBackend(GanglionBackendBase):
     def _finish_connect(self) -> None:
         self._reset_stream_runtime()
         self._set_state(DeviceState.CONNECTED, "设备已连接")
+        self.start_preview()
 
     def _finish_disconnect(self) -> None:
         self._reset_stream_runtime()
@@ -311,6 +342,14 @@ class MockGanglionBackend(GanglionBackendBase):
             return Path.home() / ".openbciganglionui" / "labels.json"
         return Path(base_dir) / "labels.json"
 
+    def _resolve_save_dir_path(self) -> Path:
+        base_dir = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppDataLocation
+        )
+        if not base_dir:
+            return Path.home() / ".openbciganglionui" / "save_dir.json"
+        return Path(base_dir) / "save_dir.json"
+
     def _read_labels_from_disk(self) -> list[str]:
         try:
             if not self._labels_path.exists():
@@ -329,12 +368,43 @@ class MockGanglionBackend(GanglionBackendBase):
             encoding="utf-8",
         )
 
+    def _read_save_dir_from_disk(self) -> str:
+        default_dir = str((Path.cwd() / "data").resolve())
+        old_default_dir = str((Path.cwd() / "mock_data").resolve())
+        try:
+            if not self._save_dir_path.exists():
+                return default_dir
+            payload = json.loads(self._save_dir_path.read_text(encoding="utf-8"))
+            save_dir = str(payload.get("save_dir", "")).strip()
+            if not save_dir or save_dir == old_default_dir:
+                return default_dir
+            return save_dir
+        except (OSError, json.JSONDecodeError):
+            return default_dir
+
+    def _write_save_dir_to_disk(self) -> None:
+        self._save_dir_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"save_dir": self._default_save_dir}
+        self._save_dir_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
     def _emit_labels(self, message: str = "") -> None:
         self.sig_labels.emit(
             LabelsEvent(
                 labels=tuple(self._labels),
                 ts=time.time(),
                 storage_path=str(self._labels_path),
+                message=message,
+            )
+        )
+
+    def _emit_save_dir(self, message: str = "") -> None:
+        self.sig_save_dir.emit(
+            SaveDirEvent(
+                save_dir=self._default_save_dir,
+                ts=time.time(),
                 message=message,
             )
         )

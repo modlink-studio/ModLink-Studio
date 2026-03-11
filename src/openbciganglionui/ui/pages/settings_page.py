@@ -1,8 +1,15 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel, SettingCardGroup, SubtitleLabel
+from qfluentwidgets import (
+    BodyLabel,
+    SettingCardGroup,
+    SingleDirectionScrollArea,
+    SmoothMode,
+    SubtitleLabel,
+)
 
 from ...backend import GanglionBackendBase
-from ..widgets import GanglionConnectionCard, LabelManagerCard
+from ..widgets import GanglionConnectionCard, LabelManagerCard, SaveDirectoryCard
 
 
 class SettingsPage(QWidget):
@@ -26,15 +33,37 @@ class SettingsPage(QWidget):
         )
         intro_label.setWordWrap(True)
 
-        root_layout.addWidget(header_label)
-        root_layout.addWidget(intro_label)
+        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setSmoothMode(SmoothMode.NO_SMOOTH)
+        self.scroll_area.enableTransparentBackground()
 
-        connection_group = SettingCardGroup("设备连接", self)
+        self.scroll_widget = QWidget(self.scroll_area)
+        self.scroll_widget.setObjectName("settings-scroll-widget")
+        self.scroll_widget.setStyleSheet("QWidget#settings-scroll-widget { background: transparent; }")
+
+        scroll_layout = QVBoxLayout(self.scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(20)
+
+        connection_group = SettingCardGroup("设备连接", self.scroll_widget)
         connection_group.addSettingCard(GanglionConnectionCard(self.backend, connection_group))
 
-        labels_group = SettingCardGroup("标签设置", self)
+        storage_group = SettingCardGroup("数据保存", self.scroll_widget)
+        storage_group.addSettingCard(SaveDirectoryCard(self.backend, storage_group))
+
+        labels_group = SettingCardGroup("标签设置", self.scroll_widget)
         labels_group.addSettingCard(LabelManagerCard(self.backend, labels_group))
 
-        root_layout.addWidget(connection_group)
-        root_layout.addWidget(labels_group)
-        root_layout.addStretch(1)
+        scroll_layout.addWidget(connection_group)
+        scroll_layout.addWidget(storage_group)
+        scroll_layout.addWidget(labels_group)
+        scroll_layout.addStretch(1)
+
+        self.scroll_area.setWidget(self.scroll_widget)
+
+        root_layout.addWidget(header_label)
+        root_layout.addWidget(intro_label)
+        root_layout.addWidget(self.scroll_area, 1)

@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QVBoxLayout, QWidget
-from qfluentwidgets import (
-    SimpleExpandGroupSettingCard,
-    FlowLayout,
-    FluentIcon as FIF,
-    LineEdit,
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
+from qfluentwidgets import FlowLayout, LineEdit, PushButton, PushSettingCard
+from qfluentwidgets import FluentIcon as FIF
 
 from ...backend import GanglionBackendBase, LabelsEvent
 
@@ -100,7 +106,7 @@ class LabelChip(QFrame):
         self.setStyleSheet(
             """
             QFrame#label-chip {
-                background: rgba(0, 0, 0, 0.045);
+                background: rgb(255, 255, 255);
                 border: 1px solid rgba(0, 0, 0, 0.08);
                 border-radius: 15px;
             }
@@ -116,15 +122,20 @@ class LabelInputRow(QWidget):
         super().__init__(parent=parent)
         self.on_submit = on_submit
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(48, 16, 48, 12)
-        layout.setSpacing(0)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
 
         self.input = LineEdit(self)
         self.input.setPlaceholderText("输入一个标签，按 Enter 添加")
         self.input.returnPressed.connect(self._submit)
         self.input.setClearButtonEnabled(True)
-        layout.addWidget(self.input)
+
+        self.add_button = PushButton("添加", self)
+        self.add_button.clicked.connect(self._submit)
+
+        layout.addWidget(self.input, 1)
+        layout.addWidget(self.add_button)
 
     def _submit(self) -> None:
         text = self.input.text().strip()
@@ -142,9 +153,12 @@ class LabelCloudRow(QWidget):
     ) -> None:
         super().__init__(parent=parent)
         self.on_remove = on_remove
+        self.empty_label = QLabel("还没有标签，先添加一个。", self)
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setStyleSheet("color: rgb(110, 110, 110);")
 
         self.flow_layout = FlowLayout(self)
-        self.flow_layout.setContentsMargins(48, 12, 48, 16)
+        self.flow_layout.setContentsMargins(0, 0, 0, 0)
         self.flow_layout.setHorizontalSpacing(8)
         self.flow_layout.setVerticalSpacing(8)
 
@@ -153,37 +167,152 @@ class LabelCloudRow(QWidget):
         for label in labels:
             self.flow_layout.addWidget(LabelChip(label, self.on_remove, self))
 
+        self.empty_label.setVisible(not labels)
+        self.empty_label.setGeometry(self.rect())
 
-class LabelManagerCard(SimpleExpandGroupSettingCard):
-    def __init__(self, backend: GanglionBackendBase, parent: QWidget | None = None) -> None:
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.empty_label.setGeometry(self.rect())
+
+
+class LabelManagerDialog(QDialog):
+    def __init__(
+        self,
+        backend: GanglionBackendBase,
+        labels: list[str],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent=parent)
+        self.backend = backend
+
+        self.setWindowTitle("标签管理")
+        self.resize(640, 480)
+        self.setMinimumSize(520, 380)
+
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(20, 20, 20, 20)
+        root_layout.setSpacing(16)
+
+        header_frame = QFrame(self)
+        header_frame.setObjectName("label-manager-panel")
+        header_frame.setStyleSheet(
+            """
+            QFrame#label-manager-panel {
+                background: rgba(255, 255, 255, 0.94);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 18px;
+            }
+            """
+        )
+
+        header_frame_layout = QVBoxLayout(header_frame)
+        header_frame_layout.setContentsMargins(28, 24, 28, 24)
+        header_frame_layout.setSpacing(16)
+
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        title_label = QLabel("标签管理", self)
+        title_font = QFont(title_label.font())
+        title_font.setPointSize(14)
+        title_font.setWeight(QFont.Weight.DemiBold)
+        title_label.setFont(title_font)
+
+        self.count_badge = CountBadge(str(len(labels)), self)
+
+        header_layout.addWidget(title_label)
+        header_layout.addStretch(1)
+        header_layout.addWidget(self.count_badge)
+
+        tip_label = QLabel("按 Enter 或点击添加按钮新增标签，点击标签右侧 × 删除。", self)
+        tip_label.setWordWrap(True)
+        tip_label.setStyleSheet("color: rgb(96, 96, 96);")
+
+        self.input_row = LabelInputRow(self.backend.add_label, self)
+
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setStyleSheet(
+            """
+            QScrollArea {
+                background: transparent;
+            }
+            """
+        )
+
+        self.label_cloud_row = LabelCloudRow(self.backend.remove_label)
+        self.label_cloud_row.setObjectName("label-cloud-row")
+        self.label_cloud_row.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.MinimumExpanding,
+        )
+        scroll_area.setWidget(self.label_cloud_row)
+
+        close_button = PushButton("关闭", self)
+        close_button.clicked.connect(self.accept)
+
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.addStretch(1)
+        footer_layout.addWidget(close_button)
+
+        header_frame_layout.addLayout(header_layout)
+        header_frame_layout.addWidget(tip_label)
+        header_frame_layout.addWidget(self.input_row)
+
+        root_layout.addWidget(header_frame)
+        root_layout.addWidget(scroll_area, 1)
+        root_layout.addLayout(footer_layout)
+
+        self.set_labels(labels)
+
+    def set_labels(self, labels: list[str]) -> None:
+        self.count_badge.setText(str(len(labels)))
+        self.label_cloud_row.set_labels(labels)
+
+
+class LabelManagerCard(PushSettingCard):
+    def __init__(
+        self, backend: GanglionBackendBase, parent: QWidget | None = None
+    ) -> None:
         super().__init__(
+            "打开",
             FIF.TAG,
             "标签管理器",
-            "管理采集标签，按 Enter 快速新增",
+            "管理采集标签，点击后在弹窗中编辑",
             parent,
         )
         self.backend = backend
         self.labels = list(backend.labels)
+        self.dialog: LabelManagerDialog | None = None
 
-        self.count_badge = CountBadge("0", self.card)
-        self.addWidget(self.count_badge)
-
-        self.input_row = LabelInputRow(self.backend.add_label, self.view)
-        self.label_cloud_row = LabelCloudRow(
-            self.backend.remove_label,
-            self.view,
-        )
-        self.addGroupWidget(self.input_row)
-        self.addGroupWidget(self.label_cloud_row)
-
+        self.clicked.connect(self._open_dialog)
         self.backend.sig_labels.connect(self._on_labels_changed)
-        self._refresh_groups()
+
+        self._refresh_summary()
         self.backend.load_labels()
 
-    def _refresh_groups(self) -> None:
-        self.count_badge.setText(str(len(self.labels)))
-        self.label_cloud_row.set_labels(self.labels)
+    def _refresh_summary(self) -> None:
+        count = len(self.labels)
+        self.setContent(f"当前 {count} 个标签，点击后在弹窗中编辑")
+
+    def _open_dialog(self) -> None:
+        if self.dialog is None:
+            self.dialog = LabelManagerDialog(self.backend, self.labels, self.window())
+            self.dialog.finished.connect(self._on_dialog_finished)
+
+        self.dialog.set_labels(self.labels)
+        self.dialog.show()
+        self.dialog.raise_()
+        self.dialog.activateWindow()
+
+    def _on_dialog_finished(self, _result: int) -> None:
+        self.dialog = None
 
     def _on_labels_changed(self, event: LabelsEvent) -> None:
         self.labels = list(event.labels)
-        self._refresh_groups()
+        self._refresh_summary()
+        if self.dialog is not None:
+            self.dialog.set_labels(self.labels)

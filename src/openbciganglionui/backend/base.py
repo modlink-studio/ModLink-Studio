@@ -1,13 +1,42 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from .models import ConnectConfig, DeviceState, RecordSession
 
 
 class GanglionBackendBase(QObject):
+    """Contract for all backend implementations used by the UI layer.
+
+    The UI is allowed to do exactly two kinds of things with a backend object:
+
+    1. Call the public intent methods defined on this class.
+    2. Subscribe to the signals defined on this class and consume payloads from
+       ``backend.models``.
+
+    The UI must not depend on a concrete backend implementation, private
+    backend attributes, or backend-specific timing quirks unless those quirks
+    are explicitly documented as part of the contract.
+
+    Signal payload contract:
+    - ``sig_state``: emits ``StateEvent``
+    - ``sig_stream``: emits ``StreamChunk``
+    - ``sig_marker``: emits ``MarkerEvent``
+    - ``sig_record``: emits ``RecordEvent``
+    - ``sig_error``: emits ``ErrorEvent``
+    - ``sig_search``: emits ``SearchEvent``
+    - ``sig_labels``: emits ``LabelsEvent``
+    - ``sig_save_dir``: emits ``SaveDirEvent``
+
+    Method contract:
+    - Public methods are intents. They return ``None`` and report accepted work,
+      rejected work, and state transitions via signals.
+    - Unless a subclass documents otherwise, methods should be idempotent when
+      called in an invalid state. Invalid calls may be ignored or converted to
+      ``sig_error`` events, but they must not mutate the runtime into an
+      inconsistent state.
+    """
+
     sig_state = pyqtSignal(object)
     sig_stream = pyqtSignal(object)
     sig_marker = pyqtSignal(object)
@@ -15,63 +44,121 @@ class GanglionBackendBase(QObject):
     sig_error = pyqtSignal(object)
     sig_search = pyqtSignal(object)
     sig_labels = pyqtSignal(object)
+    sig_save_dir = pyqtSignal(object)
 
-    def _debug_call(self, method: str, **kwargs: object) -> None:
-        if kwargs:
-            args_text = ", ".join(f"{key}={value!r}" for key, value in kwargs.items())
-            print(f"[GanglionBackendBase] {method} called with {args_text}")
-            return
-        print(f"[GanglionBackendBase] {method} called")
+    def _not_implemented(self, member: str) -> None:
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement GanglionBackendBase.{member}"
+        )
 
     @property
     def state(self) -> DeviceState:
-        self._debug_call("state")
-        return DeviceState.DISCONNECTED
+        """Return the backend's latest stable device state snapshot."""
+
+        self._not_implemented("state")
 
     @property
     def device_name(self) -> str:
-        self._debug_call("device_name")
-        return self.__class__.__name__
+        """Return the latest known device name for UI display."""
+
+        self._not_implemented("device_name")
 
     @property
     def device_address(self) -> str:
-        self._debug_call("device_address")
-        return ""
+        """Return the latest known device address for UI display."""
+
+        self._not_implemented("device_address")
 
     @property
     def labels(self) -> tuple[str, ...]:
-        self._debug_call("labels")
-        return ()
+        """Return the latest in-memory label snapshot."""
 
-    def connect_device(self, config: Optional[ConnectConfig] = None) -> None:
-        self._debug_call("connect_device", config=config)
+        self._not_implemented("labels")
+
+    @property
+    def default_save_dir(self) -> str:
+        """Return the latest in-memory default recording directory."""
+
+        self._not_implemented("default_save_dir")
+
+    def connect_device(self, config: ConnectConfig | None = None) -> None:
+        """Request a device connection attempt.
+
+        Expected common behavior:
+        - Emits ``CONNECTING`` via ``sig_state`` when a connection attempt starts.
+        - Eventually emits either a connected state or an error state.
+        - Any backend-specific post-connect behavior, such as auto-preview, must
+          be documented by the concrete implementation.
+        """
+
+        self._not_implemented("connect_device")
 
     def search_devices(self, method: str) -> None:
-        self._debug_call("search_devices", method=method)
+        """Request a device search using a backend-defined transport method."""
+
+        self._not_implemented("search_devices")
 
     def load_labels(self) -> None:
-        self._debug_call("load_labels")
+        """Load labels from the backend's persistence layer and emit ``sig_labels``."""
+
+        self._not_implemented("load_labels")
 
     def add_label(self, label: str) -> None:
-        self._debug_call("add_label", label=label)
+        """Add a label and emit the resulting label snapshot via ``sig_labels``."""
+
+        self._not_implemented("add_label")
 
     def remove_label(self, label: str) -> None:
-        self._debug_call("remove_label", label=label)
+        """Remove a label and emit the resulting label snapshot via ``sig_labels``."""
+
+        self._not_implemented("remove_label")
+
+    def load_save_dir(self) -> None:
+        """Load the persisted default save directory and emit ``sig_save_dir``."""
+
+        self._not_implemented("load_save_dir")
+
+    def set_save_dir(self, save_dir: str) -> None:
+        """Persist the default save directory and emit ``sig_save_dir``."""
+
+        self._not_implemented("set_save_dir")
 
     def disconnect_device(self) -> None:
-        self._debug_call("disconnect_device")
+        """Request a device disconnect.
+
+        Expected common behavior:
+        - Stops any active streaming or recording work.
+        - Emits ``DISCONNECTING`` when accepted.
+        - Eventually emits ``DISCONNECTED``.
+        """
+
+        self._not_implemented("disconnect_device")
 
     def start_preview(self) -> None:
-        self._debug_call("start_preview")
+        """Request transition into preview/streaming mode."""
+
+        self._not_implemented("start_preview")
 
     def stop_preview(self) -> None:
-        self._debug_call("stop_preview")
+        """Request transition out of preview/streaming mode."""
 
-    def start_record(self, session: Optional[RecordSession] = None) -> None:
-        self._debug_call("start_record", session=session)
+        self._not_implemented("stop_preview")
+
+    def start_record(self, session: RecordSession | None = None) -> None:
+        """Request transition into recording mode.
+
+        Concrete implementations should document which prior state is required
+        before recording can begin.
+        """
+
+        self._not_implemented("start_record")
 
     def stop_record(self) -> None:
-        self._debug_call("stop_record")
+        """Request transition out of recording mode."""
+
+        self._not_implemented("stop_record")
 
     def add_marker(self, label: str, note: str = "", source: str = "ui") -> None:
-        self._debug_call("add_marker", label=label, note=note, source=source)
+        """Request insertion of a marker into the active stream/recording session."""
+
+        self._not_implemented("add_marker")
