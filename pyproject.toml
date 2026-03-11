@@ -1,0 +1,22 @@
+[project]
+name = "openbciganglionui"
+version = "0.1.0"
+description = "OpenBCI Ganglion desktop UI built with PyQt6 and qfluentwidgets"
+readme = "README.md"
+authors = [
+    { name = "Zhaoyang Xin", email = "xincy22@mails.tsinghua.edu.cn" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.3.3",
+    "pyqt6>=6.10.2",
+    "pyqt6-fluent-widgets>=1.11.1",
+]
+
+[project.scripts]
+openbciganglionui = "openbciganglionui:main"
+openbci-ganglion-ui = "openbciganglionui:main"
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
