@@ -93,8 +93,3 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_mock_demo.ps1
 - 因此，源码方式在 Linux 上预计也是可以运行的，`uv sync` 正常情况下也不应有问题。
 - 但目前我只实际验证了 Windows 环境，Linux 还没有做过完整运行测试。
 - 打包脚本 `scripts/build_mock_demo.ps1` 是 Windows 专用脚本，不适用于 Linux。
-
-## 说明
-
-- 当前项目使用的是 Python 3.13。
-- `PyQt6-Fluent-Widgets` 使用 GPLv3 许可证；如果后续需要分发，请确认许可要求与使用场景一致。
