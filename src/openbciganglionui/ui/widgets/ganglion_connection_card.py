@@ -4,7 +4,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import (
     ComboBox,
-    ExpandGroupSettingCard,
     FluentIcon as FIF,
     PrimaryPushButton,
     PushButton,
@@ -19,6 +18,8 @@ from ...backend import (
     SearchEvent,
     StateEvent,
 )
+from ..style_constants import DEFAULT_RADIUS
+from .wheel_passthrough_expand_group_setting_card import WheelPassthroughExpandGroupSettingCard
 
 
 class StatusBadge(QLabel):
@@ -37,15 +38,15 @@ class StatusBadge(QLabel):
         }:
             self.setText("Connected")
             self.setStyleSheet(
-                """
-                QLabel {
+                f"""
+                QLabel {{
                     color: rgb(15, 94, 54);
                     background: rgba(70, 201, 125, 0.18);
                     border: 1px solid rgba(70, 201, 125, 0.35);
-                    border-radius: 12px;
+                    border-radius: {DEFAULT_RADIUS}px;
                     padding: 4px 12px;
                     font-weight: 600;
-                }
+                }}
                 """
             )
             return
@@ -53,15 +54,15 @@ class StatusBadge(QLabel):
         if state == DeviceState.CONNECTING:
             self.setText("Connecting")
             self.setStyleSheet(
-                """
-                QLabel {
+                f"""
+                QLabel {{
                     color: rgb(138, 89, 0);
                     background: rgba(255, 197, 61, 0.18);
                     border: 1px solid rgba(255, 197, 61, 0.35);
-                    border-radius: 12px;
+                    border-radius: {DEFAULT_RADIUS}px;
                     padding: 4px 12px;
                     font-weight: 600;
-                }
+                }}
                 """
             )
             return
@@ -69,15 +70,15 @@ class StatusBadge(QLabel):
         if state == DeviceState.DISCONNECTING:
             self.setText("Disconnecting")
             self.setStyleSheet(
-                """
-                QLabel {
+                f"""
+                QLabel {{
                     color: rgb(90, 67, 15);
                     background: rgba(255, 214, 102, 0.18);
                     border: 1px solid rgba(255, 214, 102, 0.35);
-                    border-radius: 12px;
+                    border-radius: {DEFAULT_RADIUS}px;
                     padding: 4px 12px;
                     font-weight: 600;
-                }
+                }}
                 """
             )
             return
@@ -87,15 +88,15 @@ class StatusBadge(QLabel):
     def _set_disconnected_style(self) -> None:
         self.setText("Disconnected")
         self.setStyleSheet(
-            """
-            QLabel {
+            f"""
+            QLabel {{
                 color: rgb(122, 33, 43);
                 background: rgba(255, 99, 99, 0.14);
                 border: 1px solid rgba(255, 99, 99, 0.28);
-                border-radius: 12px;
+                border-radius: {DEFAULT_RADIUS}px;
                 padding: 4px 12px;
                 font-weight: 600;
-            }
+            }}
             """
         )
 
@@ -135,7 +136,7 @@ class RowContainer(QWidget):
         self.row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
 
-class GanglionConnectionCard(ExpandGroupSettingCard):
+class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
     def __init__(self, backend: GanglionBackendBase, parent: QWidget | None = None) -> None:
         super().__init__(
             FIF.BLUETOOTH,

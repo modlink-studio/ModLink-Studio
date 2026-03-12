@@ -4,6 +4,7 @@ from PyQt6.QtGui import QIcon
 from qfluentwidgets import FluentIcon as FIF, FluentWindow, NavigationItemPosition
 
 from ...backend import GanglionBackendBase, StateEvent
+from ..display_settings import DisplaySettings
 from ..pages import AcquisitionPage, SettingsPage
 
 
@@ -11,9 +12,18 @@ class MainWindow(FluentWindow):
     def __init__(self, backend: GanglionBackendBase) -> None:
         super().__init__()
         self.backend = backend
+        self.display_settings = DisplaySettings(parent=self)
 
-        self.acquisition_page = AcquisitionPage(backend=self.backend, parent=self)
-        self.settings_page = SettingsPage(backend=self.backend, parent=self)
+        self.acquisition_page = AcquisitionPage(
+            backend=self.backend,
+            display_settings=self.display_settings,
+            parent=self,
+        )
+        self.settings_page = SettingsPage(
+            backend=self.backend,
+            display_settings=self.display_settings,
+            parent=self,
+        )
 
         self.addSubInterface(self.acquisition_page, FIF.PLAY, "采集")
         self.navigationInterface.addSeparator()
@@ -49,5 +59,5 @@ class MainWindow(FluentWindow):
         self.setWindowTitle(f"OpenBCI Ganglion UI [{event.state.value}]")
 
     def switchTo(self, interface) -> None:
-        self.stackedWidget.setAnimationEnabled(interface is self.settings_page)
+        self.stackedWidget.setAnimationEnabled(False)
         super().switchTo(interface)

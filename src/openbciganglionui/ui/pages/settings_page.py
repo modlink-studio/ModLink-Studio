@@ -9,18 +9,27 @@ from qfluentwidgets import (
 )
 
 from ...backend import GanglionBackendBase
-from ..widgets import GanglionConnectionCard, LabelManagerCard, SaveDirectoryCard
+from ..display_settings import DisplaySettings
+from ..widgets import (
+    ChannelVisibilitySettingCard,
+    GanglionConnectionCard,
+    LabelManagerCard,
+    PointCountSettingCard,
+    SaveDirectoryCard,
+)
 
 
 class SettingsPage(QWidget):
     def __init__(
         self,
         backend: GanglionBackendBase,
+        display_settings: DisplaySettings,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self.setObjectName("settings-page")
         self.backend = backend
+        self.display_settings = display_settings
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(36, 28, 36, 28)
@@ -54,11 +63,19 @@ class SettingsPage(QWidget):
         storage_group = SettingCardGroup("数据保存", self.scroll_widget)
         storage_group.addSettingCard(SaveDirectoryCard(self.backend, storage_group))
 
+        display_group = SettingCardGroup("波形显示", self.scroll_widget)
+        display_group.cardLayout.setSpacing(8)
+        display_group.addSettingCard(PointCountSettingCard(self.display_settings, display_group))
+        display_group.addSettingCard(
+            ChannelVisibilitySettingCard(self.display_settings, display_group)
+        )
+
         labels_group = SettingCardGroup("标签设置", self.scroll_widget)
         labels_group.addSettingCard(LabelManagerCard(self.backend, labels_group))
 
         scroll_layout.addWidget(connection_group)
         scroll_layout.addWidget(storage_group)
+        scroll_layout.addWidget(display_group)
         scroll_layout.addWidget(labels_group)
         scroll_layout.addStretch(1)
 

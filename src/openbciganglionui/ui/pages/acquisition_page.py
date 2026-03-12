@@ -1,10 +1,8 @@
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QTextEdit, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
-    ComboBox,
-    FluentIcon as FIF,
-    PrimaryPushButton,
     SingleDirectionScrollArea,
     SmoothMode,
     SubtitleLabel,
@@ -14,19 +12,27 @@ from ...backend import (
     DeviceState,
     GanglionBackendBase,
     LabelsEvent,
+    MarkerEvent,
     RecordEvent,
     RecordSession,
     SaveDirEvent,
     StateEvent,
     StreamChunk,
 )
-from ..widgets import StreamPlotWidget
+from ..display_settings import DisplaySettings
+from ..widgets import AcquisitionControlBar, StreamPlotWidget
 
 
 class AcquisitionPage(QWidget):
-    def __init__(self, backend: GanglionBackendBase, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        backend: GanglionBackendBase,
+        display_settings: DisplaySettings,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent=parent)
         self.backend = backend
+        self.display_settings = display_settings
         self.setObjectName("acquisition-page")
         self.current_state = backend.state
 
@@ -59,42 +65,21 @@ class AcquisitionPage(QWidget):
 
         scroll_layout = QVBoxLayout(self.scroll_widget)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(20)
+        scroll_layout.setSpacing(8)
 
-        self.recording_enabled = False
-        self.available_labels = list(self.backend.labels)
         self.default_save_dir = self.backend.default_save_dir
+        self.control_bar = AcquisitionControlBar(self.backend.labels, self.scroll_widget)
+        self.control_bar.set_state(self.current_state)
+        self.control_bar.startRecordRequested.connect(self._start_recording)
+        self.control_bar.stopRecordRequested.connect(self.backend.stop_record)
+        self.control_bar.markerRequested.connect(self.backend.add_marker)
 
-        self.control_bar = QFrame(self.scroll_widget)
-        self.control_bar.setObjectName("acquisition-control-bar")
-        self.control_bar.setStyleSheet(
-            """
-            QFrame#acquisition-control-bar {
-                background: rgba(255, 255, 255, 0.72);
-                border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 16px;
-            }
-            """
+        self.stream_plot = StreamPlotWidget(
+            max_samples=self.display_settings.max_samples,
+            display_settings=self.display_settings,
+            parent=self.scroll_widget,
         )
-        control_row = QHBoxLayout(self.control_bar)
-        control_row.setContentsMargins(20, 16, 20, 16)
-        control_row.setSpacing(12)
-
-        label = BodyLabel("标签 / Label:", self.control_bar)
-
-        self.label_selector = ComboBox(self.control_bar)
-        self.label_selector.setMinimumWidth(260)
-        self._refresh_label_selector()
-
-        self.record_button = PrimaryPushButton("开始录制", self)
-        self.record_button.setMinimumWidth(140)
-        self.record_button.clicked.connect(self._toggle_recording)
-
-        control_row.addWidget(label, 0, Qt.AlignmentFlag.AlignVCenter)
-        control_row.addWidget(self.label_selector, 1)
-        control_row.addWidget(self.record_button, 0, Qt.AlignmentFlag.AlignRight)
-
-        self.stream_plot = StreamPlotWidget(parent=self.scroll_widget)
+        self.control_bar.displayPauseChanged.connect(self.stream_plot.set_paused)
 
         scroll_layout.addWidget(self.control_bar)
         scroll_layout.addWidget(self.stream_plot)
@@ -104,38 +89,44 @@ class AcquisitionPage(QWidget):
         root_layout.addWidget(self.scroll_area, 1)
 
         self.backend.sig_record.connect(self._on_record_changed)
+        self.backend.sig_marker.connect(self._on_marker_added)
         self.backend.sig_labels.connect(self._on_labels_changed)
         self.backend.sig_save_dir.connect(self._on_save_dir_changed)
         self.backend.sig_stream.connect(self._on_stream_received)
 
-        self._sync_record_button()
+        self.marker_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
+        self.marker_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.marker_shortcut.activated.connect(self._trigger_marker_shortcut)
 
     def update_state(self, event: StateEvent) -> None:
         self.current_state = event.state
+        self.control_bar.set_state(event.state)
         self.stream_plot.set_state(event)
-        self._sync_record_button()
 
-    def _toggle_recording(self) -> None:
-        if self.recording_enabled:
-            self.backend.stop_record()
-        else:
-            session_id = self._current_label()
-            self.backend.start_record(
-                RecordSession(
-                    session_id=session_id,
-                    save_dir=self.default_save_dir,
-                )
+    def _start_recording(self, subject_id: str, label: str) -> None:
+        session_id = self.control_bar.make_session_id()
+        normalized_subject_id = subject_id.strip() or f"session_{session_id}"
+        self.backend.start_record(
+            RecordSession(
+                session_id=session_id,
+                save_dir=self.default_save_dir,
+                subject_id=normalized_subject_id,
+                task_name=label.strip() or "default_label",
             )
+        )
 
     def _on_record_changed(self, event: RecordEvent) -> None:
-        self.recording_enabled = event.is_recording
+        self.control_bar.set_recording_enabled(event.is_recording)
         self.stream_plot.update_record_state(event)
-        self._sync_record_button()
+
+    def _on_marker_added(self, event: MarkerEvent) -> None:
+        self.stream_plot.add_marker(event)
 
     def _on_labels_changed(self, event: LabelsEvent) -> None:
-        current_label = self._current_label()
-        self.available_labels = list(event.labels)
-        self._refresh_label_selector(current_label)
+        self.control_bar.set_available_labels(
+            event.labels,
+            preferred_label=self.control_bar.current_label(fallback=""),
+        )
 
     def _on_save_dir_changed(self, event: SaveDirEvent) -> None:
         self.default_save_dir = event.save_dir
@@ -143,40 +134,12 @@ class AcquisitionPage(QWidget):
     def _on_stream_received(self, chunk: StreamChunk) -> None:
         self.stream_plot.update_stream(chunk)
 
-    def _sync_record_button(self) -> None:
-        can_record = self.current_state in {DeviceState.PREVIEWING, DeviceState.RECORDING}
-        self.record_button.setEnabled(can_record)
-
-        if self.recording_enabled:
-            self.record_button.setText("结束录制")
-            self.record_button.setIcon(FIF.PAUSE_BOLD)
+    def _trigger_marker_shortcut(self) -> None:
+        if self.current_state != DeviceState.RECORDING:
             return
 
-        if self.current_state == DeviceState.CONNECTING:
-            self.record_button.setText("连接中")
-            self.record_button.setIcon(FIF.SYNC)
+        focus_widget = QApplication.focusWidget()
+        if isinstance(focus_widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
             return
 
-        if self.current_state in {DeviceState.DISCONNECTED, DeviceState.DISCONNECTING, DeviceState.ERROR}:
-            self.record_button.setText("等待连接")
-            self.record_button.setIcon(FIF.PLAY_SOLID)
-            return
-
-        self.record_button.setText("开始录制")
-        self.record_button.setIcon(FIF.PLAY_SOLID)
-
-    def _refresh_label_selector(self, preferred_label: str | None = None) -> None:
-        current = preferred_label or self._current_label(fallback="")
-        labels = self.available_labels or ["default_label"]
-
-        self.label_selector.blockSignals(True)
-        self.label_selector.clear()
-        self.label_selector.addItems(labels)
-
-        target = current if current in labels else labels[0]
-        self.label_selector.setCurrentText(target)
-        self.label_selector.blockSignals(False)
-
-    def _current_label(self, fallback: str = "default_label") -> str:
-        text = self.label_selector.currentText().strip() if hasattr(self, "label_selector") else ""
-        return text or fallback
+        self.backend.add_marker(self.control_bar.current_marker_label())

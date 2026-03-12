@@ -226,10 +226,31 @@ class MockGanglionBackend(GanglionBackendBase):
             return
 
         if session is None:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
             session = RecordSession(
-                session_id=time.strftime("%Y%m%d_%H%M%S"),
+                session_id=timestamp,
                 save_dir=self._default_save_dir,
+                subject_id=f"session_{timestamp}",
+                task_name="default_label",
             )
+
+        session = RecordSession(
+            session_id=self._normalize_record_component(
+                session.session_id,
+                fallback=time.strftime("%Y%m%d_%H%M%S"),
+            ),
+            save_dir=session.save_dir,
+            subject_id=self._normalize_record_component(
+                session.subject_id,
+                fallback=f"session_{session.session_id}",
+            ),
+            task_name=self._normalize_record_component(
+                session.task_name,
+                fallback="default_label",
+            ),
+            operator=session.operator,
+            notes=session.notes,
+        )
 
         self._record_session = session
         self._record_buffer.clear()
@@ -275,7 +296,7 @@ class MockGanglionBackend(GanglionBackendBase):
             self._set_state(DeviceState.CONNECTED, "停止录制")
 
     def add_marker(self, label: str, note: str = "", source: str = "ui") -> None:
-        if self._state not in {DeviceState.PREVIEWING, DeviceState.RECORDING}:
+        if self._state != DeviceState.RECORDING:
             return
 
         event = MarkerEvent(
@@ -474,7 +495,12 @@ class MockGanglionBackend(GanglionBackendBase):
             return
 
         session = self._record_session
-        save_root = Path(session.save_dir) / session.session_id
+        save_root = (
+            Path(session.save_dir)
+            / session.subject_id
+            / session.task_name
+            / session.session_id
+        )
         save_root.mkdir(parents=True, exist_ok=True)
 
         full_data = np.vstack(self._record_buffer)
@@ -511,6 +537,18 @@ class MockGanglionBackend(GanglionBackendBase):
             file.write(f"fs={self._config.fs}\n")
             file.write(f"n_channels={self._config.n_channels}\n")
             file.write(f"channel_names={','.join(self._channel_names)}\n")
+
+    def _normalize_record_component(self, value: str, fallback: str) -> str:
+        normalized = str(value).strip()
+        if not normalized:
+            normalized = fallback
+
+        invalid_chars = '<>:"/\\|?*'
+        for char in invalid_chars:
+            normalized = normalized.replace(char, "_")
+
+        normalized = normalized.rstrip(". ")
+        return normalized or fallback
 
     def _set_state(self, state: DeviceState, message: str = "") -> None:
         self._state = state

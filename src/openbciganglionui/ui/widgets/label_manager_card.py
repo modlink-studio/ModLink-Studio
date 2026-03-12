@@ -17,6 +17,7 @@ from qfluentwidgets import FlowLayout, LineEdit, PushButton, PushSettingCard
 from qfluentwidgets import FluentIcon as FIF
 
 from ...backend import GanglionBackendBase, LabelsEvent
+from ..style_constants import DEFAULT_RADIUS, SMALL_RADIUS
 
 
 class CountBadge(QLabel):
@@ -25,15 +26,15 @@ class CountBadge(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumWidth(44)
         self.setStyleSheet(
-            """
-            QLabel {
+            f"""
+            QLabel {{
                 color: rgb(36, 72, 124);
                 background: rgba(95, 154, 255, 0.16);
                 border: 1px solid rgba(95, 154, 255, 0.28);
-                border-radius: 12px;
+                border-radius: {DEFAULT_RADIUS}px;
                 padding: 4px 12px;
                 font-weight: 600;
-            }
+            }}
             """
         )
 
@@ -83,20 +84,20 @@ class LabelChip(QFrame):
         self.remove_button.setFont(button_font)
         self.remove_button.clicked.connect(self._remove)
         self.remove_button.setStyleSheet(
-            """
-            QToolButton {
+            f"""
+            QToolButton {{
                 background: transparent;
                 border: none;
-                border-radius: 11px;
+                border-radius: {SMALL_RADIUS}px;
                 color: rgb(84, 84, 84);
                 padding: 0;
-            }
-            QToolButton:hover {
+            }}
+            QToolButton:hover {{
                 background: rgba(0, 0, 0, 0.07);
-            }
-            QToolButton:pressed {
+            }}
+            QToolButton:pressed {{
                 background: rgba(0, 0, 0, 0.12);
-            }
+            }}
             """
         )
 
@@ -104,12 +105,12 @@ class LabelChip(QFrame):
         layout.addWidget(self.remove_button)
 
         self.setStyleSheet(
-            """
-            QFrame#label-chip {
+            f"""
+            QFrame#label-chip {{
                 background: rgb(255, 255, 255);
                 border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 15px;
-            }
+                border-radius: {DEFAULT_RADIUS}px;
+            }}
             """
         )
 
@@ -196,12 +197,12 @@ class LabelManagerDialog(QDialog):
         header_frame = QFrame(self)
         header_frame.setObjectName("label-manager-panel")
         header_frame.setStyleSheet(
-            """
-            QFrame#label-manager-panel {
+            f"""
+            QFrame#label-manager-panel {{
                 background: rgba(255, 255, 255, 0.94);
                 border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 18px;
-            }
+                border-radius: {DEFAULT_RADIUS}px;
+            }}
             """
         )
 
