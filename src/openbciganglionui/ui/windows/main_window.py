@@ -4,7 +4,7 @@ from PyQt6.QtGui import QIcon
 from qfluentwidgets import FluentIcon as FIF, FluentWindow, NavigationItemPosition
 
 from ...backend import GanglionBackendBase, StateEvent
-from ..pages import AcquisitionPage, SettingsPage
+from ..pages import AcquisitionPage, GuidePage, SettingsPage
 from ..settings import AppSettingsStore, SettingsManager
 
 
@@ -28,9 +28,16 @@ class MainWindow(FluentWindow):
             settings_manager=self.settings_manager,
             parent=self,
         )
+        self.guide_page = GuidePage(parent=self)
 
         self.addSubInterface(self.acquisition_page, FIF.PLAY, "采集")
         self.navigationInterface.addSeparator()
+        self.addSubInterface(
+            self.guide_page,
+            FIF.INFO,
+            "说明",
+            NavigationItemPosition.BOTTOM,
+        )
         self.addSubInterface(
             self.settings_page,
             FIF.SETTING,

@@ -39,7 +39,7 @@ class SettingsPage(QWidget):
 
         header_label = SubtitleLabel("设置", self)
         intro_label = BodyLabel(
-            "这个页面用于承接设备参数、主题、数据保存、日志和实验默认值。",
+            "这个页面用于配置设备连接、数据保存、录制模式、波形显示和标签管理。",
             self,
         )
         intro_label.setWordWrap(True)

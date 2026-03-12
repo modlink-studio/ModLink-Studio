@@ -57,7 +57,7 @@ class AcquisitionPage(QWidget):
 
         header_label = SubtitleLabel("采集", self)
         intro_label = BodyLabel(
-            "这个页面用于承接设备连接、实时预览、marker、录制控制和波形区域。",
+            "这个页面用于设备连接后的实时预览、录制控制、marker 标注和波形查看。",
             self,
         )
         intro_label.setWordWrap(True)

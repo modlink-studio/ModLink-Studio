@@ -79,9 +79,6 @@ class MockGanglionBackend(GanglionBackendBase):
         self._search_timer.timeout.connect(self._finish_search)
         self._pending_search_method = "Native BLE"
 
-        self._burst_remaining = 0
-        self._burst_gain = 1.0
-
     @property
     def state(self) -> DeviceState:
         return self._state
@@ -328,7 +325,6 @@ class MockGanglionBackend(GanglionBackendBase):
         )
         self._markers.append(event)
         self.sig_marker.emit(event)
-        self._trigger_mock_burst(label)
 
     def start_segment(self, label: str, note: str = "", source: str = "ui") -> None:
         if self._state != DeviceState.RECORDING or not self._record_session:
@@ -364,7 +360,6 @@ class MockGanglionBackend(GanglionBackendBase):
                 source=segment.source,
             )
         )
-        self._trigger_mock_burst(normalized_label)
 
     def stop_segment(self, note: str = "", source: str = "ui") -> None:
         if self._state != DeviceState.RECORDING or not self._record_session:
@@ -439,8 +434,6 @@ class MockGanglionBackend(GanglionBackendBase):
     def _reset_stream_runtime(self) -> None:
         self._seq = 0
         self._sample_index = 0
-        self._burst_remaining = 0
-        self._burst_gain = 1.0
 
     def _default_labels(self) -> list[str]:
         return ["dry_swallow", "water_5ml", "cough"]
@@ -502,17 +495,6 @@ class MockGanglionBackend(GanglionBackendBase):
             noise = np.random.normal(0.0, 3.0 + ch * 0.6, size=n_samples)
             drift = 8.0 * np.sin(2.0 * math.pi * 0.08 * t + ch * 0.1)
             data[:, ch] = signal + drift + noise
-
-        if self._burst_remaining > 0:
-            burst_n = min(self._burst_remaining, n_samples)
-            env = np.linspace(1.0, 0.2, burst_n, dtype=np.float32)
-            burst = (
-                40.0 * env * np.sin(2.0 * math.pi * 6.0 * t[:burst_n])
-            ).reshape(-1, 1)
-            data[:burst_n, :] += self._burst_gain * burst
-            self._burst_remaining -= burst_n
-            if self._burst_remaining <= 0:
-                self._burst_gain = 1.0
 
         chunk = StreamChunk(
             seq=self._seq,
@@ -624,11 +606,6 @@ class MockGanglionBackend(GanglionBackendBase):
             return RecordingMode(str(value).strip())
         except ValueError:
             return RecordingMode.CLIP
-
-    def _trigger_mock_burst(self, label: str) -> None:
-        if label in {"dry_swallow", "water_5ml", "water_10ml", "water_15ml", "cough"}:
-            self._burst_remaining = int(self._config.fs * 0.8)
-            self._burst_gain = 2.2 if label != "cough" else 3.2
 
     def _normalize_record_component(self, value: str, fallback: str) -> str:
         normalized = str(value).strip()
