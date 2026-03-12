@@ -10,11 +10,13 @@ from qfluentwidgets import (
 
 from ...backend import GanglionBackendBase
 from ..display_settings import DisplaySettings
+from ..recording_settings import RecordingSettings
 from ..widgets import (
     ChannelVisibilitySettingCard,
     GanglionConnectionCard,
     LabelManagerCard,
     PointCountSettingCard,
+    RecordingModeSettingCard,
     SaveDirectoryCard,
 )
 
@@ -24,12 +26,14 @@ class SettingsPage(QWidget):
         self,
         backend: GanglionBackendBase,
         display_settings: DisplaySettings,
+        recording_settings: RecordingSettings,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self.setObjectName("settings-page")
         self.backend = backend
         self.display_settings = display_settings
+        self.recording_settings = recording_settings
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(36, 28, 36, 28)
@@ -63,6 +67,11 @@ class SettingsPage(QWidget):
         storage_group = SettingCardGroup("数据保存", self.scroll_widget)
         storage_group.addSettingCard(SaveDirectoryCard(self.backend, storage_group))
 
+        recording_group = SettingCardGroup("录制设置", self.scroll_widget)
+        recording_group.addSettingCard(
+            RecordingModeSettingCard(self.recording_settings, self.backend, recording_group)
+        )
+
         display_group = SettingCardGroup("波形显示", self.scroll_widget)
         display_group.cardLayout.setSpacing(8)
         display_group.addSettingCard(PointCountSettingCard(self.display_settings, display_group))
@@ -75,6 +84,7 @@ class SettingsPage(QWidget):
 
         scroll_layout.addWidget(connection_group)
         scroll_layout.addWidget(storage_group)
+        scroll_layout.addWidget(recording_group)
         scroll_layout.addWidget(display_group)
         scroll_layout.addWidget(labels_group)
         scroll_layout.addStretch(1)

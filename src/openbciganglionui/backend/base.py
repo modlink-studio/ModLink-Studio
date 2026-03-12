@@ -22,6 +22,7 @@ class GanglionBackendBase(QObject):
     - ``sig_state``: emits ``StateEvent``
     - ``sig_stream``: emits ``StreamChunk``
     - ``sig_marker``: emits ``MarkerEvent``
+    - ``sig_segment``: emits ``SegmentEvent``
     - ``sig_record``: emits ``RecordEvent``
     - ``sig_error``: emits ``ErrorEvent``
     - ``sig_search``: emits ``SearchEvent``
@@ -40,6 +41,7 @@ class GanglionBackendBase(QObject):
     sig_state = pyqtSignal(object)
     sig_stream = pyqtSignal(object)
     sig_marker = pyqtSignal(object)
+    sig_segment = pyqtSignal(object)
     sig_record = pyqtSignal(object)
     sig_error = pyqtSignal(object)
     sig_search = pyqtSignal(object)
@@ -162,3 +164,13 @@ class GanglionBackendBase(QObject):
         """Request insertion of a marker into the active stream/recording session."""
 
         self._not_implemented("add_marker")
+
+    def start_segment(self, label: str, note: str = "", source: str = "ui") -> None:
+        """Request the start of a labeled segment inside an active recording."""
+
+        self._not_implemented("start_segment")
+
+    def stop_segment(self, note: str = "", source: str = "ui") -> None:
+        """Request the end of the current labeled segment inside an active recording."""
+
+        self._not_implemented("stop_segment")

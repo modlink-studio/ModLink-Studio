@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import PushSettingCard
 from qfluentwidgets import FluentIcon as FIF
 
-from ...backend import GanglionBackendBase, SaveDirEvent
+from ....backend import GanglionBackendBase, SaveDirEvent
 
 
 class SaveDirectoryCard(PushSettingCard):

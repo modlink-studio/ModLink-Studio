@@ -10,9 +10,16 @@ from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CaptionLabel
 
-from ...backend import DeviceState, MarkerEvent, RecordEvent, StateEvent, StreamChunk
-from ..display_settings import DisplaySettings
-from ..style_constants import DEFAULT_RADIUS, SMALL_RADIUS
+from ....backend import (
+    DeviceState,
+    MarkerEvent,
+    RecordEvent,
+    SegmentEvent,
+    StateEvent,
+    StreamChunk,
+)
+from ...display_settings import DisplaySettings
+from ...style_constants import DEFAULT_RADIUS, SMALL_RADIUS
 
 
 class SignalCanvas(QWidget):
@@ -29,6 +36,7 @@ class SignalCanvas(QWidget):
         self._x_buffer: deque[float] = deque(maxlen=max_samples)
         self._y_buffers: list[deque[float]] = []
         self._markers: list[MarkerEvent] = []
+        self._segments: list[tuple[int, int | None, str]] = []
         self._record_regions: list[tuple[int, int | None]] = []
         self._is_paused = False
         self._pause_snapshot: QPixmap | None = None
@@ -118,12 +126,31 @@ class SignalCanvas(QWidget):
         self._markers.append(event)
         self._mark_dirty()
 
+    def update_segment_state(self, event: SegmentEvent) -> None:
+        if event.action == "started":
+            self._segments.append((event.start_sample_index, None, event.label))
+            self._mark_dirty()
+            return
+
+        if event.action == "stopped":
+            for index in range(len(self._segments) - 1, -1, -1):
+                start_sample_index, end_sample_index, label = self._segments[index]
+                if end_sample_index is None and start_sample_index == event.start_sample_index:
+                    self._segments[index] = (
+                        start_sample_index,
+                        event.end_sample_index,
+                        label,
+                    )
+                    break
+            self._mark_dirty()
+
     def clear(self) -> None:
         self._x_buffer.clear()
         for buffer in self._y_buffers:
             buffer.clear()
         self._last_sample_index = None
         self._markers.clear()
+        self._segments.clear()
         self._record_regions.clear()
         self._pause_snapshot = None
         self._dirty = True
@@ -232,6 +259,7 @@ class SignalCanvas(QWidget):
         painter.setClipPath(clip_path)
         self._draw_grid(painter, content_rect, max(1, len(visible_indices)))
         self._draw_record_regions(painter, content_rect, visible_start, visible_end)
+        self._draw_segment_regions(painter, content_rect, visible_start, visible_end)
         painter.restore()
 
         if not visible_indices:
@@ -411,6 +439,57 @@ class SignalCanvas(QWidget):
                 marker.label,
             )
 
+    def _draw_segment_regions(
+        self,
+        painter: QPainter,
+        rect: QRectF,
+        visible_start: int,
+        visible_end: int,
+    ) -> None:
+        if visible_end <= visible_start:
+            return
+
+        fill_color = QColor(211, 47, 47, 28)
+        line_color = QColor("#C62828")
+        label_pen = QPen(QColor("#B71C1C"), 1.0)
+        label_pen.setCosmetic(True)
+
+        for start_index, end_index, label in self._segments:
+            region_end = visible_end if end_index is None else end_index
+            if region_end < visible_start or start_index > visible_end:
+                continue
+
+            x0 = self._sample_to_x(rect, max(start_index, visible_start), visible_start, visible_end)
+            x1 = self._sample_to_x(rect, min(region_end, visible_end), visible_start, visible_end)
+
+            if end_index is None:
+                x1 = rect.right()
+
+            if x1 < x0:
+                x0, x1 = x1, x0
+
+            left = floor(x0)
+            right = ceil(x1)
+
+            painter.fillRect(
+                QRectF(left, rect.top(), max(1.0, right - left), rect.height()),
+                fill_color,
+            )
+            painter.fillRect(QRectF(left, rect.top(), 2.0, rect.height()), line_color)
+
+            if end_index is not None:
+                painter.fillRect(
+                    QRectF(max(left, right - 2), rect.top(), 2.0, rect.height()),
+                    line_color,
+                )
+
+            painter.setPen(label_pen)
+            painter.drawText(
+                QRectF(left + 6, rect.top() + 6, max(80.0, right - left - 12), 18),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
+
     def _sample_to_x(
         self,
         rect: QRectF,
@@ -507,6 +586,10 @@ class StreamPlotWidget(QFrame):
 
     def add_marker(self, event: MarkerEvent) -> None:
         self.canvas.add_marker(event)
+        self._update_status_text()
+
+    def update_segment_state(self, event: SegmentEvent) -> None:
+        self.canvas.update_segment_state(event)
         self._update_status_text()
 
     def set_paused(self, is_paused: bool) -> None:
