@@ -6,6 +6,7 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 project_root = Path.cwd()
 src_root = project_root / "src"
 app_root = src_root / "openbciganglionui"
+icon_path = app_root / "assets" / "app_icon.ico"
 
 qfw_datas, qfw_binaries, qfw_hiddenimports = collect_all("qfluentwidgets")
 app_datas = collect_data_files(
@@ -38,6 +39,7 @@ exe = EXE(
     a.scripts,
     [],
     name="OpenBCIGanglionUI-MockDemo",
+    icon=str(icon_path),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
