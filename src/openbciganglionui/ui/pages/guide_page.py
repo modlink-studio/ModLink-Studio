@@ -66,8 +66,8 @@ class GuidePage(QWidget):
         self._add_paragraphs(
             card_layout,
             [
-                "本机原生蓝牙",
-                "OpenBCI 官方蓝牙适配器",
+                "Native BLE（本机原生蓝牙）",
+                "Ganglion Dongle（OpenBCI 官方蓝牙适配器）",
             ],
             indent=True,
         )
@@ -75,6 +75,12 @@ class GuidePage(QWidget):
             card_layout,
             [
                 "当前仅支持采集通道数据的显示与保存，暂不包含加速度传感器数据。",
+            ],
+        )
+        self._add_paragraphs(
+            card_layout,
+            [
+                "Native BLE 模式下，连接会优先使用设备名（如 Ganglion-9c3b）作为连接参数；MAC 地址主要用于识别设备。",
             ],
         )
 
@@ -95,6 +101,7 @@ class GuidePage(QWidget):
                 "一次开始到结束的录制会保存为一个独立样本。",
                 "建议在录制前先选择当前标签。录制的数据会按标签分类保存，便于后续整理和分析。",
                 "片段录制过程中还可以插入 marker，用于补充时间点标记。",
+                "在采集页中，录制期间按空格可快速插入 marker；若 Marker 输入框为空，则默认使用当前标签。",
             ],
         )
 
@@ -105,6 +112,16 @@ class GuidePage(QWidget):
                 "适用于长时间、连续进行的采集任务。",
                 "一次录制会保存为一个完整 session，期间可在同一段数据中标记多个标签区间。",
                 "这种模式更适合需要保留完整时间轴和上下文信息的场景。",
+                "在采集页中，录制期间按空格会开始或结束当前标签区间，而不是插入 marker。",
+            ],
+        )
+
+        self._add_h2(card_layout, "快捷操作")
+        self._add_paragraphs(
+            card_layout,
+            [
+                "空格快捷键仅在采集页内生效。",
+                "当光标焦点位于文本输入框时，空格会作为普通输入，不会触发快捷操作。",
             ],
         )
 
@@ -136,17 +153,18 @@ class GuidePage(QWidget):
         )
 
         self._add_h3(card_layout, "片段录制")
-        self._add_code_block(card_layout, "根目录 / session_id / label / 时间戳")
+        self._add_code_block(card_layout, "根目录 / subject_id / task_name / session_id")
 
         self._add_h3(card_layout, "连续录制")
-        self._add_code_block(card_layout, "根目录 / session_id / 时间戳")
+        self._add_code_block(card_layout, "根目录 / subject_id / session_id")
         self._add_h3(card_layout, "说明")
         self._add_paragraphs(
             card_layout,
             [
-                "session_id 表示受试编号。",
-                "label 仅在片段录制模式下作为分类目录使用。",
-                "时间戳 用于区分具体的录制结果。",
+                "subject_id 表示受试编号。",
+                "task_name 在片段录制模式下就是当前标签（也就是 label），用于分类保存。",
+                "session_id 用于区分具体的录制结果（默认是时间戳）。",
+                "每个 session 目录下会包含 stream.csv，以及 markers.csv（片段录制）或 segments.csv（连续录制），并附带 session_meta.txt。",
             ],
             indent=True,
         )
