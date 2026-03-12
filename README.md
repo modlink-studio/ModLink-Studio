@@ -143,8 +143,8 @@ release/OpenBCIGanglionUI/OpenBCIGanglionUI.exe
 补充说明：
 
 - 当前使用 `PyInstaller onedir` 方式打包，运行时需要保留同目录下的 `_internal` 文件夹。
-- `qframelesswindow.webengine` 在构建时可能提示缺少 `PyQt6.QtWebEngineWidgets`，如果项目没有用到 webengine 组件，这个 warning 可以忽略。
-- `QFluentWidgets Pro` 的提示可能出现在 `PyInstaller` 构建日志里，但不会作为打包后应用的启动输出。
+- 构建日志中可能出现 `qframelesswindow.webengine` 与 `PyQt6.QtWebEngineWidgets` 相关提示；当前发布版本不依赖该组件，不影响应用打包和运行。
+- 构建日志中可能出现 `QFluentWidgets Pro` 的宣传提示；这是构建阶段输出，不会出现在打包后应用的启动界面中。
 
 ## 平台说明
 
