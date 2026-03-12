@@ -19,9 +19,12 @@ from .models import (
     LabelsEvent,
     MarkerEvent,
     RecordEvent,
+    RecordingMode,
+    RecordSegment,
     RecordSession,
     SaveDirEvent,
     SearchEvent,
+    SegmentEvent,
     StateEvent,
     StreamChunk,
 )
@@ -55,10 +58,13 @@ class MockGanglionBackend(GanglionBackendBase):
         self._seq = 0
         self._sample_index = 0
         self._markers: list[MarkerEvent] = []
+        self._segments: list[RecordSegment] = []
+        self._active_segment: Optional[RecordSegment] = None
 
         self._is_recording = False
         self._record_session: Optional[RecordSession] = None
         self._record_buffer: list[np.ndarray] = []
+        self._record_start_sample_index = 0
 
         self._preview_timer = QTimer(self)
         self._preview_timer.timeout.connect(self._on_tick)
@@ -234,6 +240,11 @@ class MockGanglionBackend(GanglionBackendBase):
                 task_name="default_label",
             )
 
+        recording_mode = self._normalize_recording_mode(session.recording_mode)
+        default_task_name = (
+            "default_label" if recording_mode == RecordingMode.CLIP else "continuous_session"
+        )
+
         session = RecordSession(
             session_id=self._normalize_record_component(
                 session.session_id,
@@ -246,8 +257,9 @@ class MockGanglionBackend(GanglionBackendBase):
             ),
             task_name=self._normalize_record_component(
                 session.task_name,
-                fallback="default_label",
+                fallback=default_task_name,
             ),
+            recording_mode=recording_mode,
             operator=session.operator,
             notes=session.notes,
         )
@@ -255,7 +267,10 @@ class MockGanglionBackend(GanglionBackendBase):
         self._record_session = session
         self._record_buffer.clear()
         self._markers.clear()
+        self._segments.clear()
+        self._active_segment = None
         self._is_recording = True
+        self._record_start_sample_index = self._sample_index
 
         Path(session.save_dir).mkdir(parents=True, exist_ok=True)
         self.sig_record.emit(
@@ -265,13 +280,18 @@ class MockGanglionBackend(GanglionBackendBase):
                 session_id=session.session_id,
                 save_dir=session.save_dir,
                 sample_index=self._sample_index,
+                recording_mode=session.recording_mode,
             )
         )
-        self._set_state(DeviceState.RECORDING, "开始录制")
+        message = "开始片段录制" if session.recording_mode == RecordingMode.CLIP else "开始连续录制"
+        self._set_state(DeviceState.RECORDING, message)
 
     def stop_record(self) -> None:
         if not self._is_recording:
             return
+
+        if self._record_session and self._record_session.recording_mode == RecordingMode.CONTINUOUS:
+            self.stop_segment(note="auto_closed_on_stop", source="system")
 
         self._flush_record_to_disk()
 
@@ -279,6 +299,7 @@ class MockGanglionBackend(GanglionBackendBase):
         self._is_recording = False
         self._record_session = None
         self._record_buffer.clear()
+        self._active_segment = None
 
         self.sig_record.emit(
             RecordEvent(
@@ -287,6 +308,9 @@ class MockGanglionBackend(GanglionBackendBase):
                 session_id=session.session_id if session else None,
                 save_dir=session.save_dir if session else None,
                 sample_index=self._sample_index,
+                recording_mode=(
+                    session.recording_mode if session else RecordingMode.CLIP
+                ),
             )
         )
 
@@ -296,7 +320,10 @@ class MockGanglionBackend(GanglionBackendBase):
             self._set_state(DeviceState.CONNECTED, "停止录制")
 
     def add_marker(self, label: str, note: str = "", source: str = "ui") -> None:
-        if self._state != DeviceState.RECORDING:
+        if self._state != DeviceState.RECORDING or not self._record_session:
+            return
+
+        if self._record_session.recording_mode != RecordingMode.CLIP:
             return
 
         event = MarkerEvent(
@@ -309,10 +336,78 @@ class MockGanglionBackend(GanglionBackendBase):
         )
         self._markers.append(event)
         self.sig_marker.emit(event)
+        self._trigger_mock_burst(label)
 
-        if label in {"dry_swallow", "water_5ml", "water_10ml", "water_15ml", "cough"}:
-            self._burst_remaining = int(self._config.fs * 0.8)
-            self._burst_gain = 2.2 if label != "cough" else 3.2
+    def start_segment(self, label: str, note: str = "", source: str = "ui") -> None:
+        if self._state != DeviceState.RECORDING or not self._record_session:
+            return
+
+        if self._record_session.recording_mode != RecordingMode.CONTINUOUS:
+            return
+
+        if self._active_segment is not None:
+            return
+
+        normalized_label = self._normalize_record_component(label, fallback="default_label")
+        event_time = time.time()
+        segment = RecordSegment(
+            segment_id=f"s_{uuid.uuid4().hex[:8]}",
+            label=normalized_label,
+            start_sample_index=self._sample_index,
+            started_at=event_time,
+            note=note,
+            source=source,
+        )
+        self._segments.append(segment)
+        self._active_segment = segment
+        self.sig_segment.emit(
+            SegmentEvent(
+                action="started",
+                segment_id=segment.segment_id,
+                label=segment.label,
+                ts=event_time,
+                start_sample_index=segment.start_sample_index,
+                session_id=self._record_session.session_id,
+                note=segment.note,
+                source=segment.source,
+            )
+        )
+        self._trigger_mock_burst(normalized_label)
+
+    def stop_segment(self, note: str = "", source: str = "ui") -> None:
+        if self._state != DeviceState.RECORDING or not self._record_session:
+            return
+
+        if self._record_session.recording_mode != RecordingMode.CONTINUOUS:
+            return
+
+        if self._active_segment is None:
+            return
+
+        event_time = time.time()
+        self._active_segment.end_sample_index = self._sample_index
+        self._active_segment.ended_at = event_time
+        if note:
+            self._active_segment.note = (
+                f"{self._active_segment.note} | {note}"
+                if self._active_segment.note
+                else note
+            )
+
+        self.sig_segment.emit(
+            SegmentEvent(
+                action="stopped",
+                segment_id=self._active_segment.segment_id,
+                label=self._active_segment.label,
+                ts=event_time,
+                start_sample_index=self._active_segment.start_sample_index,
+                end_sample_index=self._active_segment.end_sample_index,
+                session_id=self._record_session.session_id,
+                note=self._active_segment.note,
+                source=source,
+            )
+        )
+        self._active_segment = None
 
     def _finish_connect(self) -> None:
         self._reset_stream_runtime()
@@ -473,7 +568,7 @@ class MockGanglionBackend(GanglionBackendBase):
                 40.0 * env * np.sin(2.0 * math.pi * 6.0 * t[:burst_n])
             ).reshape(-1, 1)
             data[:burst_n, :] += self._burst_gain * burst
-            self._burst_remaining -= n_samples
+            self._burst_remaining -= burst_n
             if self._burst_remaining <= 0:
                 self._burst_gain = 1.0
 
@@ -491,20 +586,19 @@ class MockGanglionBackend(GanglionBackendBase):
         return chunk
 
     def _flush_record_to_disk(self) -> None:
-        if not self._record_session or not self._record_buffer:
+        if not self._record_session:
             return
 
         session = self._record_session
-        save_root = (
-            Path(session.save_dir)
-            / session.subject_id
-            / session.task_name
-            / session.session_id
-        )
+        save_root = self._record_root(session)
         save_root.mkdir(parents=True, exist_ok=True)
 
-        full_data = np.vstack(self._record_buffer)
-        timestamps = np.arange(full_data.shape[0], dtype=np.float64) / float(self._config.fs)
+        if self._record_buffer:
+            full_data = np.vstack(self._record_buffer)
+            timestamps = np.arange(full_data.shape[0], dtype=np.float64) / float(self._config.fs)
+        else:
+            full_data = np.empty((0, self._config.n_channels), dtype=np.float32)
+            timestamps = np.empty((0,), dtype=np.float64)
 
         csv_path = save_root / "stream.csv"
         header = "time_sec," + ",".join(self._channel_names)
@@ -517,26 +611,82 @@ class MockGanglionBackend(GanglionBackendBase):
             fmt="%.6f",
         )
 
-        marker_path = save_root / "markers.csv"
-        with marker_path.open("w", encoding="utf-8") as file:
-            file.write("marker_id,label,wall_time,sample_index,note,source\n")
-            for marker in self._markers:
-                note = marker.note.replace(",", " ")
-                file.write(
-                    f"{marker.marker_id},{marker.label},{marker.wall_time:.6f},"
-                    f"{marker.sample_index},{note},{marker.source}\n"
-                )
+        if session.recording_mode == RecordingMode.CLIP:
+            self._write_markers_csv(save_root / "markers.csv")
+        else:
+            self._write_segments_csv(save_root / "segments.csv")
 
         meta_path = save_root / "session_meta.txt"
         with meta_path.open("w", encoding="utf-8") as file:
             file.write(f"session_id={session.session_id}\n")
             file.write(f"subject_id={session.subject_id}\n")
             file.write(f"task_name={session.task_name}\n")
+            file.write(f"recording_mode={session.recording_mode.value}\n")
             file.write(f"operator={session.operator}\n")
             file.write(f"notes={session.notes}\n")
             file.write(f"fs={self._config.fs}\n")
             file.write(f"n_channels={self._config.n_channels}\n")
             file.write(f"channel_names={','.join(self._channel_names)}\n")
+            file.write(f"record_start_sample_index={self._record_start_sample_index}\n")
+            file.write(f"segment_count={len(self._segments)}\n")
+            file.write(f"marker_count={len(self._markers)}\n")
+
+    def _record_root(self, session: RecordSession) -> Path:
+        base = Path(session.save_dir) / session.subject_id
+        if session.recording_mode == RecordingMode.CLIP:
+            return base / session.task_name / session.session_id
+        return base / session.session_id
+
+    def _write_markers_csv(self, marker_path: Path) -> None:
+        with marker_path.open("w", encoding="utf-8") as file:
+            file.write("marker_id,label,wall_time,sample_index,note,source\n")
+            for marker in self._markers:
+                file.write(
+                    f"{marker.marker_id},{self._csv_value(marker.label)},{marker.wall_time:.6f},"
+                    f"{marker.sample_index},{self._csv_value(marker.note)},"
+                    f"{self._csv_value(marker.source)}\n"
+                )
+
+    def _write_segments_csv(self, segment_path: Path) -> None:
+        with segment_path.open("w", encoding="utf-8") as file:
+            file.write(
+                "segment_id,label,start_sample_index,end_sample_index,start_offset_sec,"
+                "end_offset_sec,note,source\n"
+            )
+            for segment in self._segments:
+                end_sample_index = (
+                    segment.end_sample_index
+                    if segment.end_sample_index is not None
+                    else self._sample_index
+                )
+                start_offset = (
+                    segment.start_sample_index - self._record_start_sample_index
+                ) / float(self._config.fs)
+                end_offset = (
+                    end_sample_index - self._record_start_sample_index
+                ) / float(self._config.fs)
+                file.write(
+                    f"{segment.segment_id},{self._csv_value(segment.label)},"
+                    f"{segment.start_sample_index},"
+                    f"{end_sample_index},{start_offset:.6f},{end_offset:.6f},"
+                    f"{self._csv_value(segment.note)},{self._csv_value(segment.source)}\n"
+                )
+
+    def _csv_value(self, value: str) -> str:
+        return str(value).replace(",", " ").replace("\n", " ").replace("\r", " ")
+
+    def _normalize_recording_mode(self, value: RecordingMode | str) -> RecordingMode:
+        if isinstance(value, RecordingMode):
+            return value
+        try:
+            return RecordingMode(str(value).strip())
+        except ValueError:
+            return RecordingMode.CLIP
+
+    def _trigger_mock_burst(self, label: str) -> None:
+        if label in {"dry_swallow", "water_5ml", "water_10ml", "water_15ml", "cough"}:
+            self._burst_remaining = int(self._config.fs * 0.8)
+            self._burst_gain = 2.2 if label != "cough" else 3.2
 
     def _normalize_record_component(self, value: str, fallback: str) -> str:
         normalized = str(value).strip()

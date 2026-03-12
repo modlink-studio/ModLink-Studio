@@ -37,6 +37,8 @@ Public intent methods:
 - `start_record(session)`
 - `stop_record()`
 - `add_marker(label, note="", source="ui")`
+- `start_segment(label, note="", source="ui")`
+- `stop_segment(note="", source="ui")`
 
 Snapshot properties:
 
@@ -51,6 +53,7 @@ Signals:
 - `sig_state -> StateEvent`
 - `sig_stream -> StreamChunk`
 - `sig_marker -> MarkerEvent`
+- `sig_segment -> SegmentEvent`
 - `sig_record -> RecordEvent`
 - `sig_error -> ErrorEvent`
 - `sig_search -> SearchEvent`
@@ -82,6 +85,13 @@ Defined in `models.py`.
 - UI should follow this event instead of assuming that a button click succeeded.
 - `sample_index`, when present, is the backend's best-known stream anchor for
   the transition moment and is suitable for timeline annotations.
+- `recording_mode` indicates whether the session semantics are clip-based or continuous.
+
+### SegmentEvent
+
+- Represents the accepted start/stop of a labeled interval within a continuous recording session.
+- `action` is backend-defined but should be stable enough for UI branching within one implementation.
+- `start_sample_index` and `end_sample_index` use the same stream epoch as `StreamChunk.sample_index0`.
 
 ### LabelsEvent / SaveDirEvent
 
@@ -115,6 +125,7 @@ These semantics are expected from any backend implementation unless explicitly d
 - `start_record()` should only be considered successful after a `RecordEvent(is_recording=True)` emission.
 - `stop_record()` should only be considered successful after a `RecordEvent(is_recording=False)` emission.
 - UI should not optimistically assume record state changes before the event.
+- Continuous-recording backends may expose labeled sub-intervals via `start_segment()` / `stop_segment()`.
 
 ## Mock Backend Specific Semantics
 

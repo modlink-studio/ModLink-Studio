@@ -10,7 +10,7 @@ from qfluentwidgets import (
     StrongBodyLabel,
 )
 
-from ...backend import (
+from ....backend import (
     ConnectConfig,
     DeviceSearchResult,
     DeviceState,
@@ -18,8 +18,10 @@ from ...backend import (
     SearchEvent,
     StateEvent,
 )
-from ..style_constants import DEFAULT_RADIUS
-from .wheel_passthrough_expand_group_setting_card import WheelPassthroughExpandGroupSettingCard
+from ...style_constants import DEFAULT_RADIUS
+from ..common.wheel_passthrough_expand_group_setting_card import (
+    WheelPassthroughExpandGroupSettingCard,
+)
 
 
 class StatusBadge(QLabel):

@@ -19,6 +19,13 @@ class DeviceState(str, Enum):
     ERROR = "error"
 
 
+class RecordingMode(str, Enum):
+    """Supported recording semantics for one acquisition session."""
+
+    CLIP = "clip"
+    CONTINUOUS = "continuous"
+
+
 @dataclass(slots=True)
 class StateEvent:
     """Point-in-time snapshot of the backend runtime state.
@@ -87,6 +94,36 @@ class RecordEvent:
     session_id: Optional[str] = None
     save_dir: Optional[str] = None
     sample_index: Optional[int] = None
+    recording_mode: RecordingMode = RecordingMode.CLIP
+
+
+@dataclass(slots=True)
+class SegmentEvent:
+    """Segment lifecycle event within an active recording session."""
+
+    action: str
+    segment_id: str
+    label: str
+    ts: float
+    start_sample_index: int
+    end_sample_index: Optional[int] = None
+    session_id: Optional[str] = None
+    note: str = ""
+    source: str = "ui"
+
+
+@dataclass(slots=True)
+class RecordSegment:
+    """One labeled interval inside a recording session."""
+
+    segment_id: str
+    label: str
+    start_sample_index: int
+    started_at: float
+    end_sample_index: Optional[int] = None
+    ended_at: Optional[float] = None
+    note: str = ""
+    source: str = "ui"
 
 
 @dataclass(slots=True)
@@ -121,6 +158,7 @@ class RecordSession:
     save_dir: str
     subject_id: str = "S01"
     task_name: str = "swallow_experiment"
+    recording_mode: RecordingMode = RecordingMode.CLIP
     operator: str = ""
     notes: str = ""
 

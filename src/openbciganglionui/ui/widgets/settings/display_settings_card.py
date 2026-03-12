@@ -11,8 +11,10 @@ from qfluentwidgets import (
 )
 from qfluentwidgets.components.settings.setting_card import SettingCard
 
-from ..display_settings import DisplaySettings
-from .wheel_passthrough_expand_group_setting_card import WheelPassthroughExpandGroupSettingCard
+from ...display_settings import DisplaySettings
+from ..common.wheel_passthrough_expand_group_setting_card import (
+    WheelPassthroughExpandGroupSettingCard,
+)
 
 
 class PointCountSettingCard(SettingCard):
@@ -63,6 +65,7 @@ class ChannelToggleRow(QWidget):
         super().__init__(parent=parent)
         self.title_label = BodyLabel(channel_name, self)
         self.description_label = CaptionLabel(description, self)
+        self.state_label = CaptionLabel(self)
         self.check_box = CheckBox(self)
         self.check_box.setText("")
 
@@ -73,10 +76,11 @@ class ChannelToggleRow(QWidget):
         text_layout.addWidget(self.description_label)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(48, 14, 48, 14)
+        layout.setContentsMargins(48, 14, 12, 14)
         layout.setSpacing(12)
         layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(text_layout, 1)
+        layout.addWidget(self.state_label, 0, Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.check_box, 0, Qt.AlignmentFlag.AlignRight)
 
         self.description_label.setStyleSheet("color: rgba(0, 0, 0, 0.62);")
@@ -84,6 +88,10 @@ class ChannelToggleRow(QWidget):
 
     def set_checked(self, is_checked: bool) -> None:
         self.check_box.setChecked(is_checked)
+        self.state_label.setText("ON" if is_checked else "OFF")
+        self.state_label.setStyleSheet(
+            "color: rgba(0, 0, 0, 0.72);" if is_checked else "color: rgba(0, 0, 0, 0.48);"
+        )
 
     def is_checked(self) -> bool:
         return self.check_box.isChecked()
@@ -106,8 +114,8 @@ class ChannelVisibilitySettingCard(WheelPassthroughExpandGroupSettingCard):
 
         for index in range(self.display_settings.n_channels):
             row = ChannelToggleRow(
-                f"绘制 ch{index + 1}",
-                f"打开后在实时波形中显示 ch{index + 1}。",
+                f"通道 {index + 1}",
+                f"打开后在实时波形中显示通道 {index + 1}。",
                 self.display_settings.is_channel_visible(index),
                 parent=self.view,
             )

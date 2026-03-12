@@ -16,8 +16,8 @@ from PyQt6.QtWidgets import (
 from qfluentwidgets import FlowLayout, LineEdit, PushButton, PushSettingCard
 from qfluentwidgets import FluentIcon as FIF
 
-from ...backend import GanglionBackendBase, LabelsEvent
-from ..style_constants import DEFAULT_RADIUS, SMALL_RADIUS
+from ....backend import GanglionBackendBase, LabelsEvent
+from ...style_constants import DEFAULT_RADIUS, SMALL_RADIUS
 
 
 class CountBadge(QLabel):

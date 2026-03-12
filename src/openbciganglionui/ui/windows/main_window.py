@@ -5,6 +5,7 @@ from qfluentwidgets import FluentIcon as FIF, FluentWindow, NavigationItemPositi
 
 from ...backend import GanglionBackendBase, StateEvent
 from ..display_settings import DisplaySettings
+from ..recording_settings import RecordingSettings
 from ..pages import AcquisitionPage, SettingsPage
 
 
@@ -13,15 +14,18 @@ class MainWindow(FluentWindow):
         super().__init__()
         self.backend = backend
         self.display_settings = DisplaySettings(parent=self)
+        self.recording_settings = RecordingSettings(parent=self)
 
         self.acquisition_page = AcquisitionPage(
             backend=self.backend,
             display_settings=self.display_settings,
+            recording_settings=self.recording_settings,
             parent=self,
         )
         self.settings_page = SettingsPage(
             backend=self.backend,
             display_settings=self.display_settings,
+            recording_settings=self.recording_settings,
             parent=self,
         )
 
