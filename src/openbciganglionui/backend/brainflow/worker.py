@@ -67,6 +67,7 @@ class BrainFlowWorker(QObject):
         super().__init__(parent=parent)
         self._board = None
         self._board_id = 0
+        self._connection_method = ""
         self._eeg_channels: tuple[int, ...] = ()
         self._channel_names: tuple[str, ...] = ()
         self._fs = 0.0
@@ -90,6 +91,7 @@ class BrainFlowWorker(QObject):
 
                     self._board = board
                     self._board_id = int(attempt.board_id)
+                    self._connection_method = str(config.connection_method).strip()
                     self._eeg_channels = tuple(
                         int(index) for index in BoardShim.get_eeg_channels(attempt.board_id)
                     )
@@ -277,6 +279,7 @@ class BrainFlowWorker(QObject):
                 pass
 
         if self._board is not None:
+            self._disconnect_dongle_session()
             try:
                 self._board.release_session()
             except Exception:
@@ -284,10 +287,27 @@ class BrainFlowWorker(QObject):
 
         self._board = None
         self._board_id = 0
+        self._connection_method = ""
         self._eeg_channels = ()
         self._channel_names = ()
         self._fs = 0.0
         self._stream_active = False
+
+    def _disconnect_dongle_session(self) -> None:
+        if self._board is None:
+            return
+        if self._connection_method != DONGLE_METHOD:
+            return
+        if BoardIds is None:
+            return
+        if self._board_id != int(BoardIds.GANGLION_BOARD.value):
+            return
+
+        try:
+            # Best-effort radio teardown for the BLED112 dongle path.
+            self._board.config_board("v")
+        except Exception:
+            pass
 
     def _require_brainflow(self) -> None:
         if BoardShim is None or BrainFlowInputParams is None or BoardIds is None:
