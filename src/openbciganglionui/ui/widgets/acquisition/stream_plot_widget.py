@@ -18,8 +18,7 @@ from ....backend import (
     StateEvent,
     StreamChunk,
 )
-from ...display_settings import DisplaySettings
-from ...style_constants import DEFAULT_RADIUS, SMALL_RADIUS
+from ...settings import DEFAULT_RADIUS, SMALL_RADIUS, DisplaySettings
 
 
 class SignalCanvas(QWidget):

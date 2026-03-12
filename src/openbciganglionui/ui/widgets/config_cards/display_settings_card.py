@@ -13,7 +13,7 @@ from qfluentwidgets import (
 )
 from qfluentwidgets.components.settings.setting_card import SettingCard
 
-from ...display_settings import DisplaySettings
+from ...settings import DisplaySettings
 from ..common import WheelPassthroughExpandGroupSettingCard
 
 

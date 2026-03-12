@@ -14,7 +14,7 @@ from qfluentwidgets import (
 )
 
 from ....backend import DeviceState
-from ...style_constants import DEFAULT_RADIUS
+from ...settings import DEFAULT_RADIUS
 
 
 class FieldBlock(QWidget):

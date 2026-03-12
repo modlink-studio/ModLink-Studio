@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, SubtitleLabel
 
-from ...style_constants import DEFAULT_RADIUS
+from ...settings import DEFAULT_RADIUS
 
 
 class PanelWidget(QFrame):

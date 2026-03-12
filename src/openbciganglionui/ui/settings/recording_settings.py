@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from ..backend import RecordingMode
+from ...backend import RecordingMode
 
 
 class RecordingSettings(QObject):
@@ -14,7 +14,7 @@ class RecordingSettings(QObject):
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self._recording_mode = recording_mode
+        self._recording_mode = self._normalize_mode(recording_mode)
 
     @property
     def recording_mode(self) -> RecordingMode:
