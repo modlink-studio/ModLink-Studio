@@ -52,12 +52,19 @@ uv run openbciganglionui
 uv run python -m openbciganglionui
 ```
 
+默认会启动 BrainFlow backend。需要切回 mock 演示后端时，可以设置：
+
+```powershell
+$env:OPENBCI_BACKEND = "mock"
+uv run openbciganglionui
+```
+
 ## 项目结构
 
 ```text
 src/openbciganglionui/
   app.py          # QApplication 启动入口
-  backend/        # backend 协议、事件模型和 mock 实现
+  backend/        # backend 协议、事件模型、mock 和 BrainFlow 实现
   ui/             # 页面、窗口、设置管理和组件
   __main__.py     # python -m 入口
 ```
@@ -75,6 +82,48 @@ uv sync --dev
 ```bash
 uv run ruff check .
 ```
+
+手工 backend 冒烟测试：
+
+```powershell
+uv run openbciganglionui-backend-smoke --method native --search
+```
+
+如果走 dongle，可以显式指定串口：
+
+```powershell
+uv run openbciganglionui-backend-smoke --method dongle --serial-port COM3
+```
+
+如果要绕过 UI 和 backend 封装，只直接验证 BrainFlow Native BLE 链路：
+
+```powershell
+uv run openbciganglionui-brainflow-native-probe --firmware-hints auto
+```
+
+如果已经知道设备名，也可以显式传给 `serial_number`：
+
+```powershell
+uv run openbciganglionui-brainflow-native-probe --serial-number Ganglion-9c3b --firmware-hints auto
+```
+
+### Native BLE 经验记录
+
+在 Windows 11 + BrainFlow 5.21.0 + Ganglion Native BLE 的实测里，目前观察到：
+
+- `autodiscover + fw:auto` 可以成功连接，且 BrainFlow 会自动识别为固件 `2`
+- 显式指定 `fw:2` 和 `fw:3` 也都可以成功连接
+- `serial_number=设备名` 这条路径也可以成功连接，例如 `Ganglion-9c3b`
+- 显式传 `mac_address` 时，即使 MAC 本身是对的，也无法成功连接，表现为 `Failed to find Ganglion Device` / `BOARD_NOT_READY_ERROR:7`
+- 同时传 `mac_address + serial_number` 时，结果仍然和显式 MAC 一样失败
+
+因此当前项目里的 Native BLE 策略是：
+
+- 搜索结果里仍然显示 MAC 地址，便于用户识别设备
+- 真正连接时优先使用显式 `serial_number`
+- 不把扫描得到的 `mac_address` 作为 Native BLE 的连接参数
+
+这部分是经验性结论，不是 BrainFlow 官方保证；如果后续升级 BrainFlow 或更换系统蓝牙栈，需要重新验证。
 
 ## 打包
 

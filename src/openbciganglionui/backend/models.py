@@ -144,9 +144,14 @@ class ConnectConfig:
     fs: float = 200.0
     n_channels: int = 4
     chunk_size: int = 10
-    device_name: str = "Ganglion Mock"
+    device_name: str = "Ganglion"
     connection_method: str = "Native BLE"
     device_address: str = ""
+    serial_port: str = ""
+    mac_address: str = ""
+    serial_number: str = ""
+    firmware_hint: str = "auto"
+    timeout_sec: int = 15
     connect_delay_ms: int = 500
 
 
@@ -170,6 +175,9 @@ class DeviceSearchResult:
     name: str
     address: str
     method: str
+    serial_port: str = ""
+    mac_address: str = ""
+    serial_number: str = ""
 
 
 @dataclass(slots=True)

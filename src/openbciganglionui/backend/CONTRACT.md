@@ -60,6 +60,20 @@ Signals:
 - `sig_labels -> LabelsEvent`
 - `sig_save_dir -> SaveDirEvent`
 
+## Connection Models
+
+`ConnectConfig` and `DeviceSearchResult` may carry transport-specific connection
+fields in addition to the UI display fields:
+
+- `serial_port`
+- `mac_address`
+- `serial_number`
+- `firmware_hint`
+- `timeout_sec`
+
+UI consumers should treat these as data-only fields and continue using backend
+intent methods instead of constructing transport-specific logic themselves.
+
 ## Event Semantics
 
 Defined in `models.py`.

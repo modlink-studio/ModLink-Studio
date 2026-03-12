@@ -272,6 +272,9 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
                 device_name=result.name,
                 connection_method=result.method,
                 device_address=result.address,
+                serial_port=result.serial_port,
+                mac_address=result.mac_address,
+                serial_number=result.serial_number,
             )
         )
 

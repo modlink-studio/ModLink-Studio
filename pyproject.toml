@@ -8,7 +8,10 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "bleak>=2.1.1",
+    "brainflow>=5.20.1,<6",
     "numpy>=2.3.3",
+    "pyserial>=3.5",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
 ]
@@ -16,6 +19,8 @@ dependencies = [
 [project.scripts]
 openbciganglionui = "openbciganglionui:main"
 openbci-ganglion-ui = "openbciganglionui:main"
+openbciganglionui-backend-smoke = "openbciganglionui.tools.backend_smoke:main"
+openbciganglionui-brainflow-native-probe = "openbciganglionui.tools.brainflow_native_probe:main"
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]

@@ -27,6 +27,7 @@ from .models import (
     StateEvent,
     StreamChunk,
 )
+from .record_writer import RecordWriteRequest, SessionRecordWriter
 
 
 class MockGanglionBackend(GanglionBackendBase):
@@ -62,6 +63,7 @@ class MockGanglionBackend(GanglionBackendBase):
         self._record_session: Optional[RecordSession] = None
         self._record_buffer: list[np.ndarray] = []
         self._record_start_sample_index = 0
+        self._record_writer = SessionRecordWriter()
 
         self._preview_timer = QTimer(self)
         self._preview_timer.timeout.connect(self._on_tick)
@@ -130,8 +132,13 @@ class MockGanglionBackend(GanglionBackendBase):
             )
             return
 
-        self._device_name = self._config.device_name
-        self._device_address = self._config.device_address
+        self._device_name = self._config.device_name or "Ganglion Mock"
+        self._device_address = (
+            self._config.device_address
+            or self._config.mac_address
+            or self._config.serial_port
+            or self._config.serial_number
+        )
         self._channel_names = tuple(f"ch{i + 1}" for i in range(self._config.n_channels))
         self._set_state(DeviceState.CONNECTING, "正在连接 mock 设备...")
         self._connect_timer.start(self._config.connect_delay_ms)
@@ -409,18 +416,38 @@ class MockGanglionBackend(GanglionBackendBase):
 
     def _finish_search(self) -> None:
         prefix = "BLE" if self._pending_search_method == "Native BLE" else "Dongle"
-        results = (
-            DeviceSearchResult(
-                name=f"Ganglion {prefix} A",
-                address="00:11:22:33:44:A1",
-                method=self._pending_search_method,
-            ),
-            DeviceSearchResult(
-                name=f"Ganglion {prefix} B",
-                address="00:11:22:33:44:B2",
-                method=self._pending_search_method,
-            ),
-        )
+        if self._pending_search_method == "Native BLE":
+            results = (
+                DeviceSearchResult(
+                    name=f"Ganglion {prefix} A",
+                    address="00:11:22:33:44:A1",
+                    method=self._pending_search_method,
+                    mac_address="00:11:22:33:44:A1",
+                ),
+                DeviceSearchResult(
+                    name=f"Ganglion {prefix} B",
+                    address="00:11:22:33:44:B2",
+                    method=self._pending_search_method,
+                    mac_address="00:11:22:33:44:B2",
+                ),
+            )
+        else:
+            results = (
+                DeviceSearchResult(
+                    name=f"Ganglion {prefix} A",
+                    address="COM3",
+                    method=self._pending_search_method,
+                    serial_port="COM3",
+                    serial_number="MOCK1234A",
+                ),
+                DeviceSearchResult(
+                    name=f"Ganglion {prefix} B",
+                    address="COM4",
+                    method=self._pending_search_method,
+                    serial_port="COM4",
+                    serial_number="MOCK1234B",
+                ),
+            )
         self.sig_search.emit(
             SearchEvent(
                 method=self._pending_search_method,
@@ -513,91 +540,18 @@ class MockGanglionBackend(GanglionBackendBase):
         if not self._record_session:
             return
 
-        session = self._record_session
-        save_root = self._record_root(session)
-        save_root.mkdir(parents=True, exist_ok=True)
-
-        if self._record_buffer:
-            full_data = np.vstack(self._record_buffer)
-            timestamps = np.arange(full_data.shape[0], dtype=np.float64) / float(self._config.fs)
-        else:
-            full_data = np.empty((0, self._config.n_channels), dtype=np.float32)
-            timestamps = np.empty((0,), dtype=np.float64)
-
-        csv_path = save_root / "stream.csv"
-        header = "time_sec," + ",".join(self._channel_names)
-        np.savetxt(
-            csv_path,
-            np.column_stack([timestamps, full_data]),
-            delimiter=",",
-            header=header,
-            comments="",
-            fmt="%.6f",
-        )
-
-        if session.recording_mode == RecordingMode.CLIP:
-            self._write_markers_csv(save_root / "markers.csv")
-        else:
-            self._write_segments_csv(save_root / "segments.csv")
-
-        meta_path = save_root / "session_meta.txt"
-        with meta_path.open("w", encoding="utf-8") as file:
-            file.write(f"session_id={session.session_id}\n")
-            file.write(f"subject_id={session.subject_id}\n")
-            file.write(f"task_name={session.task_name}\n")
-            file.write(f"recording_mode={session.recording_mode.value}\n")
-            file.write(f"operator={session.operator}\n")
-            file.write(f"notes={session.notes}\n")
-            file.write(f"fs={self._config.fs}\n")
-            file.write(f"n_channels={self._config.n_channels}\n")
-            file.write(f"channel_names={','.join(self._channel_names)}\n")
-            file.write(f"record_start_sample_index={self._record_start_sample_index}\n")
-            file.write(f"segment_count={len(self._segments)}\n")
-            file.write(f"marker_count={len(self._markers)}\n")
-
-    def _record_root(self, session: RecordSession) -> Path:
-        base = Path(session.save_dir) / session.subject_id
-        if session.recording_mode == RecordingMode.CLIP:
-            return base / session.task_name / session.session_id
-        return base / session.session_id
-
-    def _write_markers_csv(self, marker_path: Path) -> None:
-        with marker_path.open("w", encoding="utf-8") as file:
-            file.write("marker_id,label,wall_time,sample_index,note,source\n")
-            for marker in self._markers:
-                file.write(
-                    f"{marker.marker_id},{self._csv_value(marker.label)},{marker.wall_time:.6f},"
-                    f"{marker.sample_index},{self._csv_value(marker.note)},"
-                    f"{self._csv_value(marker.source)}\n"
-                )
-
-    def _write_segments_csv(self, segment_path: Path) -> None:
-        with segment_path.open("w", encoding="utf-8") as file:
-            file.write(
-                "segment_id,label,start_sample_index,end_sample_index,start_offset_sec,"
-                "end_offset_sec,note,source\n"
+        self._record_writer.write(
+            RecordWriteRequest(
+                session=self._record_session,
+                fs=float(self._config.fs),
+                channel_names=self._channel_names,
+                record_start_sample_index=self._record_start_sample_index,
+                stream_sample_index=self._sample_index,
+                data_chunks=tuple(self._record_buffer),
+                markers=tuple(self._markers),
+                segments=tuple(self._segments),
             )
-            for segment in self._segments:
-                end_sample_index = (
-                    segment.end_sample_index
-                    if segment.end_sample_index is not None
-                    else self._sample_index
-                )
-                start_offset = (
-                    segment.start_sample_index - self._record_start_sample_index
-                ) / float(self._config.fs)
-                end_offset = (
-                    end_sample_index - self._record_start_sample_index
-                ) / float(self._config.fs)
-                file.write(
-                    f"{segment.segment_id},{self._csv_value(segment.label)},"
-                    f"{segment.start_sample_index},"
-                    f"{end_sample_index},{start_offset:.6f},{end_offset:.6f},"
-                    f"{self._csv_value(segment.note)},{self._csv_value(segment.source)}\n"
-                )
-
-    def _csv_value(self, value: str) -> str:
-        return str(value).replace(",", " ").replace("\n", " ").replace("\r", " ")
+        )
 
     def _normalize_recording_mode(self, value: RecordingMode | str) -> RecordingMode:
         if isinstance(value, RecordingMode):

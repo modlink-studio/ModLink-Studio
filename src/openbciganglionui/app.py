@@ -5,7 +5,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 from qfluentwidgets import Theme, setTheme
 
-from .backend import MockGanglionBackend
+from .backend import create_backend
 from .ui import MainWindow
 from .ui.settings import AppSettingsStore
 
@@ -27,7 +27,7 @@ def create_application() -> QApplication:
 def main() -> None:
     app = create_application()
     settings_store = AppSettingsStore()
-    backend = MockGanglionBackend()
+    backend = create_backend()
     window = MainWindow(backend=backend, settings_store=settings_store)
     window.show()
     sys.exit(app.exec())
