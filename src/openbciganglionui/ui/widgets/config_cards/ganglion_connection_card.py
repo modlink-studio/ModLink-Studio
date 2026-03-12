@@ -159,24 +159,6 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
         self.status_badge = StatusBadge("Disconnected", self.card)
         self.addWidget(self.status_badge)
 
-        self.connection_method_combo = ComboBox(self.view)
-        self.connection_method_combo.addItems(
-            [
-                "Native BLE",
-                "Ganglion Dongle",
-            ]
-        )
-        self.connection_method_combo.setCurrentText(self.selected_method)
-        self.connection_method_combo.currentTextChanged.connect(self._on_method_changed)
-
-        self.search_button = PrimaryPushButton("Search", self.view)
-        self.search_button.setIcon(FIF.SEARCH)
-        self.search_button.clicked.connect(self._search_devices)
-
-        self.disconnect_button = PushButton("Disconnect", self.view)
-        self.disconnect_button.setIcon(FIF.CLOSE)
-        self.disconnect_button.clicked.connect(self.backend.disconnect_device)
-
         self.search_row = self._create_search_row()
         self.connected_row = self._create_connected_row()
 
@@ -187,7 +169,21 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
         self.status_badge.set_state(self.current_state)
 
     def _create_search_row(self) -> QWidget:
-        row = RowContainer(self.view)
+        row = RowContainer()
+        self.connection_method_combo = ComboBox(row)
+        self.connection_method_combo.addItems(
+            [
+                "Native BLE",
+                "Ganglion Dongle",
+            ]
+        )
+        self.connection_method_combo.setCurrentText(self.selected_method)
+        self.connection_method_combo.currentTextChanged.connect(self._on_method_changed)
+
+        self.search_button = PrimaryPushButton("Search", row)
+        self.search_button.setIcon(FIF.SEARCH)
+        self.search_button.clicked.connect(self._search_devices)
+
         self.connection_method_combo.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
@@ -199,12 +195,15 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
         return row
 
     def _create_connected_row(self) -> QWidget:
-        row = RowContainer(self.view)
+        row = RowContainer()
         self.connected_info = DeviceInfoWidget(
             self.current_device_name,
             self._connection_subtitle(),
             row,
         )
+        self.disconnect_button = PushButton("Disconnect", row)
+        self.disconnect_button.setIcon(FIF.CLOSE)
+        self.disconnect_button.clicked.connect(self.backend.disconnect_device)
         self.disconnect_button.setFixedWidth(132)
 
         row.row_layout.addWidget(self.connected_info, 1)
@@ -249,7 +248,7 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
             self._mount_group_widget(row)
 
     def _create_result_row(self, result: DeviceSearchResult) -> QWidget:
-        row = RowContainer(self.view)
+        row = RowContainer()
         info = DeviceInfoWidget(result.name, result.address, row)
 
         connect_button = PrimaryPushButton("Connect", row)
