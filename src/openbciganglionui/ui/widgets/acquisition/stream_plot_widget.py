@@ -640,7 +640,7 @@ class StreamPlotWidget(QFrame):
 
         self.title_label = BodyLabel("实时波形", self)
         self.status_label = CaptionLabel(
-            "等待数据流。X 轴严格使用 sample_index0 对齐。",
+            "等待数据流。",
             self,
         )
         self.status_label.setWordWrap(True)
@@ -784,7 +784,7 @@ class StreamPlotWidget(QFrame):
 
         self.status_label.setText(
             f"状态: {self._current_state} | 设备: {self._device_name} | "
-            f"等待数据流，X 轴严格使用 sample_index0 | {display_info}{pause_info}"
+            f"等待数据流 | {display_info}{pause_info}"
         )
 
     def _visible_channel_count(self) -> int:

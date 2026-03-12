@@ -40,7 +40,7 @@ class StateEvent:
     state: DeviceState
     ts: float
     message: str = ""
-    device_name: str = "Ganglion Mock"
+    device_name: str = ""
     device_address: str = ""
 
 

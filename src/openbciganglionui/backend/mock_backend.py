@@ -42,7 +42,7 @@ class MockGanglionBackend(GanglionBackendBase):
         super().__init__(parent)
 
         self._state = DeviceState.DISCONNECTED
-        self._device_name = "Ganglion Mock"
+        self._device_name = ""
         self._device_address = ""
         self._labels = self._default_labels()
         self._default_save_dir = self._default_recording_dir()
@@ -408,7 +408,7 @@ class MockGanglionBackend(GanglionBackendBase):
 
     def _finish_disconnect(self) -> None:
         self._reset_stream_runtime()
-        self._device_name = "Ganglion Mock"
+        self._device_name = ""
         self._device_address = ""
         self._set_state(DeviceState.DISCONNECTED, "设备已断开")
 
