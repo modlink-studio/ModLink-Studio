@@ -13,7 +13,7 @@ from .config_cards import (
     SaveDirectoryCard,
     YAxisRangeSettingCard,
 )
-from .common import PanelWidget, WheelPassthroughExpandGroupSettingCard
+from .common import WheelPassthroughExpandGroupSettingCard
 
 __all__ = [
     "AcquisitionControlBar",
@@ -22,7 +22,6 @@ __all__ = [
     "ContinuousAcquisitionControlBar",
     "GanglionConnectionCard",
     "LabelManagerCard",
-    "PanelWidget",
     "PointCountSettingCard",
     "RecordingModeSettingCard",
     "SaveDirectoryCard",

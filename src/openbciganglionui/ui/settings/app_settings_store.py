@@ -22,10 +22,6 @@ class AppSettingsStore:
         self._path = path or self._resolve_path()
         self._payload = self._read_payload()
 
-    @property
-    def path(self) -> Path:
-        return self._path
-
     def load_display_settings(self) -> dict[str, Any]:
         display = self._section("display")
         return {

@@ -231,7 +231,6 @@ class YAxisRangeSettingCard(WheelPassthroughExpandGroupSettingCard):
         self.mode_row = ToggleButtonSettingRow(
             "缩放模式",
             "选择自动缩放，或使用固定上下界。",
-            parent=self.view,
         )
         self.mode_row.toggle_button.setFixedWidth(140)
         self.mode_row.toggle_button.setFixedHeight(32)
@@ -240,14 +239,12 @@ class YAxisRangeSettingCard(WheelPassthroughExpandGroupSettingCard):
         self.lower_bound_row = YAxisBoundSettingRow(
             "下界",
             "固定模式下显示的最小值。",
-            parent=self.view,
         )
         self.lower_bound_row.spin_box.valueChanged.connect(self._on_lower_bound_changed)
 
         self.upper_bound_row = YAxisBoundSettingRow(
             "上界",
             "固定模式下显示的最大值。",
-            parent=self.view,
         )
         self.upper_bound_row.spin_box.valueChanged.connect(self._on_upper_bound_changed)
 
