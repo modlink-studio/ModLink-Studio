@@ -5,10 +5,36 @@
 <h1 align="center">OpenBCI Ganglion UI</h1>
 
 <p align="center">
-  这是一个基于 <code>PyQt6</code> 和 <code>PyQt6-Fluent-Widgets</code> 的桌面采集界面项目，使用 <code>uv</code> 管理依赖与环境。
+  面向 <code>OpenBCI Ganglion</code> 的桌面采集界面，用于设备连接、实时预览、标签标注和数据录制。
 </p>
 
 ![OpenBCI Ganglion UI screenshot](docs/images/ui-demo.png)
+
+## 项目说明
+
+这个项目是一个专门服务于 **OpenBCI Ganglion** 的桌面采集工具，不是通用脑电设备管理器，也不是多型号 OpenBCI 设备的统一控制台。当前实现围绕 Ganglion 的实际采集流程展开，目标是把连接、预览、标注和录制整合到一个清晰的桌面界面中。
+
+当前支持的连接方式：
+
+- `Native BLE`：使用本机原生蓝牙连接 Ganglion
+- `Ganglion Dongle`：使用 OpenBCI 官方蓝牙适配器连接 Ganglion
+
+当前提供的主要功能：
+
+- 搜索并连接 OpenBCI Ganglion 设备
+- 实时预览 4 通道采集数据
+- 管理实验标签，并在采集时快速选择当前标签
+- 支持片段录制和连续录制两种采集模式
+- 在录制过程中添加 marker 或标记连续区间
+- 按受试编号、标签和 session 组织采集结果并落盘
+
+当前范围内不包含的内容：
+
+- 不面向 Cyton、Cyton Daisy 等其他 OpenBCI 板卡
+- 不作为通用 BLE 调试工具使用
+- 当前只处理 Ganglion 通道数据的显示与保存，不包含加速度传感器数据
+
+如果你的目标是采集和整理 **OpenBCI Ganglion** 的实验数据，这个项目就是为这个场景准备的。
 
 ## 安装 uv
 
