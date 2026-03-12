@@ -4,10 +4,10 @@ from collections import deque
 from math import ceil, floor
 
 import numpy as np
-from PyQt6.QtCore import QLineF, QTimer, Qt, QRectF
+from PyQt6.QtCore import QLineF, QPoint, QSize, QTimer, Qt, QRectF, pyqtSignal
 
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CaptionLabel
 
 from ....backend import (
@@ -32,6 +32,9 @@ class SignalCanvas(QWidget):
         self.max_samples = max_samples
         self._channel_names: tuple[str, ...] = ()
         self._channel_visibility: tuple[bool, ...] = ()
+        self._y_axis_auto = True
+        self._y_axis_lower = -100.0
+        self._y_axis_upper = 100.0
         self._last_sample_index: int | None = None
         self._x_buffer: deque[float] = deque(maxlen=max_samples)
         self._y_buffers: list[deque[float]] = []
@@ -53,7 +56,7 @@ class SignalCanvas(QWidget):
             QColor("#455A64"),
         ]
 
-        self.setMinimumHeight(280)
+        self.setMinimumHeight(140)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
 
         self._refresh_timer = QTimer(self)
@@ -92,6 +95,30 @@ class SignalCanvas(QWidget):
         self._channel_visibility = visibility
         self._dirty = True
         self.update()
+
+    def set_y_axis_auto(self, is_auto: bool) -> None:
+        normalized = bool(is_auto)
+        if normalized == self._y_axis_auto:
+            return
+
+        self._y_axis_auto = normalized
+        self._mark_dirty()
+
+    def set_y_axis_bounds(self, lower: float, upper: float) -> None:
+        normalized_lower = float(lower)
+        normalized_upper = float(upper)
+        if normalized_lower >= normalized_upper:
+            return
+
+        if (
+            normalized_lower == self._y_axis_lower
+            and normalized_upper == self._y_axis_upper
+        ):
+            return
+
+        self._y_axis_lower = normalized_lower
+        self._y_axis_upper = normalized_upper
+        self._mark_dirty()
 
     def append_chunk(self, chunk: StreamChunk) -> None:
         if chunk.data.ndim != 2 or chunk.data.shape[1] != len(chunk.channel_names):
@@ -282,7 +309,7 @@ class SignalCanvas(QWidget):
                 content_rect.width(),
                 channel_height,
             )
-            baseline = channel_rect.center().y()
+            signal_rect = self._signal_rect(channel_rect)
 
             painter.setPen(label_pen)
             painter.drawText(
@@ -294,15 +321,12 @@ class SignalCanvas(QWidget):
             if y.size == 0:
                 continue
 
-            y_centered = y - float(np.mean(y))
-            amplitude = float(np.max(np.abs(y_centered))) if y_centered.size else 0.0
-            amplitude = max(amplitude, 1.0)
-            y_scale = (channel_rect.height() * 0.34) / amplitude
+            mapped_y = self._map_channel_values_to_y(signal_rect, y)
 
             path = QPainterPath()
-            for sample_idx, (sample_x, sample_y) in enumerate(zip(x, y_centered)):
+            for sample_idx, (sample_x, sample_y) in enumerate(zip(x, mapped_y)):
                 px = channel_rect.left() + ((float(sample_x) - visible_start) / x_span) * channel_rect.width()
-                py = baseline - float(sample_y) * y_scale
+                py = float(sample_y)
                 if sample_idx == 0:
                     path.moveTo(px, py)
                 else:
@@ -502,10 +526,85 @@ class SignalCanvas(QWidget):
         ratio = min(1.0, max(0.0, ratio))
         return rect.left() + ratio * rect.width()
 
+    def _signal_rect(self, channel_rect: QRectF) -> QRectF:
+        margin = channel_rect.height() * 0.16
+        return channel_rect.adjusted(0, margin, 0, -margin)
+
+    def _map_channel_values_to_y(self, signal_rect: QRectF, values: np.ndarray) -> np.ndarray:
+        if self._y_axis_auto:
+            centered = values - float(np.mean(values))
+            amplitude = float(np.max(np.abs(centered))) if centered.size else 0.0
+            amplitude = max(amplitude, 1.0)
+            scale = (signal_rect.height() * 0.5) / amplitude
+            return signal_rect.center().y() - centered * scale
+
+        span = max(0.1, self._y_axis_upper - self._y_axis_lower)
+        ratios = np.clip((values - self._y_axis_lower) / span, 0.0, 1.0)
+        return signal_rect.bottom() - ratios * signal_rect.height()
+
     def _is_channel_visible(self, index: int) -> bool:
         if index < len(self._channel_visibility):
             return self._channel_visibility[index]
         return True
+
+
+class ResizeHandle(QWidget):
+    dragDelta = pyqtSignal(int)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent=parent)
+        self._dragging = False
+        self._last_global_pos = QPoint()
+        self.setFixedHeight(12)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.setToolTip("拖动以调整波形区域高度")
+
+    def sizeHint(self) -> QSize:
+        return QSize(160, 12)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(120, 12)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() != Qt.MouseButton.LeftButton:
+            return super().mousePressEvent(event)
+
+        self._dragging = True
+        self._last_global_pos = event.globalPosition().toPoint()
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        if not self._dragging:
+            return super().mouseMoveEvent(event)
+
+        current_pos = event.globalPosition().toPoint()
+        delta = current_pos.y() - self._last_global_pos.y()
+        self._last_global_pos = current_pos
+        if delta:
+            self.dragDelta.emit(delta)
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pen = QPen(QColor(0, 0, 0, 24), 1.0)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+
+        center_y = self.rect().center().y()
+        left = self.rect().center().x() - 24
+        right = self.rect().center().x() + 24
+        for offset in (-3, 0, 3):
+            painter.drawLine(QLineF(left, center_y + offset, right, center_y + offset))
 
 
 class StreamPlotWidget(QFrame):
@@ -523,6 +622,7 @@ class StreamPlotWidget(QFrame):
         self._device_name: str = "-"
         self._last_seq: int | None = None
         self._last_fs: float | None = None
+        self._max_plot_height = 900
 
         self.setObjectName("stream-plot-widget")
         self.setStyleSheet(
@@ -547,17 +647,36 @@ class StreamPlotWidget(QFrame):
         self.status_label.setWordWrap(True)
 
         self.canvas = SignalCanvas(max_samples=max_samples, parent=self)
+        self.resize_handle = ResizeHandle(self)
         if self.display_settings is not None:
             self.canvas.set_max_samples(self.display_settings.max_samples)
             self.canvas.set_channel_visibility(self.display_settings.channel_visibility)
+            self.canvas.set_y_axis_auto(self.display_settings.y_axis_auto)
+            self.canvas.set_y_axis_bounds(
+                self.display_settings.y_axis_lower,
+                self.display_settings.y_axis_upper,
+            )
             self.display_settings.maxSamplesChanged.connect(self._on_max_samples_changed)
             self.display_settings.channelVisibilityChanged.connect(
                 self._on_channel_visibility_changed
             )
+            self.display_settings.yAxisAutoChanged.connect(self._on_y_axis_auto_changed)
+            self.display_settings.yAxisBoundsChanged.connect(self._on_y_axis_bounds_changed)
+            self.display_settings.plotHeightChanged.connect(self._apply_plot_height)
+
+        plot_layout = QVBoxLayout()
+        plot_layout.setContentsMargins(0, 0, 0, 0)
+        plot_layout.setSpacing(0)
+        plot_layout.addWidget(self.canvas, 1)
+        plot_layout.addWidget(self.resize_handle)
 
         root_layout.addWidget(self.title_label)
         root_layout.addWidget(self.status_label)
-        root_layout.addWidget(self.canvas, 1)
+        root_layout.addLayout(plot_layout, 1)
+        self.resize_handle.dragDelta.connect(self._resize_by_delta)
+        self._apply_plot_height(
+            self.display_settings.plot_height if self.display_settings is not None else 380
+        )
         self._update_status_text()
 
     def set_state(self, event: StateEvent) -> None:
@@ -609,10 +728,52 @@ class StreamPlotWidget(QFrame):
         self.canvas.set_channel_visibility(visibility)
         self._update_status_text()
 
+    def _on_y_axis_auto_changed(self, is_auto: bool) -> None:
+        self.canvas.set_y_axis_auto(is_auto)
+        self._update_status_text()
+
+    def _on_y_axis_bounds_changed(self, lower: float, upper: float) -> None:
+        self.canvas.set_y_axis_bounds(lower, upper)
+        self._update_status_text()
+
+    def _resize_by_delta(self, delta: int) -> None:
+        target = self.height() + int(delta)
+        self._apply_plot_height(target, persist=True)
+
+    def _minimum_total_height(self) -> int:
+        layout = self.layout()
+        if layout is None:
+            return self.canvas.minimumHeight()
+
+        margins = layout.contentsMargins()
+        spacing = layout.spacing()
+        title_height = self.title_label.sizeHint().height()
+        status_height = self.status_label.sizeHint().height()
+        handle_height = self.resize_handle.height()
+        return (
+            margins.top()
+            + margins.bottom()
+            + title_height
+            + status_height
+            + self.canvas.minimumHeight()
+            + handle_height
+            + spacing * 2
+        )
+
+    def _apply_plot_height(self, height: int, persist: bool = False) -> None:
+        normalized = max(self._minimum_total_height(), min(self._max_plot_height, int(height)))
+        if self.height() != normalized:
+            self.setFixedHeight(normalized)
+        if persist and self.display_settings is not None:
+            self.display_settings.set_plot_height(normalized)
+
     def _update_status_text(self) -> None:
         visible_count = self._visible_channel_count()
         total_channels = self._total_channel_count()
-        display_info = f"显示: {visible_count}/{total_channels} ch | 点数: {self.max_samples}"
+        display_info = (
+            f"显示: {visible_count}/{total_channels} ch | "
+            f"点数: {self.max_samples} | {self._y_axis_status_text()}"
+        )
         pause_info = " | 显示已暂停" if self._is_paused else ""
 
         if self.canvas.has_samples and self._last_seq is not None and self._last_fs is not None:
@@ -638,3 +799,12 @@ class StreamPlotWidget(QFrame):
             return self.display_settings.n_channels
 
         return len(self.canvas.channel_names) or 4
+
+    def _y_axis_status_text(self) -> str:
+        if self.display_settings is None or self.display_settings.y_axis_auto:
+            return "Y: Auto"
+
+        return (
+            f"Y: 固定 "
+            f"[{self.display_settings.y_axis_lower:.1f}, {self.display_settings.y_axis_upper:.1f}] uV"
+        )
