@@ -14,6 +14,7 @@ class DisplaySettings(QObject):
         self,
         max_samples: int = 2000,
         n_channels: int = 4,
+        channel_visibility: list[bool] | tuple[bool, ...] | None = None,
         y_axis_auto: bool = True,
         y_axis_lower: float = -100.0,
         y_axis_upper: float = 100.0,
@@ -23,7 +24,7 @@ class DisplaySettings(QObject):
         super().__init__(parent=parent)
         self._n_channels = max(1, int(n_channels))
         self._max_samples = max(1, int(max_samples))
-        self._channel_visibility = [True] * self._n_channels
+        self._channel_visibility = self._normalize_channel_visibility(channel_visibility)
         self._y_axis_auto = bool(y_axis_auto)
         self._y_axis_lower = float(y_axis_lower)
         self._y_axis_upper = float(y_axis_upper)
@@ -118,3 +119,17 @@ class DisplaySettings(QObject):
 
         self._plot_height = normalized
         self.plotHeightChanged.emit(self._plot_height)
+
+    def _normalize_channel_visibility(
+        self,
+        channel_visibility: list[bool] | tuple[bool, ...] | None,
+    ) -> list[bool]:
+        normalized = [True] * self._n_channels
+        if channel_visibility is None:
+            return normalized
+
+        for index, value in enumerate(channel_visibility):
+            if index >= self._n_channels:
+                break
+            normalized[index] = bool(value)
+        return normalized

@@ -9,8 +9,7 @@ from qfluentwidgets import (
 )
 
 from ...backend import GanglionBackendBase
-from ..display_settings import DisplaySettings
-from ..recording_settings import RecordingSettings
+from ..settings import SettingsManager
 from ..widgets import (
     ChannelVisibilitySettingCard,
     GanglionConnectionCard,
@@ -26,15 +25,13 @@ class SettingsPage(QWidget):
     def __init__(
         self,
         backend: GanglionBackendBase,
-        display_settings: DisplaySettings,
-        recording_settings: RecordingSettings,
+        settings_manager: SettingsManager,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self.setObjectName("settings-page")
         self.backend = backend
-        self.display_settings = display_settings
-        self.recording_settings = recording_settings
+        self.settings_manager = settings_manager
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(36, 28, 36, 28)
@@ -61,28 +58,32 @@ class SettingsPage(QWidget):
         scroll_layout = QVBoxLayout(self.scroll_widget)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setSpacing(20)
+        display_settings = self.settings_manager.display_settings
+        recording_settings = self.settings_manager.recording_settings
 
         connection_group = SettingCardGroup("设备连接", self.scroll_widget)
         connection_group.addSettingCard(GanglionConnectionCard(self.backend, connection_group))
 
         storage_group = SettingCardGroup("数据保存", self.scroll_widget)
-        storage_group.addSettingCard(SaveDirectoryCard(self.backend, storage_group))
+        storage_group.addSettingCard(SaveDirectoryCard(self.settings_manager, storage_group))
 
         recording_group = SettingCardGroup("录制设置", self.scroll_widget)
         recording_group.addSettingCard(
-            RecordingModeSettingCard(self.recording_settings, self.backend, recording_group)
+            RecordingModeSettingCard(
+                recording_settings,
+                self.backend,
+                recording_group,
+            )
         )
 
         display_group = SettingCardGroup("波形显示", self.scroll_widget)
         display_group.cardLayout.setSpacing(8)
-        display_group.addSettingCard(PointCountSettingCard(self.display_settings, display_group))
-        display_group.addSettingCard(
-            ChannelVisibilitySettingCard(self.display_settings, display_group)
-        )
-        display_group.addSettingCard(YAxisRangeSettingCard(self.display_settings, display_group))
+        display_group.addSettingCard(PointCountSettingCard(display_settings, display_group))
+        display_group.addSettingCard(ChannelVisibilitySettingCard(display_settings, display_group))
+        display_group.addSettingCard(YAxisRangeSettingCard(display_settings, display_group))
 
         labels_group = SettingCardGroup("标签设置", self.scroll_widget)
-        labels_group.addSettingCard(LabelManagerCard(self.backend, labels_group))
+        labels_group.addSettingCard(LabelManagerCard(self.settings_manager, labels_group))
 
         scroll_layout.addWidget(connection_group)
         scroll_layout.addWidget(storage_group)

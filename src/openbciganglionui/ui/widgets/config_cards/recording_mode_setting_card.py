@@ -6,7 +6,7 @@ from qfluentwidgets import FluentIcon as FIF, TogglePushButton
 from qfluentwidgets.components.settings.setting_card import SettingCard
 
 from ....backend import DeviceState, GanglionBackendBase, RecordEvent, RecordingMode
-from ...recording_settings import RecordingSettings
+from ...settings import RecordingSettings
 
 
 class RecordingModeSettingCard(SettingCard):

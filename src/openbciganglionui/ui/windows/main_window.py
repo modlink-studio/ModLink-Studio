@@ -4,28 +4,28 @@ from PyQt6.QtGui import QIcon
 from qfluentwidgets import FluentIcon as FIF, FluentWindow, NavigationItemPosition
 
 from ...backend import GanglionBackendBase, StateEvent
-from ..display_settings import DisplaySettings
-from ..recording_settings import RecordingSettings
 from ..pages import AcquisitionPage, SettingsPage
+from ..settings import AppSettingsStore, SettingsManager
 
 
 class MainWindow(FluentWindow):
-    def __init__(self, backend: GanglionBackendBase) -> None:
+    def __init__(
+        self,
+        backend: GanglionBackendBase,
+        settings_store: AppSettingsStore,
+    ) -> None:
         super().__init__()
         self.backend = backend
-        self.display_settings = DisplaySettings(parent=self)
-        self.recording_settings = RecordingSettings(parent=self)
+        self.settings_manager = SettingsManager(settings_store=settings_store, parent=self)
 
         self.acquisition_page = AcquisitionPage(
             backend=self.backend,
-            display_settings=self.display_settings,
-            recording_settings=self.recording_settings,
+            settings_manager=self.settings_manager,
             parent=self,
         )
         self.settings_page = SettingsPage(
             backend=self.backend,
-            display_settings=self.display_settings,
-            recording_settings=self.recording_settings,
+            settings_manager=self.settings_manager,
             parent=self,
         )
 

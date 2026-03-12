@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import math
-import json
 import time
 import uuid
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from PyQt6.QtCore import QObject, QStandardPaths, QTimer
+from PyQt6.QtCore import QObject, QTimer
 
 from .base import GanglionBackendBase
 from .models import (
@@ -36,7 +35,7 @@ class MockGanglionBackend(GanglionBackendBase):
     Mock-specific behavior:
     - auto-starts preview immediately after a successful connection
     - resets stream indices on reconnect/disconnect
-    - persists labels and default save directory to app-data files
+    - keeps labels and default save directory as runtime-only compatibility fields
     """
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
@@ -45,10 +44,8 @@ class MockGanglionBackend(GanglionBackendBase):
         self._state = DeviceState.DISCONNECTED
         self._device_name = "Ganglion Mock"
         self._device_address = ""
-        self._labels_path = self._resolve_labels_path()
-        self._labels = self._read_labels_from_disk()
-        self._save_dir_path = self._resolve_save_dir_path()
-        self._default_save_dir = self._read_save_dir_from_disk()
+        self._labels = self._default_labels()
+        self._default_save_dir = self._default_recording_dir()
 
         self._config = ConnectConfig()
         self._channel_names: tuple[str, ...] = tuple(
@@ -155,7 +152,6 @@ class MockGanglionBackend(GanglionBackendBase):
         self._search_timer.start(1400)
 
     def load_labels(self) -> None:
-        self._labels = self._read_labels_from_disk()
         self._emit_labels("标签已加载")
 
     def add_label(self, label: str) -> None:
@@ -168,7 +164,6 @@ class MockGanglionBackend(GanglionBackendBase):
             return
 
         self._labels.append(normalized)
-        self._write_labels_to_disk()
         self._emit_labels("标签已添加")
 
     def remove_label(self, label: str) -> None:
@@ -177,11 +172,9 @@ class MockGanglionBackend(GanglionBackendBase):
             return
 
         self._labels.remove(normalized)
-        self._write_labels_to_disk()
         self._emit_labels("标签已删除")
 
     def load_save_dir(self) -> None:
-        self._default_save_dir = self._read_save_dir_from_disk()
         self._emit_save_dir("保存目录已加载")
 
     def set_save_dir(self, save_dir: str) -> None:
@@ -190,7 +183,6 @@ class MockGanglionBackend(GanglionBackendBase):
             return
 
         self._default_save_dir = normalized
-        self._write_save_dir_to_disk()
         self._emit_save_dir("保存目录已更新")
 
     def disconnect_device(self) -> None:
@@ -450,68 +442,18 @@ class MockGanglionBackend(GanglionBackendBase):
         self._burst_remaining = 0
         self._burst_gain = 1.0
 
-    def _resolve_labels_path(self) -> Path:
-        base_dir = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppDataLocation
-        )
-        if not base_dir:
-            return Path.home() / ".openbciganglionui" / "labels.json"
-        return Path(base_dir) / "labels.json"
+    def _default_labels(self) -> list[str]:
+        return ["dry_swallow", "water_5ml", "cough"]
 
-    def _resolve_save_dir_path(self) -> Path:
-        base_dir = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppDataLocation
-        )
-        if not base_dir:
-            return Path.home() / ".openbciganglionui" / "save_dir.json"
-        return Path(base_dir) / "save_dir.json"
-
-    def _read_labels_from_disk(self) -> list[str]:
-        try:
-            if not self._labels_path.exists():
-                return ["dry_swallow", "water_5ml", "cough"]
-            payload = json.loads(self._labels_path.read_text(encoding="utf-8"))
-            labels = payload.get("labels", [])
-            return [str(label).strip() for label in labels if str(label).strip()]
-        except (OSError, json.JSONDecodeError):
-            return ["dry_swallow", "water_5ml", "cough"]
-
-    def _write_labels_to_disk(self) -> None:
-        self._labels_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"labels": self._labels}
-        self._labels_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-    def _read_save_dir_from_disk(self) -> str:
-        default_dir = str((Path.cwd() / "data").resolve())
-        old_default_dir = str((Path.cwd() / "mock_data").resolve())
-        try:
-            if not self._save_dir_path.exists():
-                return default_dir
-            payload = json.loads(self._save_dir_path.read_text(encoding="utf-8"))
-            save_dir = str(payload.get("save_dir", "")).strip()
-            if not save_dir or save_dir == old_default_dir:
-                return default_dir
-            return save_dir
-        except (OSError, json.JSONDecodeError):
-            return default_dir
-
-    def _write_save_dir_to_disk(self) -> None:
-        self._save_dir_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"save_dir": self._default_save_dir}
-        self._save_dir_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+    def _default_recording_dir(self) -> str:
+        return str((Path.cwd() / "data").resolve())
 
     def _emit_labels(self, message: str = "") -> None:
         self.sig_labels.emit(
             LabelsEvent(
                 labels=tuple(self._labels),
                 ts=time.time(),
-                storage_path=str(self._labels_path),
+                storage_path="",
                 message=message,
             )
         )

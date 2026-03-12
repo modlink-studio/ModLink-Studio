@@ -18,7 +18,7 @@ from ....backend import (
     SearchEvent,
     StateEvent,
 )
-from ...style_constants import DEFAULT_RADIUS
+from ...settings import DEFAULT_RADIUS
 from ..common.wheel_passthrough_expand_group_setting_card import (
     WheelPassthroughExpandGroupSettingCard,
 )

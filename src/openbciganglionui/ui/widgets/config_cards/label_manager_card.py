@@ -16,8 +16,7 @@ from PyQt6.QtWidgets import (
 from qfluentwidgets import FlowLayout, LineEdit, PushButton, PushSettingCard
 from qfluentwidgets import FluentIcon as FIF
 
-from ....backend import GanglionBackendBase, LabelsEvent
-from ...style_constants import DEFAULT_RADIUS, SMALL_RADIUS
+from ...settings import DEFAULT_RADIUS, SMALL_RADIUS, SettingsManager
 
 
 class CountBadge(QLabel):
@@ -179,12 +178,12 @@ class LabelCloudRow(QWidget):
 class LabelManagerDialog(QDialog):
     def __init__(
         self,
-        backend: GanglionBackendBase,
+        settings_manager: SettingsManager,
         labels: list[str],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self.backend = backend
+        self.settings_manager = settings_manager
 
         self.setWindowTitle("标签管理")
         self.resize(640, 480)
@@ -229,7 +228,7 @@ class LabelManagerDialog(QDialog):
         tip_label.setWordWrap(True)
         tip_label.setStyleSheet("color: rgb(96, 96, 96);")
 
-        self.input_row = LabelInputRow(self.backend.add_label, self)
+        self.input_row = LabelInputRow(self.settings_manager.add_label, self)
 
         scroll_area = QScrollArea(self)
         scroll_area.setWidgetResizable(True)
@@ -243,7 +242,7 @@ class LabelManagerDialog(QDialog):
             """
         )
 
-        self.label_cloud_row = LabelCloudRow(self.backend.remove_label)
+        self.label_cloud_row = LabelCloudRow(self.settings_manager.remove_label)
         self.label_cloud_row.setObjectName("label-cloud-row")
         self.label_cloud_row.setSizePolicy(
             QSizePolicy.Policy.Expanding,
@@ -276,7 +275,9 @@ class LabelManagerDialog(QDialog):
 
 class LabelManagerCard(PushSettingCard):
     def __init__(
-        self, backend: GanglionBackendBase, parent: QWidget | None = None
+        self,
+        settings_manager: SettingsManager,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(
             "打开",
@@ -285,15 +286,14 @@ class LabelManagerCard(PushSettingCard):
             "管理采集标签，点击后在弹窗中编辑",
             parent,
         )
-        self.backend = backend
-        self.labels = list(backend.labels)
+        self.settings_manager = settings_manager
+        self.labels = list(settings_manager.labels)
         self.dialog: LabelManagerDialog | None = None
 
         self.clicked.connect(self._open_dialog)
-        self.backend.sig_labels.connect(self._on_labels_changed)
+        self.settings_manager.labelsChanged.connect(self._on_labels_changed)
 
         self._refresh_summary()
-        self.backend.load_labels()
 
     def _refresh_summary(self) -> None:
         count = len(self.labels)
@@ -301,7 +301,7 @@ class LabelManagerCard(PushSettingCard):
 
     def _open_dialog(self) -> None:
         if self.dialog is None:
-            self.dialog = LabelManagerDialog(self.backend, self.labels, self.window())
+            self.dialog = LabelManagerDialog(self.settings_manager, self.labels, self.window())
             self.dialog.finished.connect(self._on_dialog_finished)
 
         self.dialog.set_labels(self.labels)
@@ -312,8 +312,8 @@ class LabelManagerCard(PushSettingCard):
     def _on_dialog_finished(self, _result: int) -> None:
         self.dialog = None
 
-    def _on_labels_changed(self, event: LabelsEvent) -> None:
-        self.labels = list(event.labels)
+    def _on_labels_changed(self, labels: tuple[str, ...]) -> None:
+        self.labels = list(labels)
         self._refresh_summary()
         if self.dialog is not None:
             self.dialog.set_labels(self.labels)
