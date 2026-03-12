@@ -1,7 +1,6 @@
 from .base import GanglionBackendBase
 from .brainflow import BrainFlowGanglionBackend
 from .factory import create_backend
-from .mock_backend import MockGanglionBackend
 from .models import (
     ConnectConfig,
     DeviceSearchResult,
@@ -30,7 +29,6 @@ __all__ = [
     "GanglionBackendBase",
     "LabelsEvent",
     "MarkerEvent",
-    "MockGanglionBackend",
     "RecordEvent",
     "RecordingMode",
     "RecordSegment",

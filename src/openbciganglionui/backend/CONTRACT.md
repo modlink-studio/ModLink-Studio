@@ -13,7 +13,7 @@ The UI layer may depend on backend code in exactly these ways:
 
 The UI layer must not:
 
-- import a concrete backend implementation such as `MockGanglionBackend`
+- import a concrete backend implementation such as `BrainFlowGanglionBackend`
 - read backend private attributes
 - depend on backend-internal timers, buffers, or storage layout
 - infer semantics from display messages
@@ -141,22 +141,17 @@ These semantics are expected from any backend implementation unless explicitly d
 - UI should not optimistically assume record state changes before the event.
 - Continuous-recording backends may expose labeled sub-intervals via `start_segment()` / `stop_segment()`.
 
-## Mock Backend Specific Semantics
+## BrainFlow Backend Specific Semantics
 
-Defined by `mock_backend.py`.
+Defined by `backend/brainflow/backend.py`.
 
-- After `connect_device()` succeeds, `MockGanglionBackend` auto-starts preview.
+- After `connect_device()` succeeds, `BrainFlowGanglionBackend` auto-starts preview.
 - Therefore the observed state sequence is typically:
   - `connecting -> connected -> previewing`
 - Reconnect resets:
   - `seq`
   - `sample_index0`
-  - burst runtime state
-- Label storage and default save directory are persisted to app-data files.
-- Stream generation shape is controlled by:
-  - `ConnectConfig.fs`
-  - `ConnectConfig.n_channels`
-  - `ConnectConfig.chunk_size`
+  - runtime recording/segment state
 
 ## UI Boundary Check
 
