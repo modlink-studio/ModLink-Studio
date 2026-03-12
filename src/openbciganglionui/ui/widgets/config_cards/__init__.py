@@ -1,4 +1,8 @@
-from .display_settings_card import ChannelVisibilitySettingCard, PointCountSettingCard
+from .display_settings_card import (
+    ChannelVisibilitySettingCard,
+    PointCountSettingCard,
+    YAxisRangeSettingCard,
+)
 from .ganglion_connection_card import GanglionConnectionCard
 from .label_manager_card import LabelManagerCard
 from .recording_mode_setting_card import RecordingModeSettingCard
@@ -11,4 +15,5 @@ __all__ = [
     "PointCountSettingCard",
     "RecordingModeSettingCard",
     "SaveDirectoryCard",
+    "YAxisRangeSettingCard",
 ]

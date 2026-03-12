@@ -18,6 +18,7 @@ from ..widgets import (
     PointCountSettingCard,
     RecordingModeSettingCard,
     SaveDirectoryCard,
+    YAxisRangeSettingCard,
 )
 
 
@@ -78,6 +79,7 @@ class SettingsPage(QWidget):
         display_group.addSettingCard(
             ChannelVisibilitySettingCard(self.display_settings, display_group)
         )
+        display_group.addSettingCard(YAxisRangeSettingCard(self.display_settings, display_group))
 
         labels_group = SettingCardGroup("标签设置", self.scroll_widget)
         labels_group.addSettingCard(LabelManagerCard(self.backend, labels_group))

@@ -4,13 +4,14 @@ from .acquisition import (
     ContinuousAcquisitionControlBar,
     StreamPlotWidget,
 )
-from .settings import (
+from .config_cards import (
     ChannelVisibilitySettingCard,
     GanglionConnectionCard,
     LabelManagerCard,
     PointCountSettingCard,
     RecordingModeSettingCard,
     SaveDirectoryCard,
+    YAxisRangeSettingCard,
 )
 from .common import PanelWidget, WheelPassthroughExpandGroupSettingCard
 
@@ -27,4 +28,5 @@ __all__ = [
     "SaveDirectoryCard",
     "StreamPlotWidget",
     "WheelPassthroughExpandGroupSettingCard",
+    "YAxisRangeSettingCard",
 ]
