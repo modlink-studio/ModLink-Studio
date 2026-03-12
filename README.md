@@ -52,19 +52,14 @@ uv run openbciganglionui
 uv run python -m openbciganglionui
 ```
 
-默认会启动 BrainFlow backend。需要切回 mock 演示后端时，可以设置：
-
-```powershell
-$env:OPENBCI_BACKEND = "mock"
-uv run openbciganglionui
-```
+默认会启动 BrainFlow backend。
 
 ## 项目结构
 
 ```text
 src/openbciganglionui/
   app.py          # QApplication 启动入口
-  backend/        # backend 协议、事件模型、mock 和 BrainFlow 实现
+  backend/        # backend 协议、事件模型和 BrainFlow 实现
   ui/             # 页面、窗口、设置管理和组件
   __main__.py     # python -m 入口
 ```
@@ -125,20 +120,8 @@ uv run openbciganglionui-brainflow-native-probe --serial-number Ganglion-9c3b --
 
 这部分是经验性结论，不是 BrainFlow 官方保证；如果后续升级 BrainFlow 或更换系统蓝牙栈，需要重新验证。
 
-## 打包
-
-当前仓库提供的是 Windows 下的 mock data 演示版打包脚本：
-
-```powershell
-uv sync --dev
-powershell -ExecutionPolicy Bypass -File .\scripts\build_mock_demo.ps1
-```
-
-打包结果会输出到 `release/`。
-
 ## 平台说明
 
 - 源码运行主要依赖 `PyQt6`、`numpy` 和 `PyQt6-Fluent-Widgets`，代码本身没有明显写死 Windows 运行逻辑。
 - 因此，源码方式在 Linux 上预计也是可以运行的，`uv sync` 正常情况下也不应有问题。
 - 但目前我只实际验证了 Windows 环境，Linux 还没有做过完整运行测试。
-- 打包脚本 `scripts/build_mock_demo.ps1` 是 Windows 专用脚本，不适用于 Linux。
