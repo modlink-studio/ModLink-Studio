@@ -1,6 +1,14 @@
-# OpenBCI Ganglion UI
+<p align="center">
+  <img src="src/openbciganglionui/assets/app_icon.png" alt="OpenBCI Ganglion UI icon" width="96" />
+</p>
 
-这是一个基于 `PyQt6` 和 `PyQt6-Fluent-Widgets` 的桌面采集界面项目，使用 `uv` 管理依赖与环境。
+<h1 align="center">OpenBCI Ganglion UI</h1>
+
+<p align="center">
+  这是一个基于 <code>PyQt6</code> 和 <code>PyQt6-Fluent-Widgets</code> 的桌面采集界面项目，使用 <code>uv</code> 管理依赖与环境。
+</p>
+
+![OpenBCI Ganglion UI screenshot](docs/images/ui-demo.png)
 
 ## 安装 uv
 
@@ -84,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_mock_demo.ps1
 - 源码运行主要依赖 `PyQt6`、`numpy` 和 `PyQt6-Fluent-Widgets`，代码本身没有明显写死 Windows 运行逻辑。
 - 因此，源码方式在 Linux 上预计也是可以运行的，`uv sync` 正常情况下也不应有问题。
 - 但目前我只实际验证了 Windows 环境，Linux 还没有做过完整运行测试。
-- 打包脚本 [build_mock_demo.ps1](/d:/Projects/OpenBCIGangLionUI/scripts/build_mock_demo.ps1) 是 Windows 专用脚本，不适用于 Linux。
+- 打包脚本 `scripts/build_mock_demo.ps1` 是 Windows 专用脚本，不适用于 Linux。
 
 ## 说明
 

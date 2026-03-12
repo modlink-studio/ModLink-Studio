@@ -38,7 +38,16 @@ if (Test-Path (Join-Path $buildRoot $appName)) {
 }
 
 if (Test-Path $releaseDir) {
-    Remove-Item -Recurse -Force $releaseDir
+    try {
+        Remove-Item -Recurse -Force $releaseDir
+    }
+    catch {
+        $suffix = Get-Date -Format "yyyyMMdd_HHmmss"
+        $releaseName = "$releaseName-$suffix"
+        $releaseDir = Join-Path $releaseRoot $releaseName
+        $zipPath = Join-Path $releaseRoot "$releaseName.zip"
+        $notesPath = Join-Path $releaseDir "README.txt"
+    }
 }
 
 if (Test-Path $zipPath) {

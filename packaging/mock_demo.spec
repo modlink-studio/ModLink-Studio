@@ -19,7 +19,7 @@ hiddenimports = qfw_hiddenimports
 
 
 a = Analysis(
-    [str(app_root / "__main__.py")],
+    [str(project_root / "packaging" / "mock_demo_entry.py")],
     pathex=[str(src_root)],
     binaries=binaries,
     datas=datas,
