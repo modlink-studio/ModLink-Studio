@@ -120,6 +120,32 @@ uv run openbciganglionui-brainflow-native-probe --serial-number Ganglion-9c3b --
 
 这部分是经验性结论，不是 BrainFlow 官方保证；如果后续升级 BrainFlow 或更换系统蓝牙栈，需要重新验证。
 
+## 打包发布
+
+当前仓库已经提供了 Windows 桌面应用的 `PyInstaller` 打包配置：
+
+- 入口脚本：[packaging/app_entry.py](packaging/app_entry.py)
+- 规格文件：[packaging/app.spec](packaging/app.spec)
+- 构建脚本：[scripts/build_app.ps1](scripts/build_app.ps1)
+
+在项目根目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_app.ps1
+```
+
+构建完成后，产物位于：
+
+```text
+release/OpenBCIGanglionUI/OpenBCIGanglionUI.exe
+```
+
+补充说明：
+
+- 当前使用 `PyInstaller onedir` 方式打包，运行时需要保留同目录下的 `_internal` 文件夹。
+- `qframelesswindow.webengine` 在构建时可能提示缺少 `PyQt6.QtWebEngineWidgets`，如果项目没有用到 webengine 组件，这个 warning 可以忽略。
+- `QFluentWidgets Pro` 的提示可能出现在 `PyInstaller` 构建日志里，但不会作为打包后应用的启动输出。
+
 ## 平台说明
 
 - 源码运行主要依赖 `PyQt6`、`numpy` 和 `PyQt6-Fluent-Widgets`，代码本身没有明显写死 Windows 运行逻辑。
