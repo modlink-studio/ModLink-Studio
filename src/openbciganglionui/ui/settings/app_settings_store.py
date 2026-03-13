@@ -15,6 +15,16 @@ class AppSettingsStore:
         "y_axis_lower": -100.0,
         "y_axis_upper": 100.0,
         "plot_height": 380,
+        "filter_family": "butterworth",
+        "filter_order": 4,
+        "shared_filter_enabled": False,
+        "shared_filter": {
+            "mode": "none",
+            "low_cut_hz": 1.0,
+            "high_cut_hz": 40.0,
+            "powerline_mode": "none",
+            "notch_width_hz": 4.0,
+        },
     }
     DEFAULT_RECORDING_MODE = "clip"
 
@@ -48,6 +58,18 @@ class AppSettingsStore:
                 self.DEFAULT_DISPLAY_SETTINGS["plot_height"],
                 minimum=260,
             ),
+            "filter_family": str(display.get("filter_family", self.DEFAULT_DISPLAY_SETTINGS["filter_family"])).strip().lower() or self.DEFAULT_DISPLAY_SETTINGS["filter_family"],
+            "filter_order": self._as_int(
+                display.get("filter_order"),
+                self.DEFAULT_DISPLAY_SETTINGS["filter_order"],
+                minimum=1,
+            ),
+            "shared_filter_enabled": self._as_bool(
+                display.get("shared_filter_enabled"),
+                self.DEFAULT_DISPLAY_SETTINGS["shared_filter_enabled"],
+            ),
+            "shared_filter": self._as_filter_config(display.get("shared_filter")),
+            "channel_filters": self._as_filter_config_list(display.get("channel_filters")),
         }
 
     def save_display_settings(self, settings) -> None:
@@ -60,6 +82,13 @@ class AppSettingsStore:
                 "y_axis_lower": float(settings.y_axis_lower),
                 "y_axis_upper": float(settings.y_axis_upper),
                 "plot_height": int(settings.plot_height),
+                "filter_family": str(settings.filter_family),
+                "filter_order": int(settings.filter_order),
+                "shared_filter_enabled": bool(settings.shared_filter_enabled),
+                "shared_filter": settings.shared_filter_config.to_dict(),
+                "channel_filters": [
+                    config.to_dict() for config in settings.channel_filter_configs
+                ],
             },
         )
 
@@ -163,6 +192,38 @@ class AppSettingsStore:
         if not isinstance(value, list):
             return []
         return [bool(item) for item in value]
+
+    def _as_filter_config(self, value: Any) -> dict[str, Any]:
+        default_config = self.DEFAULT_DISPLAY_SETTINGS["shared_filter"]
+        payload = value if isinstance(value, dict) else {}
+        return {
+            "mode": str(payload.get("mode", default_config["mode"])).strip().lower() or default_config["mode"],
+            "low_cut_hz": self._as_positive_float(
+                payload.get("low_cut_hz"),
+                float(default_config["low_cut_hz"]),
+            ),
+            "high_cut_hz": self._as_positive_float(
+                payload.get("high_cut_hz"),
+                float(default_config["high_cut_hz"]),
+            ),
+            "powerline_mode": str(payload.get("powerline_mode", default_config["powerline_mode"])).strip().lower() or default_config["powerline_mode"],
+            "notch_width_hz": self._as_positive_float(
+                payload.get("notch_width_hz"),
+                float(default_config["notch_width_hz"]),
+            ),
+        }
+
+    def _as_filter_config_list(self, value: Any) -> list[dict[str, Any]]:
+        if not isinstance(value, list):
+            return []
+        return [self._as_filter_config(item) for item in value]
+
+    def _as_positive_float(self, value: Any, default: float) -> float:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            normalized = default
+        return max(0.1, normalized)
 
     def _as_str_list(self, value: Any) -> list[str]:
         if not isinstance(value, list):
