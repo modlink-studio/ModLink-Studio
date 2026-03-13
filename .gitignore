@@ -7,6 +7,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .coverage
+.uv-cache/
 dist/
 build/
 release/

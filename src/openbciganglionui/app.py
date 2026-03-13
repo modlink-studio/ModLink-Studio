@@ -30,7 +30,6 @@ def create_application() -> QApplication:
 
 
 def main() -> None:
-    print("Starting OpenBCI Ganglion UI...")
     app = create_application()
     settings_store = AppSettingsStore()
     backend = create_backend()
