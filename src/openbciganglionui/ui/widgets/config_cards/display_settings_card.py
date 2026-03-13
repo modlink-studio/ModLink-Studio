@@ -522,7 +522,7 @@ class FilterOrderSettingCard(SettingCard):
         self.unit_label = CaptionLabel("阶", self)
 
         self.spin_box.setRange(1, 8)
-        self.spin_box.setFixedWidth(84)
+        self.spin_box.setFixedWidth(168)
         self.spin_box.setValue(self.display_settings.filter_order)
         self.unit_label.setStyleSheet("color: rgba(0, 0, 0, 0.62);")
 
