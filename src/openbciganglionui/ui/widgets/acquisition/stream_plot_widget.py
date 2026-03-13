@@ -18,7 +18,13 @@ from ....backend import (
     StateEvent,
     StreamChunk,
 )
-from ...settings import DEFAULT_RADIUS, SMALL_RADIUS, DisplaySettings
+from ...settings import (
+    ChannelFilterConfig,
+    DEFAULT_RADIUS,
+    SMALL_RADIUS,
+    DisplaySettings,
+)
+from .display_filtering import apply_channel_filter
 
 
 class SignalCanvas(QWidget):
@@ -34,6 +40,12 @@ class SignalCanvas(QWidget):
         self._y_axis_auto = True
         self._y_axis_lower = -100.0
         self._y_axis_upper = 100.0
+        self._sampling_rate_hz: float | None = None
+        self._filter_family = "butterworth"
+        self._filter_order = 4
+        self._shared_filter_enabled = False
+        self._shared_filter_config = ChannelFilterConfig()
+        self._channel_filter_configs: tuple[ChannelFilterConfig, ...] = ()
         self._last_sample_index: int | None = None
         self._x_buffer: deque[float] = deque(maxlen=max_samples)
         self._y_buffers: list[deque[float]] = []
@@ -70,6 +82,36 @@ class SignalCanvas(QWidget):
     @property
     def has_samples(self) -> bool:
         return bool(self._x_buffer)
+
+    def current_auto_y_bounds(self) -> tuple[float, float] | None:
+        if not self._x_buffer or not self._y_buffers:
+            return None
+
+        lower: float | None = None
+        upper: float | None = None
+
+        for index, buffer in enumerate(self._y_buffers):
+            if not self._is_channel_visible(index):
+                continue
+
+            values = np.fromiter(buffer, dtype=np.float32)
+            if values.size == 0:
+                continue
+
+            filtered_values = self._filter_channel_data(index, values)
+            centered_values = filtered_values - float(np.mean(filtered_values))
+            if centered_values.size == 0:
+                continue
+
+            channel_lower = float(np.min(centered_values))
+            channel_upper = float(np.max(centered_values))
+            lower = channel_lower if lower is None else min(lower, channel_lower)
+            upper = channel_upper if upper is None else max(upper, channel_upper)
+
+        if lower is None or upper is None:
+            return None
+
+        return lower, upper
 
     def set_max_samples(self, max_samples: int) -> None:
         normalized = max(1, int(max_samples))
@@ -119,6 +161,31 @@ class SignalCanvas(QWidget):
         self._y_axis_upper = normalized_upper
         self._mark_dirty()
 
+    def set_filter_settings(
+        self,
+        filter_family: str,
+        filter_order: int,
+        shared_filter_enabled: bool,
+        shared_filter_config: ChannelFilterConfig,
+        channel_filter_configs: tuple[ChannelFilterConfig, ...],
+    ) -> None:
+        normalized_channel_filters = tuple(channel_filter_configs)
+        if (
+            self._filter_family == str(filter_family)
+            and self._filter_order == int(filter_order)
+            and self._shared_filter_enabled == bool(shared_filter_enabled)
+            and self._shared_filter_config == shared_filter_config
+            and self._channel_filter_configs == normalized_channel_filters
+        ):
+            return
+
+        self._filter_family = str(filter_family)
+        self._filter_order = int(filter_order)
+        self._shared_filter_enabled = bool(shared_filter_enabled)
+        self._shared_filter_config = shared_filter_config
+        self._channel_filter_configs = normalized_channel_filters
+        self._mark_dirty()
+
     def append_chunk(self, chunk: StreamChunk) -> None:
         if chunk.data.ndim != 2 or chunk.data.shape[1] != len(chunk.channel_names):
             return
@@ -134,6 +201,8 @@ class SignalCanvas(QWidget):
 
         if self._last_sample_index is not None and chunk.sample_index0 <= self._last_sample_index:
             self.clear()
+
+        self._sampling_rate_hz = float(chunk.fs)
 
         x = np.arange(
             chunk.sample_index0,
@@ -175,6 +244,7 @@ class SignalCanvas(QWidget):
         for buffer in self._y_buffers:
             buffer.clear()
         self._last_sample_index = None
+        self._sampling_rate_hz = None
         self._markers.clear()
         self._segments.clear()
         self._record_regions.clear()
@@ -271,7 +341,11 @@ class SignalCanvas(QWidget):
             return
 
         x = np.fromiter(self._x_buffer, dtype=np.float64)
-        y_channels = [np.fromiter(buffer, dtype=np.float32) for buffer in self._y_buffers]
+        raw_channels = [np.fromiter(buffer, dtype=np.float32) for buffer in self._y_buffers]
+        y_channels = [
+            self._filter_channel_data(index, values)
+            for index, values in enumerate(raw_channels)
+        ]
         visible_indices = [
             index
             for index, _channel_name in enumerate(self._channel_names)
@@ -541,6 +615,22 @@ class SignalCanvas(QWidget):
         ratios = np.clip((values - self._y_axis_lower) / span, 0.0, 1.0)
         return signal_rect.bottom() - ratios * signal_rect.height()
 
+    def _filter_channel_data(self, index: int, values: np.ndarray) -> np.ndarray:
+        if self._shared_filter_enabled:
+            config = self._shared_filter_config
+        elif index < len(self._channel_filter_configs):
+            config = self._channel_filter_configs[index]
+        else:
+            config = ChannelFilterConfig()
+
+        return apply_channel_filter(
+            values,
+            self._sampling_rate_hz,
+            config,
+            self._filter_family,
+            self._filter_order,
+        )
+
     def _is_channel_visible(self, index: int) -> bool:
         if index < len(self._channel_visibility):
             return self._channel_visibility[index]
@@ -655,12 +745,20 @@ class StreamPlotWidget(QFrame):
                 self.display_settings.y_axis_lower,
                 self.display_settings.y_axis_upper,
             )
+            self.canvas.set_filter_settings(
+                self.display_settings.filter_family,
+                self.display_settings.filter_order,
+                self.display_settings.shared_filter_enabled,
+                self.display_settings.shared_filter_config,
+                self.display_settings.channel_filter_configs,
+            )
             self.display_settings.maxSamplesChanged.connect(self._on_max_samples_changed)
             self.display_settings.channelVisibilityChanged.connect(
                 self._on_channel_visibility_changed
             )
             self.display_settings.yAxisAutoChanged.connect(self._on_y_axis_auto_changed)
             self.display_settings.yAxisBoundsChanged.connect(self._on_y_axis_bounds_changed)
+            self.display_settings.filterSettingsChanged.connect(self._on_filter_settings_changed)
             self.display_settings.plotHeightChanged.connect(self._apply_plot_height)
 
         plot_layout = QVBoxLayout()
@@ -735,6 +833,18 @@ class StreamPlotWidget(QFrame):
         self.canvas.set_y_axis_bounds(lower, upper)
         self._update_status_text()
 
+    def _on_filter_settings_changed(self) -> None:
+        if self.display_settings is None:
+            return
+        self.canvas.set_filter_settings(
+            self.display_settings.filter_family,
+            self.display_settings.filter_order,
+            self.display_settings.shared_filter_enabled,
+            self.display_settings.shared_filter_config,
+            self.display_settings.channel_filter_configs,
+        )
+        self._update_status_text()
+
     def _resize_by_delta(self, delta: int) -> None:
         target = self.height() + int(delta)
         self._apply_plot_height(target, persist=True)
@@ -801,7 +911,10 @@ class StreamPlotWidget(QFrame):
 
     def _y_axis_status_text(self) -> str:
         if self.display_settings is None or self.display_settings.y_axis_auto:
-            return "Y: Auto"
+            auto_bounds = self.canvas.current_auto_y_bounds()
+            if auto_bounds is None:
+                return "Y: Auto"
+            return f"Y: Auto [{auto_bounds[0]:.1f}, {auto_bounds[1]:.1f}] uV"
 
         return (
             f"Y: 固定 "

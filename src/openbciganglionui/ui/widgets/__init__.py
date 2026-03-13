@@ -5,7 +5,12 @@ from .acquisition import (
     StreamPlotWidget,
 )
 from .config_cards import (
+    ChannelBandFilterSettingCard,
+    ChannelPowerlineFilterSettingCard,
     ChannelVisibilitySettingCard,
+    FilterOrderSettingCard,
+    FilterFamilySettingCard,
+    FilterScopeSettingCard,
     GanglionConnectionCard,
     LabelManagerCard,
     PointCountSettingCard,
@@ -17,9 +22,14 @@ from .common import WheelPassthroughExpandGroupSettingCard
 
 __all__ = [
     "AcquisitionControlBar",
+    "ChannelBandFilterSettingCard",
+    "ChannelPowerlineFilterSettingCard",
     "ChannelVisibilitySettingCard",
     "ClipAcquisitionControlBar",
     "ContinuousAcquisitionControlBar",
+    "FilterOrderSettingCard",
+    "FilterFamilySettingCard",
+    "FilterScopeSettingCard",
     "GanglionConnectionCard",
     "LabelManagerCard",
     "PointCountSettingCard",

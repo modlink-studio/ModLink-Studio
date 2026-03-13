@@ -104,4 +104,5 @@ class SettingsManager(QObject):
         self.display_settings.yAxisAutoChanged.connect(self._save_display_settings)
         self.display_settings.yAxisBoundsChanged.connect(self._save_display_settings)
         self.display_settings.plotHeightChanged.connect(self._save_display_settings)
+        self.display_settings.filterSettingsChanged.connect(self._save_display_settings)
         self.recording_settings.recordingModeChanged.connect(self._save_recording_settings)

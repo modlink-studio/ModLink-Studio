@@ -11,7 +11,12 @@ from qfluentwidgets import (
 from ...backend import GanglionBackendBase
 from ..settings import SettingsManager
 from ..widgets import (
+    ChannelBandFilterSettingCard,
+    ChannelPowerlineFilterSettingCard,
     ChannelVisibilitySettingCard,
+    FilterOrderSettingCard,
+    FilterFamilySettingCard,
+    FilterScopeSettingCard,
     GanglionConnectionCard,
     LabelManagerCard,
     PointCountSettingCard,
@@ -39,7 +44,7 @@ class SettingsPage(QWidget):
 
         header_label = SubtitleLabel("设置", self)
         intro_label = BodyLabel(
-            "这个页面用于配置设备连接、数据保存、录制模式、波形显示和标签管理。",
+            "这个页面用于配置设备连接、数据保存、录制模式、实时显示、滤波和标签管理。",
             self,
         )
         intro_label.setWordWrap(True)
@@ -76,11 +81,19 @@ class SettingsPage(QWidget):
             )
         )
 
-        display_group = SettingCardGroup("波形显示", self.scroll_widget)
+        display_group = SettingCardGroup("实时显示", self.scroll_widget)
         display_group.cardLayout.setSpacing(8)
         display_group.addSettingCard(PointCountSettingCard(display_settings, display_group))
         display_group.addSettingCard(ChannelVisibilitySettingCard(display_settings, display_group))
         display_group.addSettingCard(YAxisRangeSettingCard(display_settings, display_group))
+
+        filter_group = SettingCardGroup("滤波设置", self.scroll_widget)
+        filter_group.cardLayout.setSpacing(8)
+        filter_group.addSettingCard(FilterScopeSettingCard(display_settings, filter_group))
+        filter_group.addSettingCard(FilterFamilySettingCard(display_settings, filter_group))
+        filter_group.addSettingCard(FilterOrderSettingCard(display_settings, filter_group))
+        filter_group.addSettingCard(ChannelBandFilterSettingCard(display_settings, filter_group))
+        filter_group.addSettingCard(ChannelPowerlineFilterSettingCard(display_settings, filter_group))
 
         labels_group = SettingCardGroup("标签设置", self.scroll_widget)
         labels_group.addSettingCard(LabelManagerCard(self.settings_manager, labels_group))
@@ -89,6 +102,7 @@ class SettingsPage(QWidget):
         scroll_layout.addWidget(storage_group)
         scroll_layout.addWidget(recording_group)
         scroll_layout.addWidget(display_group)
+        scroll_layout.addWidget(filter_group)
         scroll_layout.addWidget(labels_group)
         scroll_layout.addStretch(1)
 
