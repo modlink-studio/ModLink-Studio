@@ -15,7 +15,12 @@ src_root = project_root / "src"
 entry_script = project_root / "packaging" / "app_entry.py"
 icon_path = src_root / "openbciganglionui" / "assets" / "app_icon.ico"
 
-datas = []
+datas = [
+    (
+        str(src_root / "openbciganglionui" / "assets"),
+        "openbciganglionui/assets",
+    )
+]
 binaries = []
 hiddenimports = []
 
@@ -73,3 +78,4 @@ coll = COLLECT(
     upx_exclude=[],
     name="OpenBCIGanglionUI",
 )
+
