@@ -5,7 +5,6 @@ from brainflow.data_filter import DataFilter, FilterTypes
 
 from ...settings import ChannelFilterConfig
 
-
 _MIN_FILTER_SAMPLES = 8
 
 

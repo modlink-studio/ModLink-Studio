@@ -45,13 +45,19 @@ class DisplaySettings(QObject):
         filter_order: int = 4,
         shared_filter_enabled: bool = False,
         shared_filter: ChannelFilterConfig | dict[str, Any] | None = None,
-        channel_filters: list[ChannelFilterConfig | dict[str, Any]] | tuple[ChannelFilterConfig | dict[str, Any], ...] | None = None,
+        channel_filters: (
+            list[ChannelFilterConfig | dict[str, Any]]
+            | tuple[ChannelFilterConfig | dict[str, Any], ...]
+            | None
+        ) = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self._n_channels = max(1, int(n_channels))
         self._max_samples = max(1, int(max_samples))
-        self._channel_visibility = self._normalize_channel_visibility(channel_visibility)
+        self._channel_visibility = self._normalize_channel_visibility(
+            channel_visibility
+        )
         self._y_axis_auto = bool(y_axis_auto)
         self._y_axis_lower = float(y_axis_lower)
         self._y_axis_upper = float(y_axis_upper)
@@ -248,7 +254,11 @@ class DisplaySettings(QObject):
 
     def _normalize_channel_filters(
         self,
-        channel_filters: list[ChannelFilterConfig | dict[str, Any]] | tuple[ChannelFilterConfig | dict[str, Any], ...] | None,
+        channel_filters: (
+            list[ChannelFilterConfig | dict[str, Any]]
+            | tuple[ChannelFilterConfig | dict[str, Any], ...]
+            | None
+        ),
     ) -> list[ChannelFilterConfig]:
         normalized = [ChannelFilterConfig() for _ in range(self._n_channels)]
         if channel_filters is None:
@@ -281,14 +291,25 @@ class DisplaySettings(QObject):
         return ChannelFilterConfig(
             mode=mode,
             low_cut_hz=self._normalize_positive_float(payload.get("low_cut_hz"), 1.0),
-            high_cut_hz=self._normalize_positive_float(payload.get("high_cut_hz"), 40.0),
+            high_cut_hz=self._normalize_positive_float(
+                payload.get("high_cut_hz"), 40.0
+            ),
             powerline_mode=powerline_mode,
-            notch_width_hz=self._normalize_positive_float(payload.get("notch_width_hz"), 4.0),
+            notch_width_hz=self._normalize_positive_float(
+                payload.get("notch_width_hz"), 4.0
+            ),
         )
 
     def _normalize_filter_mode(self, value: Any) -> str:
         normalized = str(value or "none").strip().lower()
-        if normalized in {"none", "lowpass", "highpass", "bandpass", "notch50", "notch60"}:
+        if normalized in {
+            "none",
+            "lowpass",
+            "highpass",
+            "bandpass",
+            "notch50",
+            "notch60",
+        }:
             return normalized
         return "none"
 

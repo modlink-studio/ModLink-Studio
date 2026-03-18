@@ -29,16 +29,24 @@ class GuidePage(QWidget):
         )
         intro_label.setWordWrap(True)
 
-        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
+        self.scroll_area = SingleDirectionScrollArea(
+            self, orient=Qt.Orientation.Vertical
+        )
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.scroll_area.setSmoothMode(SmoothMode.NO_SMOOTH)
         self.scroll_area.enableTransparentBackground()
 
         self.scroll_widget = QWidget(self.scroll_area)
         self.scroll_widget.setObjectName("guide-scroll-widget")
-        self.scroll_widget.setStyleSheet("QWidget#guide-scroll-widget { background: transparent; }")
+        self.scroll_widget.setStyleSheet(
+            "QWidget#guide-scroll-widget { background: transparent; }"
+        )
 
         scroll_layout = QVBoxLayout(self.scroll_widget)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
@@ -154,7 +162,9 @@ class GuidePage(QWidget):
         )
 
         self._add_h3(card_layout, "片段录制")
-        self._add_code_block(card_layout, "根目录 / subject_id / task_name / session_id")
+        self._add_code_block(
+            card_layout, "根目录 / subject_id / task_name / session_id"
+        )
 
         self._add_h3(card_layout, "连续录制")
         self._add_code_block(card_layout, "根目录 / subject_id / session_id")
@@ -228,13 +238,11 @@ class GuidePage(QWidget):
     ) -> None:
         parent = layout.parentWidget() or self
         code_label = CaptionLabel(text, parent)
-        code_label.setStyleSheet(
-            """
+        code_label.setStyleSheet("""
             padding: 8px 10px;
             background: rgba(0, 0, 0, 0.04);
             border: 1px solid rgba(0, 0, 0, 0.06);
             border-radius: 6px;
             font-family: Consolas;
-            """
-        )
+            """)
         layout.addWidget(code_label)

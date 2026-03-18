@@ -1,6 +1,16 @@
-# Backend Contract
+# Legacy Backend Contract
 
-This document defines the backend contract consumed by the UI layer.
+This document defines the current legacy backend contract consumed by the UI layer.
+
+The future target architecture now lives in:
+
+- `docs/platform_contract.md`
+- `docs/platform_migration_plan.md`
+
+This legacy contract remains useful while the repository is still in migration.
+New architectural work should target the future platform contract first.
+
+This document defines the backend contract consumed by the current UI layer.
 
 ## Scope
 

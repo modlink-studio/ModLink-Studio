@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import FluentIcon as FIF, TogglePushButton
 from qfluentwidgets.components.settings.setting_card import SettingCard
 
-from ....backend import DeviceState, GanglionBackendBase, RecordEvent, RecordingMode
+from ....backend import RecordingMode
+from ....session import SessionController
 from ...settings import RecordingSettings
 
 
@@ -18,7 +19,7 @@ class RecordingModeSettingCard(SettingCard):
     def __init__(
         self,
         recording_settings: RecordingSettings,
-        backend: GanglionBackendBase,
+        session_controller: SessionController,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(
@@ -28,7 +29,7 @@ class RecordingModeSettingCard(SettingCard):
             parent,
         )
         self.recording_settings = recording_settings
-        self.backend = backend
+        self.session_controller = session_controller
         self.toggle_button = TogglePushButton(self)
         self.toggle_button.setFixedWidth(120)
         self.toggle_button.setFixedHeight(32)
@@ -38,8 +39,8 @@ class RecordingModeSettingCard(SettingCard):
 
         self.toggle_button.clicked.connect(self._toggle_mode)
         self.recording_settings.recordingModeChanged.connect(self._sync_mode)
-        self.backend.sig_record.connect(self._on_record_changed)
-        self.toggle_button.setEnabled(self.backend.state != DeviceState.RECORDING)
+        self.session_controller.sig_recording.connect(self._on_record_changed)
+        self.toggle_button.setEnabled(not self.session_controller.is_recording)
         self._sync_mode(self.recording_settings.recording_mode)
 
     def _toggle_mode(self) -> None:
@@ -56,5 +57,5 @@ class RecordingModeSettingCard(SettingCard):
         self.toggle_button.setText(self._MODE_TO_TEXT.get(mode, "片段录制"))
         self.toggle_button.setIcon(None)
 
-    def _on_record_changed(self, event: RecordEvent) -> None:
+    def _on_record_changed(self, event) -> None:
         self.toggle_button.setEnabled(not event.is_recording)

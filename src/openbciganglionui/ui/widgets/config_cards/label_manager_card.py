@@ -24,8 +24,7 @@ class CountBadge(QLabel):
         super().__init__(text, parent=parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumWidth(44)
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QLabel {{
                 color: rgb(36, 72, 124);
                 background: rgba(95, 154, 255, 0.16);
@@ -34,8 +33,7 @@ class CountBadge(QLabel):
                 padding: 4px 12px;
                 font-weight: 600;
             }}
-            """
-        )
+            """)
 
 
 class LabelChip(QFrame):
@@ -61,16 +59,14 @@ class LabelChip(QFrame):
         text_font.setPointSize(11)
         text_font.setWeight(QFont.Weight.Medium)
         self.text_label.setFont(text_font)
-        self.text_label.setStyleSheet(
-            """
+        self.text_label.setStyleSheet("""
             QLabel {
                 background: transparent;
                 border: none;
                 padding: 0;
                 color: rgb(32, 32, 32);
             }
-            """
-        )
+            """)
 
         self.remove_button = QToolButton(self)
         self.remove_button.setText("×")
@@ -82,8 +78,7 @@ class LabelChip(QFrame):
         button_font.setWeight(QFont.Weight.Medium)
         self.remove_button.setFont(button_font)
         self.remove_button.clicked.connect(self._remove)
-        self.remove_button.setStyleSheet(
-            f"""
+        self.remove_button.setStyleSheet(f"""
             QToolButton {{
                 background: transparent;
                 border: none;
@@ -97,21 +92,18 @@ class LabelChip(QFrame):
             QToolButton:pressed {{
                 background: rgba(0, 0, 0, 0.12);
             }}
-            """
-        )
+            """)
 
         layout.addWidget(self.text_label)
         layout.addWidget(self.remove_button)
 
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QFrame#label-chip {{
                 background: rgb(255, 255, 255);
                 border: 1px solid rgba(0, 0, 0, 0.08);
                 border-radius: {DEFAULT_RADIUS}px;
             }}
-            """
-        )
+            """)
 
     def _remove(self) -> None:
         self.on_remove(self.label_text)
@@ -195,15 +187,13 @@ class LabelManagerDialog(QDialog):
 
         header_frame = QFrame(self)
         header_frame.setObjectName("label-manager-panel")
-        header_frame.setStyleSheet(
-            f"""
+        header_frame.setStyleSheet(f"""
             QFrame#label-manager-panel {{
                 background: rgba(255, 255, 255, 0.94);
                 border: 1px solid rgba(0, 0, 0, 0.08);
                 border-radius: {DEFAULT_RADIUS}px;
             }}
-            """
-        )
+            """)
 
         header_frame_layout = QVBoxLayout(header_frame)
         header_frame_layout.setContentsMargins(28, 24, 28, 24)
@@ -224,7 +214,9 @@ class LabelManagerDialog(QDialog):
         header_layout.addStretch(1)
         header_layout.addWidget(self.count_badge)
 
-        tip_label = QLabel("按 Enter 或点击添加按钮新增标签，点击标签右侧 × 删除。", self)
+        tip_label = QLabel(
+            "按 Enter 或点击添加按钮新增标签，点击标签右侧 × 删除。", self
+        )
         tip_label.setWordWrap(True)
         tip_label.setStyleSheet("color: rgb(96, 96, 96);")
 
@@ -234,13 +226,11 @@ class LabelManagerDialog(QDialog):
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setStyleSheet(
-            """
+        scroll_area.setStyleSheet("""
             QScrollArea {
                 background: transparent;
             }
-            """
-        )
+            """)
 
         self.label_cloud_row = LabelCloudRow(self.settings_manager.remove_label)
         self.label_cloud_row.setObjectName("label-cloud-row")
@@ -301,7 +291,9 @@ class LabelManagerCard(PushSettingCard):
 
     def _open_dialog(self) -> None:
         if self.dialog is None:
-            self.dialog = LabelManagerDialog(self.settings_manager, self.labels, self.window())
+            self.dialog = LabelManagerDialog(
+                self.settings_manager, self.labels, self.window()
+            )
             self.dialog.finished.connect(self._on_dialog_finished)
 
         self.dialog.set_labels(self.labels)

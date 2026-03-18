@@ -44,7 +44,8 @@ def discover_native_ble_devices(timeout_sec: float = 5.0) -> list[DeviceSearchRe
     devices = asyncio.run(BleakScanner.discover(timeout=max(1.0, float(timeout_sec))))
     results = [
         DeviceSearchResult(
-            name=(getattr(device, "name", None) or "BLE device").strip() or "BLE device",
+            name=(getattr(device, "name", None) or "BLE device").strip()
+            or "BLE device",
             address=(getattr(device, "address", "") or "").strip(),
             method=NATIVE_BLE_METHOD,
             mac_address=(getattr(device, "address", "") or "").strip(),
@@ -113,7 +114,9 @@ def _preferred_results(
 
 
 def _contains_any_token(parts: Iterable[str], tokens: Iterable[str]) -> bool:
-    haystack = " ".join(str(part).strip().lower() for part in parts if str(part).strip())
+    haystack = " ".join(
+        str(part).strip().lower() for part in parts if str(part).strip()
+    )
     return any(token in haystack for token in tokens)
 
 
