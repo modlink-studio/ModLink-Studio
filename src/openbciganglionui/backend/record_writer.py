@@ -34,7 +34,9 @@ class SessionRecordWriter:
         n_channels = len(request.channel_names)
         if request.data_chunks:
             full_data = np.vstack(request.data_chunks)
-            timestamps = np.arange(full_data.shape[0], dtype=np.float64) / float(request.fs)
+            timestamps = np.arange(full_data.shape[0], dtype=np.float64) / float(
+                request.fs
+            )
         else:
             full_data = np.empty((0, n_channels), dtype=np.float32)
             timestamps = np.empty((0,), dtype=np.float64)
@@ -104,7 +106,9 @@ class SessionRecordWriter:
                     if segment.end_sample_index is not None
                     else stream_sample_index
                 )
-                start_offset = (segment.start_sample_index - record_start_sample_index) / float(fs)
+                start_offset = (
+                    segment.start_sample_index - record_start_sample_index
+                ) / float(fs)
                 end_offset = (end_sample_index - record_start_sample_index) / float(fs)
                 file.write(
                     f"{segment.segment_id},{self._csv_value(segment.label)},"
@@ -125,13 +129,17 @@ class SessionRecordWriter:
             file.write(f"fs={request.fs}\n")
             file.write(f"n_channels={len(request.channel_names)}\n")
             file.write(f"channel_names={','.join(request.channel_names)}\n")
-            file.write(f"record_start_sample_index={request.record_start_sample_index}\n")
+            file.write(
+                f"record_start_sample_index={request.record_start_sample_index}\n"
+            )
             file.write(f"segment_count={len(request.segments)}\n")
             file.write(f"marker_count={len(request.markers)}\n")
             if request.marker_codebook:
                 encoded = ";".join(
                     f"{self._csv_value(label)}:{float(code):.1f}"
-                    for label, code in sorted(request.marker_codebook.items(), key=lambda item: item[1])
+                    for label, code in sorted(
+                        request.marker_codebook.items(), key=lambda item: item[1]
+                    )
                 )
                 file.write(f"marker_codebook={encoded}\n")
 

@@ -100,9 +100,13 @@ class SettingsManager(QObject):
 
     def _connect_persistence(self) -> None:
         self.display_settings.maxSamplesChanged.connect(self._save_display_settings)
-        self.display_settings.channelVisibilityChanged.connect(self._save_display_settings)
+        self.display_settings.channelVisibilityChanged.connect(
+            self._save_display_settings
+        )
         self.display_settings.yAxisAutoChanged.connect(self._save_display_settings)
         self.display_settings.yAxisBoundsChanged.connect(self._save_display_settings)
         self.display_settings.plotHeightChanged.connect(self._save_display_settings)
         self.display_settings.filterSettingsChanged.connect(self._save_display_settings)
-        self.recording_settings.recordingModeChanged.connect(self._save_recording_settings)
+        self.recording_settings.recordingModeChanged.connect(
+            self._save_recording_settings
+        )

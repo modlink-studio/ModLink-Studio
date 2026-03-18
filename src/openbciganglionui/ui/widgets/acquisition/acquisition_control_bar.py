@@ -61,15 +61,13 @@ class BaseAcquisitionControlBar(QFrame):
         self.display_paused = False
 
         self.setObjectName(object_name)
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QFrame#{object_name} {{
                 background: rgba(255, 255, 255, 0.78);
                 border: 1px solid rgba(0, 0, 0, 0.08);
                 border-radius: {DEFAULT_RADIUS}px;
             }}
-            """
-        )
+            """)
 
         self.control_layout = QVBoxLayout(self)
         self.control_layout.setContentsMargins(18, 16, 18, 16)
@@ -136,7 +134,9 @@ class BaseAcquisitionControlBar(QFrame):
         self.label_selector.clear()
         self.label_selector.addItems(self.available_labels)
 
-        target = current if current in self.available_labels else self.available_labels[0]
+        target = (
+            current if current in self.available_labels else self.available_labels[0]
+        )
         self.label_selector.setCurrentText(target)
         self.label_selector.blockSignals(False)
 
@@ -191,8 +191,14 @@ class BaseAcquisitionControlBar(QFrame):
         self.set_display_paused(not self.display_paused)
 
     def _sync_buttons(self) -> None:
-        can_record = self.current_state in {DeviceState.PREVIEWING, DeviceState.RECORDING}
-        can_pause = self.current_state in {DeviceState.PREVIEWING, DeviceState.RECORDING}
+        can_record = self.current_state in {
+            DeviceState.PREVIEWING,
+            DeviceState.RECORDING,
+        }
+        can_pause = self.current_state in {
+            DeviceState.PREVIEWING,
+            DeviceState.RECORDING,
+        }
 
         self.record_button.setEnabled(can_record)
         self.pause_button.setEnabled(can_pause or self.display_paused)

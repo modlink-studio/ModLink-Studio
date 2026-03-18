@@ -192,14 +192,19 @@ class SignalCanvas(QWidget):
 
         if self._channel_names != chunk.channel_names:
             self._channel_names = tuple(chunk.channel_names)
-            self._y_buffers = [deque(maxlen=self.max_samples) for _ in self._channel_names]
+            self._y_buffers = [
+                deque(maxlen=self.max_samples) for _ in self._channel_names
+            ]
             self.clear()
 
         n_samples = int(chunk.data.shape[0])
         if n_samples <= 0:
             return
 
-        if self._last_sample_index is not None and chunk.sample_index0 <= self._last_sample_index:
+        if (
+            self._last_sample_index is not None
+            and chunk.sample_index0 <= self._last_sample_index
+        ):
             self.clear()
 
         self._sampling_rate_hz = float(chunk.fs)
@@ -230,7 +235,10 @@ class SignalCanvas(QWidget):
         if event.action == "stopped":
             for index in range(len(self._segments) - 1, -1, -1):
                 start_sample_index, end_sample_index, label = self._segments[index]
-                if end_sample_index is None and start_sample_index == event.start_sample_index:
+                if (
+                    end_sample_index is None
+                    and start_sample_index == event.start_sample_index
+                ):
                     self._segments[index] = (
                         start_sample_index,
                         event.end_sample_index,
@@ -255,7 +263,9 @@ class SignalCanvas(QWidget):
     def update_record_state(self, event: RecordEvent) -> None:
         anchor = event.sample_index
         if anchor is None:
-            anchor = self._last_sample_index if self._last_sample_index is not None else 0
+            anchor = (
+                self._last_sample_index if self._last_sample_index is not None else 0
+            )
 
         if event.is_recording:
             if self._record_regions and self._record_regions[-1][1] is None:
@@ -341,7 +351,9 @@ class SignalCanvas(QWidget):
             return
 
         x = np.fromiter(self._x_buffer, dtype=np.float64)
-        raw_channels = [np.fromiter(buffer, dtype=np.float32) for buffer in self._y_buffers]
+        raw_channels = [
+            np.fromiter(buffer, dtype=np.float32) for buffer in self._y_buffers
+        ]
         y_channels = [
             self._filter_channel_data(index, values)
             for index, values in enumerate(raw_channels)
@@ -398,7 +410,11 @@ class SignalCanvas(QWidget):
 
             path = QPainterPath()
             for sample_idx, (sample_x, sample_y) in enumerate(zip(x, mapped_y)):
-                px = channel_rect.left() + ((float(sample_x) - visible_start) / x_span) * channel_rect.width()
+                px = (
+                    channel_rect.left()
+                    + ((float(sample_x) - visible_start) / x_span)
+                    * channel_rect.width()
+                )
                 py = float(sample_y)
                 if sample_idx == 0:
                     path.moveTo(px, py)
@@ -476,8 +492,12 @@ class SignalCanvas(QWidget):
             if region_end < visible_start or start_index > visible_end:
                 continue
 
-            x0 = self._sample_to_x(rect, max(start_index, visible_start), visible_start, visible_end)
-            x1 = self._sample_to_x(rect, min(region_end, visible_end), visible_start, visible_end)
+            x0 = self._sample_to_x(
+                rect, max(start_index, visible_start), visible_start, visible_end
+            )
+            x1 = self._sample_to_x(
+                rect, min(region_end, visible_end), visible_start, visible_end
+            )
 
             if end_index is None:
                 x1 = rect.right()
@@ -524,7 +544,9 @@ class SignalCanvas(QWidget):
             if marker.sample_index < visible_start or marker.sample_index > visible_end:
                 continue
 
-            marker_x = self._sample_to_x(rect, marker.sample_index, visible_start, visible_end)
+            marker_x = self._sample_to_x(
+                rect, marker.sample_index, visible_start, visible_end
+            )
             painter.setPen(marker_pen)
             painter.drawLine(QLineF(marker_x, rect.top(), marker_x, rect.bottom()))
 
@@ -556,8 +578,12 @@ class SignalCanvas(QWidget):
             if region_end < visible_start or start_index > visible_end:
                 continue
 
-            x0 = self._sample_to_x(rect, max(start_index, visible_start), visible_start, visible_end)
-            x1 = self._sample_to_x(rect, min(region_end, visible_end), visible_start, visible_end)
+            x0 = self._sample_to_x(
+                rect, max(start_index, visible_start), visible_start, visible_end
+            )
+            x1 = self._sample_to_x(
+                rect, min(region_end, visible_end), visible_start, visible_end
+            )
 
             if end_index is None:
                 x1 = rect.right()
@@ -603,7 +629,9 @@ class SignalCanvas(QWidget):
         margin = channel_rect.height() * 0.16
         return channel_rect.adjusted(0, margin, 0, -margin)
 
-    def _map_channel_values_to_y(self, signal_rect: QRectF, values: np.ndarray) -> np.ndarray:
+    def _map_channel_values_to_y(
+        self, signal_rect: QRectF, values: np.ndarray
+    ) -> np.ndarray:
         if self._y_axis_auto:
             centered = values - float(np.mean(values))
             amplitude = float(np.max(np.abs(centered))) if centered.size else 0.0
@@ -714,15 +742,13 @@ class StreamPlotWidget(QFrame):
         self._max_plot_height = 900
 
         self.setObjectName("stream-plot-widget")
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QFrame#stream-plot-widget {{
                 background: rgba(255, 255, 255, 0.78);
                 border: 1px solid rgba(0, 0, 0, 0.08);
                 border-radius: {DEFAULT_RADIUS}px;
             }}
-            """
-        )
+            """)
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(20, 18, 20, 18)
@@ -752,13 +778,19 @@ class StreamPlotWidget(QFrame):
                 self.display_settings.shared_filter_config,
                 self.display_settings.channel_filter_configs,
             )
-            self.display_settings.maxSamplesChanged.connect(self._on_max_samples_changed)
+            self.display_settings.maxSamplesChanged.connect(
+                self._on_max_samples_changed
+            )
             self.display_settings.channelVisibilityChanged.connect(
                 self._on_channel_visibility_changed
             )
             self.display_settings.yAxisAutoChanged.connect(self._on_y_axis_auto_changed)
-            self.display_settings.yAxisBoundsChanged.connect(self._on_y_axis_bounds_changed)
-            self.display_settings.filterSettingsChanged.connect(self._on_filter_settings_changed)
+            self.display_settings.yAxisBoundsChanged.connect(
+                self._on_y_axis_bounds_changed
+            )
+            self.display_settings.filterSettingsChanged.connect(
+                self._on_filter_settings_changed
+            )
             self.display_settings.plotHeightChanged.connect(self._apply_plot_height)
 
         plot_layout = QVBoxLayout()
@@ -772,7 +804,9 @@ class StreamPlotWidget(QFrame):
         root_layout.addLayout(plot_layout, 1)
         self.resize_handle.dragDelta.connect(self._resize_by_delta)
         self._apply_plot_height(
-            self.display_settings.plot_height if self.display_settings is not None else 380
+            self.display_settings.plot_height
+            if self.display_settings is not None
+            else 380
         )
         self._update_status_text()
 
@@ -870,7 +904,9 @@ class StreamPlotWidget(QFrame):
         )
 
     def _apply_plot_height(self, height: int, persist: bool = False) -> None:
-        normalized = max(self._minimum_total_height(), min(self._max_plot_height, int(height)))
+        normalized = max(
+            self._minimum_total_height(), min(self._max_plot_height, int(height))
+        )
         if self.height() != normalized:
             self.setFixedHeight(normalized)
         if persist and self.display_settings is not None:
@@ -885,7 +921,11 @@ class StreamPlotWidget(QFrame):
         )
         pause_info = " | 显示已暂停" if self._is_paused else ""
 
-        if self.canvas.has_samples and self._last_seq is not None and self._last_fs is not None:
+        if (
+            self.canvas.has_samples
+            and self._last_seq is not None
+            and self._last_fs is not None
+        ):
             self.status_label.setText(
                 f"状态: {self._current_state} | 设备: {self._device_name} | "
                 f"seq: {self._last_seq} | fs: {self._last_fs:.1f} Hz | {display_info}{pause_info}"

@@ -95,7 +95,9 @@ class ChannelToggleRow(QWidget):
         self.check_box.setChecked(is_checked)
         self.state_label.setText("ON" if is_checked else "OFF")
         self.state_label.setStyleSheet(
-            "color: rgba(0, 0, 0, 0.72);" if is_checked else "color: rgba(0, 0, 0, 0.48);"
+            "color: rgba(0, 0, 0, 0.72);"
+            if is_checked
+            else "color: rgba(0, 0, 0, 0.48);"
         )
 
     def is_checked(self) -> bool:
@@ -284,7 +286,11 @@ class BandFilterEditorRow(QWidget):
 
         for widget in (self.low_cut_label, self.low_cut_spin, self.low_cut_unit_label):
             widget.setVisible(show_low_cut)
-        for widget in (self.high_cut_label, self.high_cut_spin, self.high_cut_unit_label):
+        for widget in (
+            self.high_cut_label,
+            self.high_cut_spin,
+            self.high_cut_unit_label,
+        ):
             widget.setVisible(show_high_cut)
 
 
@@ -477,7 +483,9 @@ class FilterFamilySettingCard(SettingCard):
         )
         self.display_settings = display_settings
         self.combo_box = ComboBox(self)
-        self.combo_box.addItems([self.FILTER_LABELS[item] for item in self.FILTER_ORDER])
+        self.combo_box.addItems(
+            [self.FILTER_LABELS[item] for item in self.FILTER_ORDER]
+        )
         self.combo_box.setFixedWidth(220)
 
         self.hBoxLayout.addWidget(self.combo_box, 0, Qt.AlignmentFlag.AlignRight)
@@ -832,7 +840,9 @@ class YAxisRangeSettingCard(WheelPassthroughExpandGroupSettingCard):
         self.mode_row.toggle_button.blockSignals(True)
         self.mode_row.toggle_button.setChecked(not is_auto)
         self.mode_row.toggle_button.blockSignals(False)
-        self.mode_row.toggle_button.setText(self.AUTO_TEXT if is_auto else self.FIXED_TEXT)
+        self.mode_row.toggle_button.setText(
+            self.AUTO_TEXT if is_auto else self.FIXED_TEXT
+        )
         self.mode_row.toggle_button.setIcon(None)
 
         self._refresh_groups()

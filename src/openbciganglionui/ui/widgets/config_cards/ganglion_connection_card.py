@@ -39,8 +39,7 @@ class StatusBadge(QLabel):
             DeviceState.RECORDING,
         }:
             self.setText("Connected")
-            self.setStyleSheet(
-                f"""
+            self.setStyleSheet(f"""
                 QLabel {{
                     color: rgb(15, 94, 54);
                     background: rgba(70, 201, 125, 0.18);
@@ -49,14 +48,12 @@ class StatusBadge(QLabel):
                     padding: 4px 12px;
                     font-weight: 600;
                 }}
-                """
-            )
+                """)
             return
 
         if state == DeviceState.CONNECTING:
             self.setText("Connecting")
-            self.setStyleSheet(
-                f"""
+            self.setStyleSheet(f"""
                 QLabel {{
                     color: rgb(138, 89, 0);
                     background: rgba(255, 197, 61, 0.18);
@@ -65,14 +62,12 @@ class StatusBadge(QLabel):
                     padding: 4px 12px;
                     font-weight: 600;
                 }}
-                """
-            )
+                """)
             return
 
         if state == DeviceState.DISCONNECTING:
             self.setText("Disconnecting")
-            self.setStyleSheet(
-                f"""
+            self.setStyleSheet(f"""
                 QLabel {{
                     color: rgb(90, 67, 15);
                     background: rgba(255, 214, 102, 0.18);
@@ -81,16 +76,14 @@ class StatusBadge(QLabel):
                     padding: 4px 12px;
                     font-weight: 600;
                 }}
-                """
-            )
+                """)
             return
 
         self._set_disconnected_style()
 
     def _set_disconnected_style(self) -> None:
         self.setText("Disconnected")
-        self.setStyleSheet(
-            f"""
+        self.setStyleSheet(f"""
             QLabel {{
                 color: rgb(122, 33, 43);
                 background: rgba(255, 99, 99, 0.14);
@@ -99,8 +92,7 @@ class StatusBadge(QLabel):
                 padding: 4px 12px;
                 font-weight: 600;
             }}
-            """
-        )
+            """)
 
 
 class DeviceInfoWidget(QWidget):
@@ -139,7 +131,9 @@ class RowContainer(QWidget):
 
 
 class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
-    def __init__(self, backend: GanglionBackendBase, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, backend: GanglionBackendBase, parent: QWidget | None = None
+    ) -> None:
         super().__init__(
             FIF.BLUETOOTH,
             "Ganglion 连接",
@@ -286,7 +280,9 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
     def _on_state_changed(self, event: StateEvent) -> None:
         self.current_state = event.state
         self.current_device_name = event.device_name or self.current_device_name
-        self.current_device_address = event.device_address or self.current_device_address
+        self.current_device_address = (
+            event.device_address or self.current_device_address
+        )
         self.status_badge.set_state(event.state)
         if not self._shows_connection_panel():
             self.current_device_address = ""
@@ -337,11 +333,16 @@ class GanglionConnectionCard(WheelPassthroughExpandGroupSettingCard):
         return " · ".join(parts)
 
     def _sync_action_state(self) -> None:
-        is_busy = self.current_state in {DeviceState.CONNECTING, DeviceState.DISCONNECTING}
+        is_busy = self.current_state in {
+            DeviceState.CONNECTING,
+            DeviceState.DISCONNECTING,
+        }
         is_connected = self._is_connected()
         self.connection_method_combo.setEnabled(
             not is_busy and not is_connected and not self.is_searching
         )
-        self.search_button.setEnabled(not is_busy and not is_connected and not self.is_searching)
+        self.search_button.setEnabled(
+            not is_busy and not is_connected and not self.is_searching
+        )
         self.disconnect_button.setEnabled(not is_busy and is_connected)
         self.search_button.setText("Searching..." if self.is_searching else "Search")

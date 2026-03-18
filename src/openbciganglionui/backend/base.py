@@ -6,7 +6,13 @@ from .models import ConnectConfig, DeviceState, RecordSession
 
 
 class GanglionBackendBase(QObject):
-    """Contract for all backend implementations used by the UI layer.
+    """Deprecated legacy runtime contract for the current UI layer.
+
+    Deprecated:
+    - New platform integrations should target ``core.contracts.device.DeviceAdapter``.
+    - Session-facing behavior should move toward ``core.contracts.session.SessionControllerBase``.
+
+    Legacy contract for all backend implementations used by the UI layer.
 
     The UI is allowed to do exactly two kinds of things with a backend object:
 

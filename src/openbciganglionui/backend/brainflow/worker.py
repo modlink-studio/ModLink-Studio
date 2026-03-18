@@ -93,7 +93,8 @@ class BrainFlowWorker(QObject):
                     self._board_id = int(attempt.board_id)
                     self._connection_method = str(config.connection_method).strip()
                     self._eeg_channels = tuple(
-                        int(index) for index in BoardShim.get_eeg_channels(attempt.board_id)
+                        int(index)
+                        for index in BoardShim.get_eeg_channels(attempt.board_id)
                     )
                     self._fs = float(BoardShim.get_sampling_rate(attempt.board_id))
                     self._channel_names = self._resolve_channel_names(
@@ -108,7 +109,8 @@ class BrainFlowWorker(QObject):
                             fs=self._fs,
                             channel_names=self._channel_names,
                             device_name=self._resolve_device_name(config),
-                            device_address=attempt.display_address or self._resolve_device_address(config),
+                            device_address=attempt.display_address
+                            or self._resolve_device_address(config),
                         )
                     )
                     return
@@ -120,7 +122,9 @@ class BrainFlowWorker(QObject):
                         except Exception:
                             pass
 
-            raise RuntimeError(" | ".join(attempt_errors) or "no connection attempts were generated")
+            raise RuntimeError(
+                " | ".join(attempt_errors) or "no connection attempts were generated"
+            )
         except Exception as exc:
             self._teardown_session()
             self.sig_error.emit(
@@ -311,9 +315,13 @@ class BrainFlowWorker(QObject):
 
     def _require_brainflow(self) -> None:
         if BoardShim is None or BrainFlowInputParams is None or BoardIds is None:
-            raise RuntimeError("brainflow is not installed") from _BRAINFLOW_IMPORT_ERROR
+            raise RuntimeError(
+                "brainflow is not installed"
+            ) from _BRAINFLOW_IMPORT_ERROR
 
-    def _build_connection_attempts(self, config: ConnectConfig) -> list[ConnectionAttempt]:
+    def _build_connection_attempts(
+        self, config: ConnectConfig
+    ) -> list[ConnectionAttempt]:
         method = str(config.connection_method).strip() or NATIVE_BLE_METHOD
         if method == DONGLE_METHOD:
             params = BrainFlowInputParams()
@@ -351,8 +359,7 @@ class BrainFlowWorker(QObject):
             params.serial_number = serial_number
 
             description = (
-                f"Ganglion Native fw={firmware_hint} "
-                f"serial_number={serial_number}"
+                f"Ganglion Native fw={firmware_hint} " f"serial_number={serial_number}"
             )
             attempts.append(
                 ConnectionAttempt(

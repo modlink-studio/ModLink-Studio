@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import threading
 import time
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 from PyQt6.QtCore import QCoreApplication, QMetaObject, QObject, QThread, Qt, pyqtSignal
 
 from ..base import GanglionBackendBase
@@ -17,20 +15,14 @@ from ..models import (
     DeviceState,
     ErrorEvent,
     LabelsEvent,
-    MarkerEvent,
-    RecordEvent,
-    RecordingMode,
-    RecordSegment,
     RecordSession,
     SaveDirEvent,
     SearchEvent,
-    SegmentEvent,
     StateEvent,
     StreamChunk,
 )
-from ..record_writer import RecordWriteRequest, SessionRecordWriter
 from .discovery import DONGLE_METHOD, NATIVE_BLE_METHOD, discover_devices
-from .marker_codec import MarkerCodec
+from .recording_session import BrainFlowRecordingSessionService
 from .worker import BrainFlowWorker, WorkerChunk, WorkerConnectionInfo, WorkerFailure
 
 
@@ -49,7 +41,10 @@ class _SearchFailed:
 
 
 class BrainFlowGanglionBackend(GanglionBackendBase):
-    """BrainFlow-powered backend that preserves the UI-facing backend contract."""
+    """Deprecated legacy BrainFlow backend used by the transitional UI.
+
+    New device-facing integrations should prefer ``adapters.BrainFlowGanglionAdapter``.
+    """
 
     _request_connect = pyqtSignal(object)
     _request_start_preview = pyqtSignal(int)
@@ -76,15 +71,15 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
         self._seq = 0
         self._sample_index = 0
 
-        self._is_recording = False
-        self._record_session: Optional[RecordSession] = None
-        self._record_buffer: list[np.ndarray] = []
-        self._markers: list[MarkerEvent] = []
-        self._segments: list[RecordSegment] = []
-        self._active_segment: Optional[RecordSegment] = None
-        self._record_start_sample_index = 0
-        self._record_writer = SessionRecordWriter()
-        self._marker_codec = MarkerCodec()
+        self._recording_service = BrainFlowRecordingSessionService(
+            emit_record=self.sig_record.emit,
+            emit_marker=self.sig_marker.emit,
+            emit_segment=self.sig_segment.emit,
+            emit_error=self.sig_error.emit,
+            emit_fatal_error=self._emit_error,
+            request_insert_marker=self._request_insert_marker.emit,
+            set_state=self._set_state,
+        )
 
         self._search_token = 0
         self._is_searching = False
@@ -248,7 +243,7 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
         }:
             return
 
-        if self._is_recording:
+        if self._recording_service.is_recording:
             self.stop_record()
 
         self._set_state(DeviceState.DISCONNECTING, "正在断开设备...")
@@ -264,188 +259,52 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
         if self._state not in {DeviceState.PREVIEWING, DeviceState.RECORDING}:
             return
 
-        if self._is_recording:
+        if self._recording_service.is_recording:
             self.stop_record()
 
         self._request_stop_preview.emit()
 
     def start_record(self, session: Optional[RecordSession] = None) -> None:
-        if self._state != DeviceState.PREVIEWING:
-            return
-
-        if session is None:
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            session = RecordSession(
-                session_id=timestamp,
-                save_dir=self._default_save_dir,
-                subject_id=f"session_{timestamp}",
-                task_name="default_label",
-            )
-
-        built_session = self._build_record_session(session)
-
-        try:
-            Path(built_session.save_dir).mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            self._emit_error(
-                code="RECORD_DIR_ERROR",
-                message="无法创建录制目录",
-                detail=str(exc),
-            )
-            return
-
-        self._record_session = built_session
-        self._record_buffer.clear()
-        self._markers.clear()
-        self._segments.clear()
-        self._active_segment = None
-        self._marker_codec = MarkerCodec()
-        self._is_recording = True
-        self._record_start_sample_index = self._sample_index
-
-        self.sig_record.emit(
-            RecordEvent(
-                is_recording=True,
-                ts=time.time(),
-                session_id=built_session.session_id,
-                save_dir=built_session.save_dir,
-                sample_index=self._sample_index,
-                recording_mode=built_session.recording_mode,
-            )
+        self._recording_service.start_record(
+            session,
+            current_state=self._state,
+            default_save_dir=self._default_save_dir,
+            sample_index=self._sample_index,
         )
-        message = (
-            "开始片段录制"
-            if built_session.recording_mode == RecordingMode.CLIP
-            else "开始连续录制"
-        )
-        self._set_state(DeviceState.RECORDING, message)
 
     def stop_record(self) -> None:
-        if not self._is_recording:
-            return
-
-        if (
-            self._record_session is not None
-            and self._record_session.recording_mode == RecordingMode.CONTINUOUS
-        ):
-            self.stop_segment(note="auto_closed_on_stop", source="system")
-
-        self._persist_record_buffer()
-
-        session = self._record_session
-        self._is_recording = False
-        self._record_session = None
-        self._record_buffer.clear()
-        self._active_segment = None
-
-        self.sig_record.emit(
-            RecordEvent(
-                is_recording=False,
-                ts=time.time(),
-                session_id=session.session_id if session else None,
-                save_dir=session.save_dir if session else None,
-                sample_index=self._sample_index,
-                recording_mode=session.recording_mode if session else RecordingMode.CLIP,
-            )
+        self._recording_service.stop_record(
+            current_state=self._state,
+            sample_index=self._sample_index,
+            fs=self._fs,
+            channel_names=self._channel_names,
         )
-
-        if self._state == DeviceState.DISCONNECTING:
-            return
-        self._set_state(DeviceState.PREVIEWING, "停止录制")
 
     def add_marker(self, label: str, note: str = "", source: str = "ui") -> None:
-        if self._state != DeviceState.RECORDING or self._record_session is None:
-            return
-
-        if self._record_session.recording_mode != RecordingMode.CLIP:
-            return
-
-        normalized_label = label.strip() or "marker"
-        event = MarkerEvent(
-            marker_id=f"m_{uuid.uuid4().hex[:8]}",
-            label=normalized_label,
-            wall_time=time.time(),
+        self._recording_service.add_marker(
+            label,
+            note,
+            source,
+            current_state=self._state,
             sample_index=self._sample_index,
-            note=note,
-            source=source,
         )
-        self._markers.append(event)
-        self.sig_marker.emit(event)
-
-        try:
-            self._request_insert_marker.emit(self._marker_codec.encode(normalized_label))
-        except ValueError:
-            pass
 
     def start_segment(self, label: str, note: str = "", source: str = "ui") -> None:
-        if self._state != DeviceState.RECORDING or self._record_session is None:
-            return
-
-        if self._record_session.recording_mode != RecordingMode.CONTINUOUS:
-            return
-
-        if self._active_segment is not None:
-            return
-
-        normalized_label = self._normalize_record_component(label, fallback="default_label")
-        event_time = time.time()
-        segment = RecordSegment(
-            segment_id=f"s_{uuid.uuid4().hex[:8]}",
-            label=normalized_label,
-            start_sample_index=self._sample_index,
-            started_at=event_time,
-            note=note,
-            source=source,
-        )
-        self._segments.append(segment)
-        self._active_segment = segment
-        self.sig_segment.emit(
-            SegmentEvent(
-                action="started",
-                segment_id=segment.segment_id,
-                label=segment.label,
-                ts=event_time,
-                start_sample_index=segment.start_sample_index,
-                session_id=self._record_session.session_id,
-                note=segment.note,
-                source=segment.source,
-            )
+        self._recording_service.start_segment(
+            label,
+            note,
+            source,
+            current_state=self._state,
+            sample_index=self._sample_index,
         )
 
     def stop_segment(self, note: str = "", source: str = "ui") -> None:
-        if self._state != DeviceState.RECORDING or self._record_session is None:
-            return
-
-        if self._record_session.recording_mode != RecordingMode.CONTINUOUS:
-            return
-
-        if self._active_segment is None:
-            return
-
-        event_time = time.time()
-        self._active_segment.end_sample_index = self._sample_index
-        self._active_segment.ended_at = event_time
-        if note:
-            self._active_segment.note = (
-                f"{self._active_segment.note} | {note}"
-                if self._active_segment.note
-                else note
-            )
-
-        self.sig_segment.emit(
-            SegmentEvent(
-                action="stopped",
-                segment_id=self._active_segment.segment_id,
-                label=self._active_segment.label,
-                ts=event_time,
-                start_sample_index=self._active_segment.start_sample_index,
-                end_sample_index=self._active_segment.end_sample_index,
-                session_id=self._record_session.session_id,
-                note=self._active_segment.note,
-                source=source,
-            )
+        self._recording_service.stop_segment(
+            note,
+            source,
+            current_state=self._state,
+            sample_index=self._sample_index,
         )
-        self._active_segment = None
 
     def _run_search(self, method: str, token: int) -> None:
         try:
@@ -455,9 +314,13 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
                     timeout_sec=min(5.0, float(self._config.timeout_sec)),
                 )
             )
-            self._search_completed.emit(_SearchCompleted(method=method, token=token, results=results))
+            self._search_completed.emit(
+                _SearchCompleted(method=method, token=token, results=results)
+            )
         except Exception as exc:
-            self._search_failed.emit(_SearchFailed(method=method, token=token, detail=str(exc)))
+            self._search_failed.emit(
+                _SearchFailed(method=method, token=token, detail=str(exc))
+            )
 
     def _on_search_completed(self, payload: _SearchCompleted) -> None:
         if payload.token != self._search_token:
@@ -533,8 +396,7 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
         self._seq += 1
         self._sample_index += n_samples
 
-        if self._is_recording:
-            self._record_buffer.append(payload.data.copy())
+        self._recording_service.append_stream_chunk(payload.data)
 
         self.sig_stream.emit(chunk)
 
@@ -558,8 +420,13 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
         if not failure.transition_to_error:
             return
 
-        if self._is_recording:
-            self._finalize_recording_after_error()
+        if self._recording_service.is_recording:
+            self._recording_service.finalize_after_error(
+                current_state=self._state,
+                sample_index=self._sample_index,
+                fs=self._fs,
+                channel_names=self._channel_names,
+            )
 
         self._state = DeviceState.ERROR
         self.sig_state.emit(
@@ -570,89 +437,6 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
                 device_name=self._device_name,
                 device_address=self._device_address,
             )
-        )
-
-    def _persist_record_buffer(self) -> None:
-        if self._record_session is None:
-            return
-
-        try:
-            self._record_writer.write(
-                RecordWriteRequest(
-                    session=self._record_session,
-                    fs=self._fs,
-                    channel_names=self._channel_names,
-                    record_start_sample_index=self._record_start_sample_index,
-                    stream_sample_index=self._sample_index,
-                    data_chunks=tuple(self._record_buffer),
-                    markers=tuple(self._markers),
-                    segments=tuple(self._segments),
-                    marker_codebook=self._marker_codec.snapshot(),
-                )
-            )
-        except Exception as exc:
-            self.sig_error.emit(
-                ErrorEvent(
-                    code="RECORD_WRITE_ERROR",
-                    message="录制文件写入失败",
-                    ts=time.time(),
-                    detail=str(exc),
-                    recoverable=True,
-                )
-            )
-
-    def _finalize_recording_after_error(self) -> None:
-        if not self._is_recording:
-            return
-
-        if (
-            self._record_session is not None
-            and self._record_session.recording_mode == RecordingMode.CONTINUOUS
-            and self._active_segment is not None
-        ):
-            self.stop_segment(note="auto_closed_on_error", source="system")
-
-        self._persist_record_buffer()
-        session = self._record_session
-        self._is_recording = False
-        self._record_session = None
-        self._record_buffer.clear()
-        self._active_segment = None
-        self.sig_record.emit(
-            RecordEvent(
-                is_recording=False,
-                ts=time.time(),
-                session_id=session.session_id if session else None,
-                save_dir=session.save_dir if session else None,
-                sample_index=self._sample_index,
-                recording_mode=session.recording_mode if session else RecordingMode.CLIP,
-            )
-        )
-
-    def _build_record_session(self, session: RecordSession) -> RecordSession:
-        recording_mode = self._normalize_recording_mode(session.recording_mode)
-        default_task_name = (
-            "default_label" if recording_mode == RecordingMode.CLIP else "continuous_session"
-        )
-
-        session_id = self._normalize_record_component(
-            session.session_id,
-            fallback=time.strftime("%Y%m%d_%H%M%S"),
-        )
-        return RecordSession(
-            session_id=session_id,
-            save_dir=session.save_dir or self._default_save_dir,
-            subject_id=self._normalize_record_component(
-                session.subject_id,
-                fallback=f"session_{session_id}",
-            ),
-            task_name=self._normalize_record_component(
-                session.task_name,
-                fallback=default_task_name,
-            ),
-            recording_mode=recording_mode,
-            operator=session.operator,
-            notes=session.notes,
         )
 
     def _preview_interval_ms(self) -> int:
@@ -700,25 +484,6 @@ class BrainFlowGanglionBackend(GanglionBackendBase):
                 message=message,
             )
         )
-
-    def _normalize_recording_mode(self, value: RecordingMode | str) -> RecordingMode:
-        if isinstance(value, RecordingMode):
-            return value
-        try:
-            return RecordingMode(str(value).strip())
-        except ValueError:
-            return RecordingMode.CLIP
-
-    def _normalize_record_component(self, value: str, fallback: str) -> str:
-        normalized = str(value).strip()
-        if not normalized:
-            normalized = fallback
-
-        for char in '<>:"/\\|?*':
-            normalized = normalized.replace(char, "_")
-
-        normalized = normalized.rstrip(". ")
-        return normalized or fallback
 
     def _set_state(self, state: DeviceState, message: str = "") -> None:
         self._state = state

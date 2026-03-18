@@ -19,14 +19,11 @@ from qfluentwidgets import (
 from ...backend import (
     DeviceState,
     GanglionBackendBase,
-    MarkerEvent,
-    RecordEvent,
     RecordingMode,
-    RecordSession,
-    SegmentEvent,
     StateEvent,
     StreamChunk,
 )
+from ...session import SessionController
 from ..settings import SettingsManager
 from ..widgets import (
     ClipAcquisitionControlBar,
@@ -39,11 +36,13 @@ class AcquisitionPage(QWidget):
     def __init__(
         self,
         backend: GanglionBackendBase,
+        session_controller: SessionController,
         settings_manager: SettingsManager,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self.backend = backend
+        self.session_controller = session_controller
         self.settings_manager = settings_manager
         self.display_settings = settings_manager.display_settings
         self.recording_settings = settings_manager.recording_settings
@@ -65,10 +64,16 @@ class AcquisitionPage(QWidget):
         root_layout.addWidget(header_label)
         root_layout.addWidget(intro_label)
 
-        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
+        self.scroll_area = SingleDirectionScrollArea(
+            self, orient=Qt.Orientation.Vertical
+        )
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.scroll_area.setSmoothMode(SmoothMode.NO_SMOOTH)
         self.scroll_area.enableTransparentBackground()
 
@@ -84,7 +89,9 @@ class AcquisitionPage(QWidget):
 
         self.default_save_dir = self.settings_manager.default_save_dir
         initial_labels = self.settings_manager.labels
-        self.clip_control_bar = ClipAcquisitionControlBar(initial_labels, self.scroll_widget)
+        self.clip_control_bar = ClipAcquisitionControlBar(
+            initial_labels, self.scroll_widget
+        )
         self.continuous_control_bar = ContinuousAcquisitionControlBar(
             initial_labels, self.scroll_widget
         )
@@ -96,12 +103,20 @@ class AcquisitionPage(QWidget):
         for control_bar in (self.clip_control_bar, self.continuous_control_bar):
             control_bar.set_state(self.current_state)
             control_bar.startRecordRequested.connect(self._start_recording)
-            control_bar.stopRecordRequested.connect(self.backend.stop_record)
+            control_bar.stopRecordRequested.connect(
+                self.session_controller.stop_acquisition
+            )
             control_bar.displayPauseChanged.connect(self._set_display_paused)
 
-        self.clip_control_bar.markerRequested.connect(self.backend.add_marker)
-        self.continuous_control_bar.startSegmentRequested.connect(self.backend.start_segment)
-        self.continuous_control_bar.stopSegmentRequested.connect(self.backend.stop_segment)
+        self.clip_control_bar.markerRequested.connect(
+            self.session_controller.add_marker
+        )
+        self.continuous_control_bar.startSegmentRequested.connect(
+            self.session_controller.start_segment
+        )
+        self.continuous_control_bar.stopSegmentRequested.connect(
+            self.session_controller.stop_segment
+        )
 
         self.stream_plot = StreamPlotWidget(
             max_samples=self.display_settings.max_samples,
@@ -116,11 +131,13 @@ class AcquisitionPage(QWidget):
         self.scroll_area.setWidget(self.scroll_widget)
         root_layout.addWidget(self.scroll_area, 1)
 
-        self.backend.sig_record.connect(self._on_record_changed)
-        self.backend.sig_marker.connect(self._on_marker_added)
-        self.backend.sig_segment.connect(self._on_segment_changed)
+        self.session_controller.sig_recording.connect(self._on_record_changed)
+        self.session_controller.sig_marker.connect(self._on_marker_added)
+        self.session_controller.sig_segment.connect(self._on_segment_changed)
         self.backend.sig_stream.connect(self._on_stream_received)
-        self.recording_settings.recordingModeChanged.connect(self._on_recording_mode_changed)
+        self.recording_settings.recordingModeChanged.connect(
+            self._on_recording_mode_changed
+        )
         self.settings_manager.labelsChanged.connect(self._on_labels_changed)
         self.settings_manager.saveDirChanged.connect(self._on_save_dir_changed)
 
@@ -136,24 +153,14 @@ class AcquisitionPage(QWidget):
         self.stream_plot.set_state(event)
 
     def _start_recording(self, subject_id: str) -> None:
-        session_id = self.active_control_bar.make_session_id()
-        normalized_subject_id = subject_id.strip() or f"session_{session_id}"
-        recording_mode = self.recording_settings.recording_mode
-        self.backend.start_record(
-            RecordSession(
-                session_id=session_id,
-                save_dir=self.default_save_dir,
-                subject_id=normalized_subject_id,
-                task_name=(
-                    self.active_control_bar.current_label()
-                    if recording_mode == RecordingMode.CLIP
-                    else "continuous_session"
-                ),
-                recording_mode=recording_mode,
-            )
+        self.session_controller.start_acquisition(
+            subject_id=subject_id,
+            label=self.active_control_bar.current_label(),
+            recording_mode=self.recording_settings.recording_mode,
+            save_dir=self.default_save_dir,
         )
 
-    def _on_record_changed(self, event: RecordEvent) -> None:
+    def _on_record_changed(self, event) -> None:
         self.is_recording = event.is_recording
         self.clip_control_bar.set_recording_enabled(event.is_recording)
         self.continuous_control_bar.set_recording_enabled(event.is_recording)
@@ -161,10 +168,10 @@ class AcquisitionPage(QWidget):
             self.continuous_control_bar.set_segment_active(False)
         self.stream_plot.update_record_state(event)
 
-    def _on_marker_added(self, event: MarkerEvent) -> None:
+    def _on_marker_added(self, event) -> None:
         self.stream_plot.add_marker(event)
 
-    def _on_segment_changed(self, event: SegmentEvent) -> None:
+    def _on_segment_changed(self, event) -> None:
         self.stream_plot.update_segment_state(event)
         if event.action == "started":
             self.continuous_control_bar.set_segment_active(True, event.label)
@@ -198,16 +205,22 @@ class AcquisitionPage(QWidget):
             return
 
         if self.recording_settings.recording_mode == RecordingMode.CLIP:
-            self.backend.add_marker(self.clip_control_bar.current_marker_label())
+            self.session_controller.add_marker(
+                self.clip_control_bar.current_marker_label()
+            )
             return
 
         if self.continuous_control_bar.segment_active:
-            self.backend.stop_segment()
+            self.session_controller.stop_segment()
         else:
-            self.backend.start_segment(self.continuous_control_bar.current_label())
+            self.session_controller.start_segment(
+                self.continuous_control_bar.current_label()
+            )
 
     @property
-    def active_control_bar(self) -> ClipAcquisitionControlBar | ContinuousAcquisitionControlBar:
+    def active_control_bar(
+        self,
+    ) -> ClipAcquisitionControlBar | ContinuousAcquisitionControlBar:
         if self.recording_settings.recording_mode == RecordingMode.CONTINUOUS:
             return self.continuous_control_bar
         return self.clip_control_bar

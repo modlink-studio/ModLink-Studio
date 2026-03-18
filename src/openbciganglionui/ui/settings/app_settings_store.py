@@ -58,7 +58,14 @@ class AppSettingsStore:
                 self.DEFAULT_DISPLAY_SETTINGS["plot_height"],
                 minimum=260,
             ),
-            "filter_family": str(display.get("filter_family", self.DEFAULT_DISPLAY_SETTINGS["filter_family"])).strip().lower() or self.DEFAULT_DISPLAY_SETTINGS["filter_family"],
+            "filter_family": str(
+                display.get(
+                    "filter_family", self.DEFAULT_DISPLAY_SETTINGS["filter_family"]
+                )
+            )
+            .strip()
+            .lower()
+            or self.DEFAULT_DISPLAY_SETTINGS["filter_family"],
             "filter_order": self._as_int(
                 display.get("filter_order"),
                 self.DEFAULT_DISPLAY_SETTINGS["filter_order"],
@@ -69,7 +76,9 @@ class AppSettingsStore:
                 self.DEFAULT_DISPLAY_SETTINGS["shared_filter_enabled"],
             ),
             "shared_filter": self._as_filter_config(display.get("shared_filter")),
-            "channel_filters": self._as_filter_config_list(display.get("channel_filters")),
+            "channel_filters": self._as_filter_config_list(
+                display.get("channel_filters")
+            ),
         }
 
     def save_display_settings(self, settings) -> None:
@@ -96,7 +105,9 @@ class AppSettingsStore:
         recording = self._section("recording")
         return {
             "recording_mode": (
-                str(recording.get("recording_mode", self.DEFAULT_RECORDING_MODE)).strip()
+                str(
+                    recording.get("recording_mode", self.DEFAULT_RECORDING_MODE)
+                ).strip()
                 or self.DEFAULT_RECORDING_MODE
             ),
         }
@@ -197,7 +208,8 @@ class AppSettingsStore:
         default_config = self.DEFAULT_DISPLAY_SETTINGS["shared_filter"]
         payload = value if isinstance(value, dict) else {}
         return {
-            "mode": str(payload.get("mode", default_config["mode"])).strip().lower() or default_config["mode"],
+            "mode": str(payload.get("mode", default_config["mode"])).strip().lower()
+            or default_config["mode"],
             "low_cut_hz": self._as_positive_float(
                 payload.get("low_cut_hz"),
                 float(default_config["low_cut_hz"]),
@@ -206,7 +218,12 @@ class AppSettingsStore:
                 payload.get("high_cut_hz"),
                 float(default_config["high_cut_hz"]),
             ),
-            "powerline_mode": str(payload.get("powerline_mode", default_config["powerline_mode"])).strip().lower() or default_config["powerline_mode"],
+            "powerline_mode": str(
+                payload.get("powerline_mode", default_config["powerline_mode"])
+            )
+            .strip()
+            .lower()
+            or default_config["powerline_mode"],
             "notch_width_hz": self._as_positive_float(
                 payload.get("notch_width_hz"),
                 float(default_config["notch_width_hz"]),
