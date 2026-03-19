@@ -5,7 +5,7 @@ from typing import TypeAlias
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from ..shared import FrameEnvelope, FrameSignal, StreamDescriptor
+from packages.modlink_shared import FrameEnvelope, FrameSignal, StreamDescriptor
 
 FrameSink: TypeAlias = Callable[[FrameEnvelope], None]
 
