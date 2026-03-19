@@ -10,8 +10,9 @@ from typing import Any
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from packages.modlink_shared import FrameEnvelope
+
 from ..bus import FrameSubscription, StreamBus
-from ..shared import FrameEnvelope
 
 
 class RecordingState(str, Enum):

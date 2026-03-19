@@ -4,7 +4,8 @@
 
 对应实现文件：
 
-- `src/modlink/bus/stream_bus.py`
+- `packages/modlink_core/bus/stream_bus.py`（monorepo 内的真实实现）
+- `src/modlink/bus/stream_bus.py`（对外 facade）
 
 ## 目标
 
@@ -28,7 +29,6 @@
 
 主要信号：
 
-- `sig_stream_descriptor`
 - `sig_frame`
 - `sig_error`
 

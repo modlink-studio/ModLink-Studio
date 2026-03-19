@@ -1,179 +1,133 @@
-<p align="center">
-  <img src="src/openbciganglionui/assets/app_icon.png" alt="OpenBCI Ganglion UI icon" width="96" />
-</p>
+# ModLink Studio
 
-<h1 align="center">OpenBCI Ganglion UI</h1>
+面向组内使用的多模态数据采集项目。
 
-<p align="center">
-  面向 <code>OpenBCI Ganglion</code> 的桌面采集界面，用于设备连接、实时预览、标签标注和数据录制。
-</p>
+这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。后续组内师兄师姐可以通过自己实现 `modlink_driver`，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
 
 ![OpenBCI Ganglion UI screenshot](docs/images/ui-demo.png)
 
-## 项目说明
+## 项目定位
 
-这个项目是一个专门服务于 **OpenBCI Ganglion** 的桌面采集工具，不是通用脑电设备管理器，也不是多型号 OpenBCI 设备的统一控制台。当前实现围绕 Ganglion 的实际采集流程展开，目标是把连接、预览、标注和录制整合到一个清晰的桌面界面中。
+`ModLink Studio` 的目标不是做一个只服务某一块板卡的 demo，而是做一套组内可复用的采集基础设施。
 
-当前支持的连接方式：
+这套基础设施希望解决的问题包括：
 
-- `Native BLE`：使用本机原生蓝牙连接 Ganglion
-- `Ganglion Dongle`：使用 OpenBCI 官方蓝牙适配器连接 Ganglion
+- 不同设备用不同驱动接入，但上层展示和采集流程尽量统一
+- 不同模态的数据都能用一致的数据结构在系统内流转
+- 设备开发者只需要关注自己的驱动实现，不需要重复搭一整套 UI 和录制流程
+- 采集任务可以共享统一的设置、总线、标注和录制逻辑
 
-当前提供的主要功能：
+## 迁移背景
 
-- 搜索并连接 OpenBCI Ganglion 设备
-- 实时预览 4 通道采集数据
-- 管理实验标签，并在采集时快速选择当前标签
-- 支持片段录制和连续录制两种采集模式
-- 在录制过程中添加 marker 或标记连续区间
-- 按受试编号、标签和 session 组织采集结果并落盘
+这个仓库的起点是 `openbciganglionui`。
 
-当前范围内不包含的内容：
+原项目已经实现了面向 `OpenBCI Ganglion` 的连接、预览、标注和录制流程，说明整条采集链路是可行的。现在我们把它作为迁移起点，把其中有价值的运行时模型、采集逻辑和 UI 经验逐步抽到新的 `ModLink Studio` 结构里。
 
-- 不面向 Cyton、Cyton Daisy 等其他 OpenBCI 板卡
-- 不作为通用 BLE 调试工具使用
-- 当前只处理 Ganglion 通道数据的显示与保存，不包含加速度传感器数据
+因此当前仓库里会同时看到两条线：
 
-如果你的目标是采集和整理 **OpenBCI Ganglion** 的实验数据，这个项目就是为这个场景准备的。
+- `src/openbciganglionui/`
+  现有的旧应用实现，也是当前最完整、最可运行的参考
+- `packages/`
+  正在建设中的新 monorepo 基础层，后续新的通用能力主要会沉淀在这里
 
-## 安装 uv
+## 面向谁
 
-### 官方安装脚本
+这个项目主要服务组内同学，尤其是两类角色：
 
-Windows：
+- 平台维护者：维护共享数据模型、总线、录制、设置、公共 UI 和应用组装逻辑
+- 设备接入者：为自己的设备实现 `modlink_driver`，把设备数据接到平台里
 
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+理想情况下，设备接入者只需要完成“设备如何连接、如何发流、每个流长什么样”这部分，平台本身负责把这些流交给显示、标注和录制模块。
+
+## 当前 monorepo 结构
+
+```text
+modlink-studio/
+├─ apps/
+├─ packages/
+│  ├─ modlink_shared/
+│  ├─ modlink_core/
+│  ├─ modlink_drivers/
+│  └─ modlink_ui/
+├─ tests/
+├─ docs/
+└─ scripts/
 ```
 
-macOS 和 Linux：
+当前各目录的职责可以理解为：
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- `apps/`
+  面向具体场景的应用组装层，未来不同设备组合或实验场景可以在这里落应用入口
+- `packages/modlink_shared/`
+  共享运行时模型，例如帧结构、流描述、信号协议等
+- `packages/modlink_core/`
+  平台核心能力，例如流总线、录制任务、设置服务、运行时组装
+- `packages/modlink_drivers/`
+  驱动基类和后续具体驱动实现所在的位置
+- `packages/modlink_ui/`
+  未来可复用的 UI 组件和 UI 基础设施
+- `src/openbciganglionui/`
+  迁移参考来源，保留现有 Ganglion 专用实现，供抽取和对照
 
-### 使用 pipx 安装
+## 驱动接入思路
 
-如果你已经安装了 `pipx`，也可以直接安装 `uv`：
+后续组内同学接入设备时，推荐遵循下面这条思路：
 
-```bash
-pipx install uv
-```
+1. 在 `modlink_drivers` 体系下实现自己的驱动类
+2. 为设备定义它会产生哪些 stream，以及每个 stream 的 `StreamDescriptor`
+3. 驱动通过 signal 持续发出 `FrameEnvelope`
+4. `modlink_core` 的总线、录制和其他上层模块消费这些流
+5. UI 或具体 app 再根据这些统一流去做展示和采集交互
 
-参考官方文档：
-- `uv` 安装文档：https://docs.astral.sh/uv/getting-started/installation/
+也就是说，平台希望把“设备怎么接”和“数据怎么被展示/录制”拆开。
 
-## 快速开始
+## 当前状态
 
-安装项目依赖并启动：
+目前仓库处在迁移期，整体状态是：
+
+- `openbciganglionui` 仍然是当前最完整的可运行实现
+- `packages/` 里的基础层正在补齐，用来承接新的通用架构
+- 项目级入口、命名和发布配置还没有完全切换到 `ModLink Studio`
+- 一些文档和目录已经是新的方向，但仍会保留旧项目痕迹
+
+这意味着：现在这个仓库既是正在运行的旧项目，也是正在建设的新平台。
+
+## 开发目标
+
+接下来这个仓库的重点不是继续把 `Ganglion UI` 做成更大的单设备应用，而是逐步完成下面这些事情：
+
+- 稳定共享数据模型和核心运行时边界
+- 明确 driver 接入方式，让不同设备都能复用平台能力
+- 把现有 `openbciganglionui` 中通用的部分抽到 `packages/`
+- 为未来的多模态展示和采集界面预留统一的应用组织方式
+
+## 当前开发方式
+
+当前依赖和运行方式还沿用旧项目配置，因此本地开发仍然可以先这样启动：
 
 ```bash
 uv sync
 uv run openbciganglionui
 ```
 
-也可以用模块方式启动：
+或者：
 
 ```bash
 uv run python -m openbciganglionui
 ```
 
-默认会启动 BrainFlow backend。
+这里启动的是迁移前的 Ganglion 应用，不是最终形态的 `ModLink Studio` 通用入口。
 
-## 项目结构
+## 给组内设备开发者的说明
 
-```text
-src/openbciganglionui/
-  app.py          # QApplication 启动入口
-  backend/        # backend 协议、事件模型和 BrainFlow 实现
-  ui/             # 页面、窗口、设置管理和组件
-  __main__.py     # python -m 入口
-```
+如果你后续要把自己的设备接进来，建议先关注三件事：
 
-## 开发
+- 设备有哪些稳定的数据流需要暴露
+- 每个流的 payload 应该如何描述
+- 驱动层和上层采集/展示层之间应该通过什么最小接口解耦
 
-安装开发依赖：
+你不需要从零写一整套采集软件；这个仓库要做的，正是把那些重复工作沉淀成共享平台能力。
 
-```bash
-uv sync --dev
-```
+## 说明
 
-运行检查：
-
-```bash
-uv run ruff check .
-```
-
-手工 backend 冒烟测试：
-
-```powershell
-uv run openbciganglionui-backend-smoke --method native --search
-```
-
-如果走 dongle，可以显式指定串口：
-
-```powershell
-uv run openbciganglionui-backend-smoke --method dongle --serial-port COM3
-```
-
-如果要绕过 UI 和 backend 封装，只直接验证 BrainFlow Native BLE 链路：
-
-```powershell
-uv run openbciganglionui-brainflow-native-probe --firmware-hints auto
-```
-
-如果已经知道设备名，也可以显式传给 `serial_number`：
-
-```powershell
-uv run openbciganglionui-brainflow-native-probe --serial-number Ganglion-9c3b --firmware-hints auto
-```
-
-### Native BLE 经验记录
-
-在 Windows 11 + BrainFlow 5.21.0 + Ganglion Native BLE 的实测里，目前观察到：
-
-- `autodiscover + fw:auto` 可以成功连接，且 BrainFlow 会自动识别为固件 `2`
-- 显式指定 `fw:2` 和 `fw:3` 也都可以成功连接
-- `serial_number=设备名` 这条路径也可以成功连接，例如 `Ganglion-9c3b`
-- 显式传 `mac_address` 时，即使 MAC 本身是对的，也无法成功连接，表现为 `Failed to find Ganglion Device` / `BOARD_NOT_READY_ERROR:7`
-- 同时传 `mac_address + serial_number` 时，结果仍然和显式 MAC 一样失败
-
-因此当前项目里的 Native BLE 策略是：
-
-- 搜索结果里仍然显示 MAC 地址，便于用户识别设备
-- 真正连接时优先使用显式 `serial_number`
-- 不把扫描得到的 `mac_address` 作为 Native BLE 的连接参数
-
-这部分是经验性结论，不是 BrainFlow 官方保证；如果后续升级 BrainFlow 或更换系统蓝牙栈，需要重新验证。
-
-## 打包发布
-
-当前仓库已经提供了 Windows 桌面应用的 `PyInstaller` 打包配置：
-
-- 入口脚本：[packaging/app_entry.py](packaging/app_entry.py)
-- 规格文件：[packaging/app.spec](packaging/app.spec)
-- 构建脚本：[scripts/build_app.ps1](scripts/build_app.ps1)
-
-在项目根目录执行：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build_app.ps1
-```
-
-构建完成后，产物位于：
-
-```text
-release/OpenBCIGanglionUI/OpenBCIGanglionUI.exe
-```
-
-补充说明：
-
-- 当前使用 `PyInstaller onedir` 方式打包，运行时需要保留同目录下的 `_internal` 文件夹。
-- 构建日志中可能出现 `qframelesswindow.webengine` 与 `PyQt6.QtWebEngineWidgets` 相关提示；当前发布版本不依赖该组件，不影响应用打包和运行。
-- 构建日志中可能出现 `QFluentWidgets Pro` 的宣传提示；这是构建阶段输出，不会出现在打包后应用的启动界面中。
-
-## 平台说明
-
-- 源码运行主要依赖 `PyQt6`、`numpy` 和 `PyQt6-Fluent-Widgets`，代码本身没有明显写死 Windows 运行逻辑。
-- 因此，源码方式在 Linux 上预计也是可以运行的，`uv sync` 正常情况下也不应有问题。
-- 但目前我只实际验证了 Windows 环境，Linux 还没有做过完整运行测试。
+这个 README 现在描述的是项目目标和当前迁移方向，而不是最终完成态。随着 `packages/`、`apps/` 和新的应用入口逐步成形，这份文档也会继续更新。

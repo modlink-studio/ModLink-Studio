@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from ..shared import FrameSignal, StreamDescriptor
+from packages.modlink_shared import FrameSignal, StreamDescriptor
 
 
 class Device(QObject):
@@ -43,6 +43,31 @@ class Device(QObject):
             descriptor.stream_id: self.frame_signal(descriptor.stream_id)
             for descriptor in self.stream_descriptors()
         }
+
+    def bootstrap(self) -> None:
+        """Optional hook invoked by the runtime after the driver thread starts.
+
+        Drivers that want to auto-connect or auto-start streaming can override
+        this method. The default implementation is intentionally a no-op.
+        """
+
+    def shutdown(self) -> None:
+        """Optional hook invoked by the runtime before the driver thread stops.
+
+        By default we try a best-effort stop/disconnect sequence and ignore
+        ``NotImplementedError`` so partially implemented drivers can still be
+        hosted during early development.
+        """
+
+        try:
+            self.stop_streaming()
+        except NotImplementedError:
+            pass
+
+        try:
+            self.disconnect_device()
+        except NotImplementedError:
+            pass
 
     def search(self, request: object | None = None) -> None:
         self._not_implemented("search")
