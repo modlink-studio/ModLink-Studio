@@ -8,7 +8,7 @@ from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
 
 from packages.modlink_shared import FrameSignal, StreamDescriptor
 
-from .base import Device
+from .base import Driver
 
 
 class StreamRegistry(Protocol):
@@ -48,7 +48,7 @@ class DriverPortal(QObject):
 
     def __init__(
         self,
-        driver: Device,
+        driver: Driver,
         stream_registry: StreamRegistry,
         *,
         auto_bootstrap: bool = True,
