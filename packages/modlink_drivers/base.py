@@ -5,60 +5,23 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from packages.modlink_shared import FrameSignal, StreamDescriptor
 
 
-class Device(QObject):
-    """Base contract that all ModLink devices/drivers must implement.
-
-    A concrete driver is expected to live in its own QThread.
-
-    Contract summary:
-    - expose one low-frequency ``sig_event`` for search/status/error style events
-    - expose one frame signal per stream
-    - keep transport/search/streaming logic inside the driver itself
-    - do not depend on bus internals
-    """
-
+class Driver(QObject):
     sig_event = pyqtSignal(object)
-
-    def _not_implemented(self, member: str) -> None:
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement Device.{member}"
-        )
 
     @property
     def device_id(self) -> str:
-        self._not_implemented("device_id")
+        raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
     @property
     def display_name(self) -> str:
         return self.device_id
 
     def stream_descriptors(self) -> tuple[StreamDescriptor, ...]:
-        self._not_implemented("stream_descriptors")
-
-    def frame_signal(self, stream_id: str) -> FrameSignal:
-        self._not_implemented("frame_signal")
-
-    def frame_signals(self) -> dict[str, FrameSignal]:
-        return {
-            descriptor.stream_id: self.frame_signal(descriptor.stream_id)
-            for descriptor in self.stream_descriptors()
-        }
-
-    def bootstrap(self) -> None:
-        """Optional hook invoked by the runtime after the driver thread starts.
-
-        Drivers that want to auto-connect or auto-start streaming can override
-        this method. The default implementation is intentionally a no-op.
-        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement stream_descriptors"
+        )
 
     def shutdown(self) -> None:
-        """Optional hook invoked by the runtime before the driver thread stops.
-
-        By default we try a best-effort stop/disconnect sequence and ignore
-        ``NotImplementedError`` so partially implemented drivers can still be
-        hosted during early development.
-        """
-
         try:
             self.stop_streaming()
         except NotImplementedError:
@@ -70,16 +33,24 @@ class Device(QObject):
             pass
 
     def search(self, request: object | None = None) -> None:
-        self._not_implemented("search")
+        raise NotImplementedError(f"{type(self).__name__} must implement search")
 
     def connect_device(self, config: object | None = None) -> None:
-        self._not_implemented("connect_device")
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement connect_device if it supports connecting"
+        )
 
     def disconnect_device(self) -> None:
-        self._not_implemented("disconnect_device")
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement disconnect_device if it supports connecting"
+        )
 
     def start_streaming(self) -> None:
-        self._not_implemented("start_streaming")
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement start_streaming"
+        )
 
     def stop_streaming(self) -> None:
-        self._not_implemented("stop_streaming")
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement stop_streaming"
+        )

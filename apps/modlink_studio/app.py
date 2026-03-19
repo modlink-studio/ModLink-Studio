@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from PyQt6.QtCore import QCoreApplication
 
 from packages.modlink_core import ModLinkRuntime
-from packages.modlink_drivers import create_mock_driver_portal
+from packages.modlink_drivers import MockDriver
 
 
 def _create_application(argv: Sequence[str] | None = None) -> QCoreApplication:
@@ -22,24 +22,11 @@ def _create_application(argv: Sequence[str] | None = None) -> QCoreApplication:
     return app
 
 
-def _build_runtime(app: QCoreApplication) -> ModLinkRuntime:
-    """Compose the current application runtime and its default portals."""
-
-    runtime = ModLinkRuntime(parent=app)
-    runtime.attach_portal(
-        create_mock_driver_portal(runtime.bus),
-        auto_start=True,
-    )
-    return runtime
-
-
 def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
     app = _create_application()
-    runtime = _build_runtime(app)
-    print(
-        "ModLink Studio runtime initialized",
-        f"(portals={len(runtime.driver_portals())}, streams={len(runtime.bus.descriptors())})",
-    )
+    runtime = ModLinkRuntime(parent=app)
+    runtime.install_driver(MockDriver)
+    print("ModLink Studio runtime initialized")
     raise SystemExit(app.exec())

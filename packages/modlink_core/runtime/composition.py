@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QCoreApplication, QObject, pyqtSignal
 
-from packages.modlink_drivers import DriverPortal
+from packages.modlink_drivers import Driver, DriverPortal
 
 from ..acquisition import AcquisitionTask
 from ..bus import StreamBus
@@ -37,57 +37,27 @@ class ModLinkRuntime(QObject):
         if app is not None:
             app.aboutToQuit.connect(self.shutdown)
 
-    def attach_portal(
-        self,
-        portal: DriverPortal,
-        *,
-        auto_start: bool = False,
-    ) -> DriverPortal:
-        driver_id = portal.driver_id.strip()
-        if not driver_id:
-            raise ValueError("portal.driver_id must not be empty")
-        if driver_id in self._driver_portals:
-            raise ValueError(f"driver_id '{driver_id}' is already attached")
-        if portal.parent() is None:
-            portal.setParent(self)
+    def install_driver(self, driver_type: type[Driver]) -> DriverPortal:
+        if not isinstance(driver_type, type) or not issubclass(driver_type, Driver):
+            raise TypeError("driver_type must be a Driver subclass")
 
+        driver = driver_type()
+        driver_id = driver.device_id.strip()
+        if not driver_id:
+            raise ValueError("driver.device_id must not be empty")
+        if driver_id in self._driver_portals:
+            raise ValueError(f"driver_id '{driver_id}' is already installed")
+
+        portal = DriverPortal(driver, self.bus, parent=self)
         portal.sig_event.connect(self.sig_driver_event)
         portal.sig_started.connect(self.sig_driver_started)
         portal.sig_stopped.connect(self.sig_driver_stopped)
         portal.sig_error.connect(self.sig_error.emit)
 
         self._driver_portals[driver_id] = portal
-        if auto_start:
-            portal.start()
-        return portal
-
-    def driver_portal(self, driver_id: str) -> DriverPortal | None:
-        return self._driver_portals.get(driver_id)
-
-    def driver_portals(self) -> dict[str, DriverPortal]:
-        return dict(self._driver_portals)
-
-    def start_driver(self, driver_id: str) -> None:
-        portal = self._require_portal(driver_id)
         portal.start()
-
-    def stop_driver(self, driver_id: str, *, timeout_ms: int = 3000) -> None:
-        portal = self._require_portal(driver_id)
-        portal.stop(timeout_ms=timeout_ms)
-
-    def start_all(self) -> None:
-        for portal in self._driver_portals.values():
-            portal.start()
-
-    def stop_all(self, *, timeout_ms: int = 3000) -> None:
-        for portal in self._driver_portals.values():
-            portal.stop(timeout_ms=timeout_ms)
+        return portal
 
     def shutdown(self) -> None:
-        self.stop_all()
-
-    def _require_portal(self, driver_id: str) -> DriverPortal:
-        portal = self.driver_portal(driver_id)
-        if portal is None:
-            raise KeyError(f"unknown driver_id '{driver_id}'")
-        return portal
+        for portal in self._driver_portals.values():
+            portal.stop()
