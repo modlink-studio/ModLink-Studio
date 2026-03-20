@@ -10,6 +10,7 @@ from .models import FrameEnvelope, StreamDescriptor
 class Driver(QObject):
     sig_frame = pyqtSignal(FrameEnvelope)
     sig_connection_lost = pyqtSignal(object)
+    supported_providers: tuple[str, ...] = ()
 
     @property
     def device_id(self) -> str:
@@ -36,8 +37,8 @@ class Driver(QObject):
         except NotImplementedError:
             pass
 
-    def search(self, request: object | None = None) -> object:
-        """Return a one-shot search result or raise if the search fails."""
+    def search(self, provider: str, request: object | None = None) -> object:
+        """Return a one-shot search result for the given provider or raise."""
         raise NotImplementedError(f"{type(self).__name__} must implement search")
 
     def connect_device(self, config: object | None = None) -> None:
