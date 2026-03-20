@@ -6,8 +6,6 @@ from pathlib import Path
 from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 from ..utils import (
-    channel_headers,
-    derived_timestamp_ns,
     normalize_data_array,
     to_json_text,
     to_json_value,
@@ -35,7 +33,17 @@ class LineStreamRecordingWriter(BaseStreamRecordingWriter):
 
         if self._channel_count is None:
             self._channel_count = channel_count
-            self._channel_headers = channel_headers(self.descriptor, channel_count)
+            channel_names = self.descriptor.metadata.get("channel_names")
+            if (
+                isinstance(channel_names, list)
+                and all(isinstance(name, str) and name for name in channel_names)
+                and len(channel_names) == channel_count
+            ):
+                self._channel_headers = list(channel_names)
+            else:
+                self._channel_headers = [
+                    f"channel_{index}" for index in range(channel_count)
+                ]
             self._csv_writer.writerow(
                 [
                     "timestamp_ns",
@@ -54,11 +62,7 @@ class LineStreamRecordingWriter(BaseStreamRecordingWriter):
         for sample_index in range(chunk_size):
             self._csv_writer.writerow(
                 [
-                    derived_timestamp_ns(
-                        frame.timestamp_ns,
-                        sample_index,
-                        self._sample_period_ns,
-                    ),
+                    int(frame.timestamp_ns) + (sample_index * self._sample_period_ns),
                     "" if frame.seq is None else int(frame.seq),
                     sample_index,
                     *[

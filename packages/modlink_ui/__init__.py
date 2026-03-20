@@ -1,1 +1,3 @@
-"""UI package area for the new ModLink Studio monorepo."""
+from .main_window import MainWindow
+
+__all__ = ["MainWindow"]

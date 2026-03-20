@@ -103,20 +103,20 @@ modlink-studio/
 
 ## 当前开发方式
 
-当前依赖和运行方式还沿用旧项目配置，因此本地开发仍然可以先这样启动：
+当前本地开发优先使用新的 `modlink-studio` 入口：
 
 ```bash
 uv sync
-uv run openbciganglionui
+uv run modlink-studio
 ```
 
 或者：
 
 ```bash
-uv run python -m openbciganglionui
+uv run python -m apps.modlink_studio
 ```
 
-这里启动的是迁移前的 Ganglion 应用，不是最终形态的 `ModLink Studio` 通用入口。
+如果你还在排查旧入口，也可以继续用 `openbciganglionui` 兼容命令，但新项目身份和默认入口已经切到 `ModLink Studio`。
 
 ## 给组内设备开发者的说明
 

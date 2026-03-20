@@ -9,7 +9,7 @@ from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 from ..bus import FrameSubscription, StreamBus
 from ..settings.service import SettingsService
-from .storage import RecordingStorage, clone_descriptor_snapshot
+from .storage import RecordingStorage
 
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
 
@@ -23,7 +23,6 @@ class AcquisitionWorker(QObject):
         super().__init__()
         self._state = "idle"
         self._storage: RecordingStorage | None = None
-        self._ignored_unknown_streams: set[str] = set()
 
     @pyqtSlot(object)
     def on_frame(self, frame: object) -> None:
@@ -36,21 +35,12 @@ class AcquisitionWorker(QObject):
             return
 
         try:
-            accepted = self._storage.append_frame(frame)
+            self._storage.append_frame(frame)
         except Exception as exc:
             self.sig_error.emit(
                 f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
             )
             return
-
-        if accepted:
-            return
-
-        if frame.stream_id not in self._ignored_unknown_streams:
-            self._ignored_unknown_streams.add(frame.stream_id)
-            self.sig_error.emit(
-                f"ACQ_UNKNOWN_STREAM_DROPPED: stream_id={frame.stream_id}"
-            )
 
     @pyqtSlot(str, str, object, object)
     def start_recording(
@@ -58,7 +48,7 @@ class AcquisitionWorker(QObject):
         root_dir: str,
         session_name: str,
         recording_label: object,
-        descriptor_snapshot: object,
+        recording_descriptors: object,
     ) -> None:
         if self._storage is not None:
             self.sig_error.emit("ACQ_ALREADY_RECORDING")
@@ -68,9 +58,9 @@ class AcquisitionWorker(QObject):
             self.sig_error.emit("ACQ_INVALID_SESSION_NAME")
             return
 
-        if not isinstance(descriptor_snapshot, dict) or not all(
+        if not isinstance(recording_descriptors, dict) or not all(
             isinstance(value, StreamDescriptor)
-            for value in descriptor_snapshot.values()
+            for value in recording_descriptors.values()
         ):
             self.sig_error.emit("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
             return
@@ -80,8 +70,8 @@ class AcquisitionWorker(QObject):
             self._storage = RecordingStorage(
                 Path(root_dir),
                 session_name=session_name,
-                recording_label=_normalize_optional_text(recording_label),
-                descriptor_snapshot=descriptor_snapshot,
+                recording_label=recording_label or None,
+                recording_descriptors=recording_descriptors,
                 started_at_ns=started_at_ns,
             )
         except Exception as exc:
@@ -89,7 +79,6 @@ class AcquisitionWorker(QObject):
             self.sig_error.emit(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}")
             return
 
-        self._ignored_unknown_streams.clear()
         self._set_state("recording")
         self.sig_event.emit(
             {
@@ -97,7 +86,7 @@ class AcquisitionWorker(QObject):
                 "session_name": session_name,
                 "recording_id": self._storage.recording_id,
                 "recording_path": str(self._storage.recording_dir),
-                "recording_label": _normalize_optional_text(recording_label),
+                "recording_label": recording_label or None,
                 "ts_ns": started_at_ns,
             }
         )
@@ -117,7 +106,6 @@ class AcquisitionWorker(QObject):
         except Exception as exc:
             self.sig_error.emit(f"ACQ_STOP_FAILED: {type(exc).__name__}: {exc}")
         finally:
-            self._ignored_unknown_streams.clear()
             self._set_state("idle")
 
         self.sig_event.emit(
@@ -138,7 +126,7 @@ class AcquisitionWorker(QObject):
             return
 
         timestamp_ns = time.time_ns()
-        normalized_label = _normalize_optional_text(label)
+        normalized_label = label or None
         try:
             self._storage.add_marker(timestamp_ns=timestamp_ns, label=normalized_label)
         except Exception as exc:
@@ -172,7 +160,7 @@ class AcquisitionWorker(QObject):
             self.sig_error.emit("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
             return
 
-        normalized_label = _normalize_optional_text(label)
+        normalized_label = label or None
         try:
             self._storage.add_segment(
                 start_ns=start_value,
@@ -297,13 +285,13 @@ class AcquisitionBackend(QObject):
         if not self._thread.isRunning():
             self.sig_error.emit("ACQ_NOT_STARTED")
             return
-        descriptor_snapshot = clone_descriptor_snapshot(self._bus.descriptors())
+        recording_descriptors = self._bus.descriptors()
         root_dir = _resolve_root_dir(self._settings)
         self._request_start_recording.emit(
             str(root_dir),
             session_name,
             recording_label,
-            descriptor_snapshot,
+            recording_descriptors,
         )
 
     def stop_recording(self) -> None:
@@ -350,13 +338,6 @@ class AcquisitionBackend(QObject):
     def _on_state_changed(self, state: str) -> None:
         self._state = state
         self.sig_state_changed.emit(state)
-
-
-def _normalize_optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    return str(value)
-
 
 def _default_root_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "data"
