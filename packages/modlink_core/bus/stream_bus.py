@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeAlias
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, Qt, pyqtBoundSignal, pyqtSignal, pyqtSlot
 
-from packages.modlink_shared import FrameEnvelope, FrameSignal, StreamDescriptor
+from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 FrameSink: TypeAlias = Callable[[FrameEnvelope], None]
 
@@ -39,16 +39,16 @@ class StreamBus(QObject):
     """Registers streams and broadcasts every accepted frame to subscribers."""
 
     sig_stream_descriptor = pyqtSignal(object)
-    sig_frame = pyqtSignal(object)
+    sig_frame = pyqtSignal(FrameEnvelope)
     sig_error = pyqtSignal(str)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent=parent)
         self._descriptors: dict[str, StreamDescriptor] = {}
-        self._frame_signals: dict[str, FrameSignal] = {}
+        self._frame_signals: dict[str, pyqtBoundSignal] = {}
 
     def register_stream(
-        self, descriptor: StreamDescriptor, frame_signal: FrameSignal
+        self, descriptor: StreamDescriptor, frame_signal: pyqtBoundSignal
     ) -> None:
         existing_descriptor = self._descriptors.get(descriptor.stream_id)
         existing_signal = self._frame_signals.get(descriptor.stream_id)
@@ -84,8 +84,13 @@ class StreamBus(QObject):
 
         self.sig_frame.emit(frame)
 
-    def subscribe(self, sink: FrameSink) -> FrameSubscription:
-        self.sig_frame.connect(sink)
+    def subscribe(
+        self,
+        sink: FrameSink,
+        *,
+        connection_type: Qt.ConnectionType = Qt.ConnectionType.AutoConnection,
+    ) -> FrameSubscription:
+        self.sig_frame.connect(sink, connection_type)
         return FrameSubscription(self, sink)
 
     def descriptor(self, stream_id: str) -> StreamDescriptor | None:

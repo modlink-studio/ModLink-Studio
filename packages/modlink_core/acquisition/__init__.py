@@ -1,17 +1,4 @@
-from .task import (
-    AcquisitionTask,
-    MarkerRecord,
-    RecordingRequest,
-    RecordingState,
-    RecordingStateEvent,
-    SegmentRecord,
-)
+from .backend import AcquisitionBackend
+from .storage import RecordingStorage, clone_descriptor_snapshot
 
-__all__ = [
-    "AcquisitionTask",
-    "MarkerRecord",
-    "RecordingRequest",
-    "RecordingState",
-    "RecordingStateEvent",
-    "SegmentRecord",
-]
+__all__ = ["AcquisitionBackend", "RecordingStorage", "clone_descriptor_snapshot"]

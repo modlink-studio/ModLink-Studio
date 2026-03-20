@@ -1,11 +1,7 @@
-from .signals import FrameSignal
-from .models import (
-    FrameEnvelope,
-    StreamDescriptor,
-)
+from .models import FrameEnvelope, PayloadType, StreamDescriptor
 
 __all__ = [
-    "FrameSignal",
     "FrameEnvelope",
+    "PayloadType",
     "StreamDescriptor",
 ]

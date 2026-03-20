@@ -19,13 +19,27 @@ class SettingChangedEvent:
 class SettingsService(QObject):
     """Global settings service shared across runtime modules."""
 
+    _instance: SettingsService | None = None
+
     sig_setting_changed = pyqtSignal(object)
     sig_settings_saved = pyqtSignal()
 
+    @classmethod
+    def instance(cls) -> SettingsService:
+        if cls._instance is None:
+            return cls()
+        return cls._instance
+
     def __init__(self, path: Path | None = None, parent: QObject | None = None) -> None:
         super().__init__(parent=parent)
+        existing = type(self)._instance
+        if existing is not None and existing is not self:
+            raise RuntimeError(
+                "SettingsService already exists; use SettingsService.instance()"
+            )
         self._path = path or self._resolve_path()
         self._settings = self._read_payload()
+        type(self)._instance = self
 
     def get(self, key: str, default: Any = None) -> Any:
         current = self._settings

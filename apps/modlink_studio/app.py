@@ -5,8 +5,9 @@ from collections.abc import Sequence
 
 from PyQt6.QtCore import QCoreApplication
 
-from packages.modlink_core import ModLinkRuntime
-from packages.modlink_drivers import MockDriver
+from packages.modlink_core import ModLinkEngine
+from packages.modlink_core.settings.service import SettingsService
+from packages.modlink_drivers import discover_driver_factories
 
 
 def _create_application(argv: Sequence[str] | None = None) -> QCoreApplication:
@@ -26,7 +27,8 @@ def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
     app = _create_application()
-    runtime = ModLinkRuntime(parent=app)
-    runtime.install_driver(MockDriver)
-    print("ModLink Studio runtime initialized")
+    SettingsService(parent=app)
+    driver_factories = discover_driver_factories()
+    engine = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    print("ModLink Studio engine initialized")
     raise SystemExit(app.exec())
