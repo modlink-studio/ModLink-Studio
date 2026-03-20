@@ -60,12 +60,14 @@ class Driver(QObject):
   - 同一轮发现中不允许出现重复的 `device_id`
 - **设计意图**：宿主拿到的是稳定的应用级 driver component，然后再交给 `DriverPortal` 托管其线程与动作生命周期；插件自己不拥有“私自启动”的权利。
 
-### `mock.py` & `chunking.py` —— 假数据与定时器轮询范本
-- **`MockDriver` 的行为**：
-  由于继承了标准的基类定义。它没有真实硬件，因此利用 `PyQt` 自身提供的异步原语 `QTimer` 定时向外通过 `sig_eeg_frame` 和 `sig_motion_frame` 丢出包装好的 `FrameEnvelope` 数据。
-- **`webcam.py` 的行为**：
-  这是一个更接近真实设备的最小例子。它在启动时不打开摄像头，只有在接到 `start_streaming()` 后才用 OpenCV 打开本机摄像头，并通过 `QTimer` 持续把 RGB 图像帧包装成 `FrameEnvelope` 向外发射。
-- **`chunking.py` 的作用**：在有些真实的串口收集中，数据是单点过来的；为了降低信号触发频次导致的主线程信号轰炸，引入 chunk 相关的公共计算逻辑（如 `chunk_size=10`、名义采样率推导 timer interval），也就是把多点塞成一段小的 Numpy 矩阵再一次性发走。
+### `minimal.py` / `sources.py` / `chunking.py` —— 最小 driver 范本
+- **`MinimalDriver` 的行为**：
+  它现在故意只保留 driver 契约本身必须承担的工作：声明 `device_id` / `display_name` / `descriptors()`，实现 `search(...)`、`connect_device(...)`、`disconnect_device()`、`start_streaming()`、`stop_streaming()` 这些生命周期槽口，并把下游 source 发来的 `FrameEnvelope` 转发到框架总线。
+- **`sources.py` 的行为**：
+  真实的数据采集逻辑被拆到了 `FrameSource` 抽象下面。当前仓库提供的 `MicrophoneFrameSource` 用系统默认麦克风作为真实输入，通过 `QAudioSource` 读取 PCM 音频，按固定 chunk 切片后包装成 `FrameEnvelope`。这意味着后续设备接入者如果想写自己的 driver，可以优先模仿 source 的部分，把“怎么读设备数据”单独隔离出来，而不是把采数循环和 driver 生命周期全部搅在一起。
+- **为什么这样更适合作为范本**：
+  设备接入者看 `minimal.py` 时，看到的是“接入 ModLink 平台最少要履行哪些职责”；看 `sources.py` 时，看到的是“如果你要接真实世界的数据源，采数代码应该放在哪”。两者解耦以后，`mock data` 和 `real data` 都可以复用同一个 driver 外壳。
+- **`chunking.py` 的作用**：在真实设备收集中，底层数据常常不是按平台希望的 chunk 直接到达。`chunking.py` 保留了 chunk 时间和采样率的公共换算逻辑，用来把底层的字节流或单点样本整理成稳定的二维 Numpy 数据块。
 - **当前 driver 设置设计**：
   - stream 级参数通过 settings 域读取，而不是通过 driver 专用 settings dataclass
   - `driver_id` 是 settings 域的实例级命名空间

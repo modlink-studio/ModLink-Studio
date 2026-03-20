@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import time
 
-import numpy as np
-from PyQt6.QtCore import QTimer
-
-from packages.modlink_shared import FrameEnvelope, StreamDescriptor
+from packages.modlink_shared import StreamDescriptor
 
 from .base import Driver
+from .sources import FrameSource, MicrophoneFrameSource
 
-DEFAULT_SAMPLE_RATE_HZ = 10.0
-MINIMAL_STREAM_ID = "minimal.counter"
+MINIMAL_STREAM_ID = "minimal.microphone"
 
 
 class MinimalDriver(Driver):
-    """Smallest built-in driver that still exercises the current framework."""
+    """Smallest driver shell with data capture delegated to a source."""
 
     def __init__(
         self,
@@ -22,28 +19,28 @@ class MinimalDriver(Driver):
         device_id: str = "minimal.driver",
         display_name: str = "Minimal Driver",
         stream_id: str = MINIMAL_STREAM_ID,
-        sample_rate_hz: float = DEFAULT_SAMPLE_RATE_HZ,
+        source: FrameSource | None = None,
     ) -> None:
         super().__init__()
         self._device_id = device_id
         self._display_name = display_name
-        self._descriptor = StreamDescriptor(
+        self._source = source or MicrophoneFrameSource(
             stream_id=stream_id,
-            modality="demo",
-            payload_type="line",
-            nominal_sample_rate_hz=float(sample_rate_hz),
-            chunk_size=1,
-            display_name="Minimal Counter",
-            metadata={
-                "channel_names": ["value"],
-                "unit": "count",
-            },
+            display_name="Minimal Microphone",
+            parent=self,
         )
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._emit_frame)
+        if self._source.parent() is None:
+            self._source.setParent(self)
+        elif self._source.parent() is not self:
+            raise ValueError(
+                "MinimalDriver source must not already belong to another QObject"
+            )
+
+        self._source.sig_frame.connect(self.sig_frame)
+        self._source.sig_event.connect(self._forward_source_event)
+
         self._connected = False
         self._streaming = False
-        self._sequence = 0
 
     @property
     def device_id(self) -> str:
@@ -54,7 +51,7 @@ class MinimalDriver(Driver):
         return self._display_name
 
     def descriptors(self) -> list[StreamDescriptor]:
-        return [self._descriptor]
+        return [self._source.descriptor]
 
     def search(self, request: object | None = None) -> None:
         self.sig_event.emit(
@@ -65,8 +62,8 @@ class MinimalDriver(Driver):
                 "results": (
                     {
                         "device_id": self._device_id,
-                        "name": self._display_name,
-                        "transport": "demo",
+                        "name": f"{self._display_name} ({self._source.source_name})",
+                        "transport": self._source.transport,
                     },
                 ),
                 "ts": time.time(),
@@ -74,19 +71,25 @@ class MinimalDriver(Driver):
         )
 
     def connect_device(self, config: object | None = None) -> None:
-        if config is not None:
-            raise ValueError("MinimalDriver does not accept connection config")
         if self._connected:
             return
+
+        try:
+            self._source.connect_source(config)
+        except Exception as exc:
+            self._emit_driver_error("connect_device", exc)
+            return
+
         self._connected = True
+        descriptor = self._source.descriptor
         self.sig_event.emit(
             {
                 "kind": "connected",
                 "device_id": self._device_id,
                 "streams": {
-                    self._descriptor.stream_id: {
-                        "nominal_sample_rate_hz": self._descriptor.nominal_sample_rate_hz,
-                        "chunk_size": self._descriptor.chunk_size,
+                    descriptor.stream_id: {
+                        "nominal_sample_rate_hz": descriptor.nominal_sample_rate_hz,
+                        "chunk_size": descriptor.chunk_size,
                     }
                 },
                 "ts": time.time(),
@@ -98,6 +101,13 @@ class MinimalDriver(Driver):
             self.stop_streaming()
         if not self._connected:
             return
+
+        try:
+            self._source.disconnect_source()
+        except Exception as exc:
+            self._emit_driver_error("disconnect_device", exc)
+            return
+
         self._connected = False
         self.sig_event.emit(
             {
@@ -110,10 +120,15 @@ class MinimalDriver(Driver):
     def start_streaming(self) -> None:
         if not self._connected:
             self.connect_device()
-        if self._streaming:
+        if self._streaming or not self._connected:
             return
-        interval_ms = max(1, round(1000.0 / self._descriptor.nominal_sample_rate_hz))
-        self._timer.start(interval_ms)
+
+        try:
+            self._source.start()
+        except Exception as exc:
+            self._emit_driver_error("start_streaming", exc)
+            return
+
         self._streaming = True
         self.sig_event.emit(
             {
@@ -124,9 +139,15 @@ class MinimalDriver(Driver):
         )
 
     def stop_streaming(self) -> None:
-        self._timer.stop()
+        try:
+            self._source.stop()
+        except Exception as exc:
+            self._emit_driver_error("stop_streaming", exc)
+            return
+
         if not self._streaming:
             return
+
         self._streaming = False
         self.sig_event.emit(
             {
@@ -136,17 +157,28 @@ class MinimalDriver(Driver):
             }
         )
 
-    def _emit_frame(self) -> None:
-        sequence = self._sequence
-        self.sig_frame.emit(
-            FrameEnvelope(
-                stream_id=self._descriptor.stream_id,
-                timestamp_ns=time.time_ns(),
-                data=np.asarray([[float(sequence)]], dtype=np.float64),
-                seq=sequence,
-            )
+    def _forward_source_event(self, event: object) -> None:
+        if not isinstance(event, dict):
+            self.sig_event.emit(event)
+            return
+
+        enriched_event = dict(event)
+        enriched_event.setdefault("device_id", self._device_id)
+        enriched_event.setdefault("source_name", self._source.source_name)
+        enriched_event.setdefault("ts", time.time())
+        self.sig_event.emit(enriched_event)
+
+    def _emit_driver_error(self, action: str, exc: Exception) -> None:
+        self.sig_event.emit(
+            {
+                "kind": "driver_error",
+                "device_id": self._device_id,
+                "action": action,
+                "message": str(exc),
+                "error_type": type(exc).__name__,
+                "ts": time.time(),
+            }
         )
-        self._sequence += 1
 
 
 def create_minimal_driver() -> MinimalDriver:
