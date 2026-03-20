@@ -26,7 +26,8 @@ class DriverInvoker(QObject):
         task_id, request = self._unpack_task_payload(payload)
         
         if action == "search":
-            self._run_task(task_id, action, self._driver.search, request)
+            provider, search_request = self._unpack_search_request(request)
+            self._run_task(task_id, action, self._driver.search, provider, search_request)
             return
         if action == "connect_device":
             self._run_task(task_id, action, self._driver.connect_device, request)
@@ -65,3 +66,12 @@ class DriverInvoker(QObject):
         if not isinstance(task_id, str) or not task_id:
             raise TypeError("task payload task_id must be a non-empty string")
         return task_id, request
+
+    @staticmethod
+    def _unpack_search_request(request: object) -> tuple[str, object | None]:
+        if not isinstance(request, dict):
+            raise TypeError("search request must be a dict")
+        provider = request.get("provider")
+        if not isinstance(provider, str) or not provider.strip():
+            raise TypeError("search request provider must be a non-empty string")
+        return provider, request.get("request")

@@ -79,8 +79,8 @@ class DriverPortal(QObject):
         self._runtime.stop(timeout_ms=timeout_ms)
         self._state._mark_disconnected()
 
-    def search(self, request: object | None = None) -> DriverTask:
-        return self._runtime.search(request)
+    def search(self, provider: str, request: object | None = None) -> DriverTask:
+        return self._runtime.search(provider, request)
 
     def connect_device(self, config: object | None = None) -> DriverTask:
         task = self._runtime.connect_device(config)

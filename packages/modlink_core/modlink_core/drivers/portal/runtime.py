@@ -83,8 +83,12 @@ class DriverRuntime(QObject):
                 f"DRIVER_STOP_TIMEOUT: driver_id={self.driver_id}: timeout_ms={timeout_ms}"
             )
 
-    def search(self, request: object | None = None) -> DriverTask:
-        return self._dispatch_task("search", request)
+    def search(self, provider: str, request: object | None = None) -> DriverTask:
+        search_request = {
+            "provider": provider,
+            "request": request,
+        }
+        return self._dispatch_task("search", search_request)
 
     def connect_device(self, config: object | None = None) -> DriverTask:
         return self._dispatch_task("connect_device", config)
