@@ -1,12 +1,11 @@
-from .base import Driver
-from .mock import MOCK_EEG_STREAM_ID, MOCK_MOTION_STREAM_ID, MockDriver
+from .base import Driver, DriverFactory
+from .discovery import discover_driver_factories
 from .portal import DriverEvent, DriverPortal
 
 __all__ = [
     "Driver",
+    "DriverFactory",
     "DriverEvent",
     "DriverPortal",
-    "MOCK_EEG_STREAM_ID",
-    "MOCK_MOTION_STREAM_ID",
-    "MockDriver",
+    "discover_driver_factories",
 ]

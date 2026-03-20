@@ -1,3 +1,3 @@
-from .composition import ModLinkRuntime
+from .engine import ModLinkEngine
 
-__all__ = ["ModLinkRuntime"]
+__all__ = ["ModLinkEngine"]

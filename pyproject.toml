@@ -1,7 +1,7 @@
 [project]
-name = "openbciganglionui"
+name = "modlink-studio"
 version = "0.1.0"
-description = "OpenBCI Ganglion desktop UI built with PyQt6 and qfluentwidgets"
+description = "ModLink Studio is a multimodal data acquisition frontend built with PyQt6 and qfluentwidgets"
 readme = "README.md"
 authors = [
     { name = "Zhaoyang Xin", email = "xincy22@mails.tsinghua.edu.cn" }
@@ -10,6 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "bleak>=2.1.1",
     "brainflow>=5.20.1,<6",
+    "opencv-python>=4.10.0.84",
     "numpy>=2.3.3",
     "pyserial>=3.5",
     "pyqt6>=6.10.2",
@@ -17,10 +18,15 @@ dependencies = [
 ]
 
 [project.scripts]
+modlink-studio = "apps.modlink_studio:main"
 openbciganglionui = "openbciganglionui:main"
 openbci-ganglion-ui = "openbciganglionui:main"
 openbciganglionui-backend-smoke = "openbciganglionui.tools.backend_smoke:main"
 openbciganglionui-brainflow-native-probe = "openbciganglionui.tools.brainflow_native_probe:main"
+
+[project.entry-points."modlink.drivers"]
+mock = "packages.modlink_drivers.mock:create_mock_driver"
+webcam = "packages.modlink_drivers.webcam:create_webcam_driver"
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]
@@ -28,5 +34,6 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "black>=26.3.1",
     "pyinstaller>=6.16.0",
 ]

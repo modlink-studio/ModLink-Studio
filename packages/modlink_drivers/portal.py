@@ -2,21 +2,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Protocol
 
-from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, Qt, pyqtBoundSignal, pyqtSignal
 
-from packages.modlink_shared import FrameSignal, StreamDescriptor
+from packages.modlink_shared import StreamDescriptor
 
-from .base import Driver
-
-
-class StreamRegistry(Protocol):
-    def register_stream(
-        self,
-        descriptor: StreamDescriptor,
-        frame_signal: FrameSignal,
-    ) -> None: ...
+from .base import Driver, DriverFactory
 
 
 @dataclass(slots=True)
@@ -29,16 +20,14 @@ class DriverEvent:
 class DriverPortal(QObject):
     """Public driver-facing gateway used by the rest of the system.
 
-    The portal owns thread hosting, stream registration, and cross-thread
-    requests. Other modules interact with the portal instead of the raw driver.
+    The portal owns driver instantiation, thread hosting, and cross-thread requests.
+    Other modules interact with the portal instead of the raw driver.
     """
 
     sig_event = pyqtSignal(object)
-    sig_started = pyqtSignal(str)
-    sig_stopped = pyqtSignal(str)
     sig_error = pyqtSignal(str)
 
-    _request_bootstrap = pyqtSignal()
+    _request_on_thread_started = pyqtSignal()
     _request_shutdown = pyqtSignal()
     _request_search = pyqtSignal(object)
     _request_connect = pyqtSignal(object)
@@ -48,34 +37,30 @@ class DriverPortal(QObject):
 
     def __init__(
         self,
-        driver: Driver,
-        stream_registry: StreamRegistry,
+        driver_factory: DriverFactory,
         *,
-        auto_bootstrap: bool = True,
         thread_name: str | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        if driver.parent() is not None:
-            raise ValueError(
-                "driver must not have a QObject parent before attaching to a portal"
-            )
+        self._driver = self._create_driver(driver_factory)
+        driver_id = self._driver.device_id.strip()
+        if not driver_id:
+            raise ValueError("driver.device_id must not be empty")
 
-        self._driver = driver
-        self._stream_registry = stream_registry
-        self._auto_bootstrap = auto_bootstrap
+        self._driver_id = self._driver.device_id
+        self._display_name = self._driver.display_name
         self._thread = QThread(self)
         self._thread.setObjectName(
-            thread_name or f"modlink.driver.{self.driver_id or 'unnamed'}"
+            thread_name or f"modlink.driver.{driver_id}"
         )
-        self._streams_registered = False
         self._running = False
 
         self._driver.moveToThread(self._thread)
         self._driver.sig_event.connect(self._forward_event)
 
-        self._request_bootstrap.connect(
-            self._driver.bootstrap,
+        self._request_on_thread_started.connect(
+            self._driver.on_thread_started,
             Qt.ConnectionType.QueuedConnection,
         )
         self._request_shutdown.connect(
@@ -108,25 +93,21 @@ class DriverPortal(QObject):
 
     @property
     def driver_id(self) -> str:
-        return self._driver.device_id
+        return self._driver_id
 
     @property
     def display_name(self) -> str:
-        return self._driver.display_name
+        return self._display_name
 
     @property
     def is_running(self) -> bool:
         return self._running and self._thread.isRunning()
 
+    def streams(self) -> list[tuple[StreamDescriptor, pyqtBoundSignal]]:
+        return self._driver.streams()
+
     def start(self) -> None:
         if self._thread.isRunning():
-            return
-        try:
-            self._register_streams()
-        except ValueError as exc:
-            self.sig_error.emit(
-                f"DRIVER_REGISTER_FAILED: driver_id={self.driver_id}: {exc}"
-            )
             return
         self._thread.start()
 
@@ -157,18 +138,6 @@ class DriverPortal(QObject):
     def stop_streaming(self) -> None:
         self._request_stop_streaming.emit()
 
-    def _register_streams(self) -> None:
-        if self._streams_registered:
-            return
-
-        for descriptor in self._driver.stream_descriptors():
-            self._stream_registry.register_stream(
-                descriptor,
-                self._driver.frame_signal(descriptor.stream_id),
-            )
-
-        self._streams_registered = True
-
     def _forward_event(self, event: object) -> None:
         self.sig_event.emit(
             DriverEvent(driver_id=self.driver_id, event=event, ts=time.time())
@@ -176,10 +145,21 @@ class DriverPortal(QObject):
 
     def _on_thread_started(self) -> None:
         self._running = True
-        self.sig_started.emit(self.driver_id)
-        if self._auto_bootstrap:
-            self._request_bootstrap.emit()
+        self._request_on_thread_started.emit()
 
     def _on_thread_finished(self) -> None:
         self._running = False
-        self.sig_stopped.emit(self.driver_id)
+
+    @staticmethod
+    def _create_driver(driver_factory: DriverFactory) -> Driver:
+        if not callable(driver_factory):
+            raise TypeError("driver_factory must be callable")
+
+        driver = driver_factory()
+        if not isinstance(driver, Driver):
+            raise TypeError("driver_factory must return a Driver instance")
+        if driver.parent() is not None:
+            raise ValueError(
+                "driver must not have a QObject parent before attaching to a portal"
+            )
+        return driver

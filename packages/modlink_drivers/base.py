@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from collections.abc import Callable
 
-from packages.modlink_shared import FrameSignal, StreamDescriptor
+from PyQt6.QtCore import QObject, pyqtBoundSignal, pyqtSignal
+
+from packages.modlink_shared import StreamDescriptor
 
 
 class Driver(QObject):
@@ -16,10 +18,11 @@ class Driver(QObject):
     def display_name(self) -> str:
         return self.device_id
 
-    def stream_descriptors(self) -> tuple[StreamDescriptor, ...]:
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement stream_descriptors"
-        )
+    def on_thread_started(self) -> None:
+        """Optional hook invoked after the driver thread starts."""
+
+    def streams(self) -> list[tuple[StreamDescriptor, pyqtBoundSignal]]:
+        raise NotImplementedError(f"{type(self).__name__} must implement streams")
 
     def shutdown(self) -> None:
         try:
@@ -54,3 +57,5 @@ class Driver(QObject):
         raise NotImplementedError(
             f"{type(self).__name__} must implement stop_streaming"
         )
+
+DriverFactory = Callable[[], Driver]
