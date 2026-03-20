@@ -8,7 +8,6 @@ import numpy as np
 from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 from ..utils import (
-    derived_timestamps_ns,
     normalize_data_array,
     to_json_text,
     to_json_value,
@@ -84,10 +83,8 @@ class VideoStreamRecordingWriter(BaseStreamRecordingWriter):
 
         self._chunk_index += 1
         file_name = f"chunk-{self._chunk_index:06d}.npz"
-        timestamps_ns = derived_timestamps_ns(
-            frame.timestamp_ns,
-            chunk_size,
-            self._sample_period_ns,
+        timestamps_ns = np.asarray(int(frame.timestamp_ns), dtype=np.int64) + (
+            np.arange(chunk_size, dtype=np.int64) * int(self._sample_period_ns)
         )
         manifest = {
             "chunk_index": self._chunk_index,

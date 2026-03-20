@@ -36,7 +36,7 @@
 
 - `register_stream(descriptor: StreamDescriptor, frame_signal: FrameSignal) -> None`
 - `publish_frame(frame: object) -> None`
-- `subscribe(sink: Callable[[FrameEnvelope], None]) -> FrameSubscription`
+- `subscribe(sink: Callable[[FrameEnvelope], None], *, connection_type: Qt.ConnectionType = Qt.ConnectionType.AutoConnection) -> FrameSubscription`
 - `descriptor(stream_id: str) -> StreamDescriptor | None`
 - `descriptors() -> dict[str, StreamDescriptor]`
 
@@ -63,6 +63,7 @@
 ### 1. 注册流
 
 ```python
+import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from modlink import StreamBus, StreamDescriptor
@@ -78,8 +79,13 @@ bus.register_stream(
     StreamDescriptor(
         stream_id="eeg.main",
         modality="eeg",
-        payload_type="list[float]",
+        payload_type="line",
+        nominal_sample_rate_hz=250.0,
+        chunk_size=4,
         display_name="Main EEG",
+        metadata={
+            "channel_names": ["C3", "C4"],
+        },
     ),
     driver.sig_eeg_frame,
 )
@@ -100,7 +106,13 @@ driver.sig_eeg_frame.emit(
     FrameEnvelope(
         stream_id="eeg.main",
         timestamp_ns=123456789,
-        payload=[1.0, 2.0, 3.0, 4.0],
+        data=np.asarray(
+            [
+                [1.0, 2.0, 3.0, 4.0],
+                [0.5, 0.6, 0.7, 0.8],
+            ],
+            dtype=np.float64,
+        ),
         seq=1,
     )
 )
@@ -110,7 +122,7 @@ driver.sig_eeg_frame.emit(
 
 ```python
 def on_frame(frame):
-    print(frame.stream_id, frame.payload)
+    print(frame.stream_id, frame.data.shape)
 
 
 subscription = bus.subscribe(on_frame)
@@ -125,6 +137,17 @@ class PlotSink:
 
 
 subscription = bus.subscribe(PlotSink())
+```
+
+如果消费者需要跨线程订阅，也可以显式指定连接类型：
+
+```python
+from PyQt6.QtCore import Qt
+
+subscription = bus.subscribe(
+    worker.on_frame,
+    connection_type=Qt.ConnectionType.QueuedConnection,
+)
 ```
 
 ### 4. 退订

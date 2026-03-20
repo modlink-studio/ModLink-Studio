@@ -9,7 +9,6 @@ from ..utils import (
     SCHEMA_VERSION,
     declared_chunk_size,
     descriptor_to_dict,
-    nominal_sample_period_ns,
     nominal_sample_rate_hz,
     write_json,
 )
@@ -27,7 +26,7 @@ class BaseStreamRecordingWriter:
         self._sample_count = 0
         self._declared_chunk_size = declared_chunk_size(descriptor)
         self._nominal_sample_rate_hz = nominal_sample_rate_hz(descriptor)
-        self._sample_period_ns = nominal_sample_period_ns(descriptor)
+        self._sample_period_ns = int(round(1_000_000_000 / self._nominal_sample_rate_hz))
 
         self.stream_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.stream_dir / "descriptor.json", descriptor_to_dict(descriptor))
