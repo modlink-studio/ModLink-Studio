@@ -1,0 +1,25 @@
+[project]
+name = "modlink-studio"
+version = "0.1.0"
+description = "Host application for ModLink Studio"
+requires-python = ">=3.13"
+dependencies = [
+    "modlink-core",
+    "modlink-ui",
+    "pyqt6>=6.10.2",
+    "pyqt6-fluent-widgets>=1.11.1",
+]
+
+[project.scripts]
+modlink-studio = "modlink_studio.app:main"
+
+[tool.uv.sources]
+modlink-core = { workspace = true }
+modlink-ui = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

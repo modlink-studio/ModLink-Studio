@@ -2,7 +2,7 @@
 
 面向组内使用的多模态数据采集项目。
 
-这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。后续组内师兄师姐可以通过自己实现 `modlink_driver`，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
+这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。后续组内师兄师姐可以通过实现自己的 driver plugin，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
 
 ![OpenBCI Ganglion UI screenshot](docs/images/ui-demo.png)
 
@@ -35,7 +35,7 @@
 这个项目主要服务组内同学，尤其是两类角色：
 
 - 平台维护者：维护共享数据模型、总线、录制、设置、公共 UI 和应用组装逻辑
-- 设备接入者：为自己的设备实现 `modlink_driver`，把设备数据接到平台里
+- 设备接入者：为自己的设备实现 plugin/driver，把设备数据接到平台里
 
 理想情况下，设备接入者只需要完成“设备如何连接、如何发流、每个流长什么样”这部分，平台本身负责把这些流交给显示、标注和录制模块。
 
@@ -44,28 +44,28 @@
 ```text
 modlink-studio/
 ├─ apps/
+│  └─ modlink_studio/
 ├─ packages/
-│  ├─ modlink_shared/
+│  ├─ modlink_sdk/
 │  ├─ modlink_core/
-│  ├─ modlink_drivers/
 │  └─ modlink_ui/
-├─ tests/
+├─ plugins/
 ├─ docs/
-└─ scripts/
+└─ deprecated/
 ```
 
 当前各目录的职责可以理解为：
 
 - `apps/`
   面向具体场景的应用组装层，未来不同设备组合或实验场景可以在这里落应用入口
-- `packages/modlink_shared/`
-  共享运行时模型，例如帧结构、流描述、信号协议等
+- `packages/modlink_sdk/`
+  面向 driver/plugin 开发者的最小 SDK，提供共享数据模型和 driver 契约
 - `packages/modlink_core/`
-  平台核心能力，例如流总线、录制任务、设置服务、运行时组装
-- `packages/modlink_drivers/`
-  驱动基类和后续具体驱动实现所在的位置
+  平台核心能力，例如流总线、录制任务、设置服务、driver portal 和运行时组装
 - `packages/modlink_ui/`
   未来可复用的 UI 组件和 UI 基础设施
+- `plugins/`
+  具体设备插件所在的位置，后续官方维护和实验性 driver 都放这里
 - `src/openbciganglionui/`
   迁移参考来源，保留现有 Ganglion 专用实现，供抽取和对照
 
@@ -73,7 +73,7 @@ modlink-studio/
 
 后续组内同学接入设备时，推荐遵循下面这条思路：
 
-1. 在 `modlink_drivers` 体系下实现自己的驱动类
+1. 基于 `modlink_sdk` 实现自己的 driver/plugin
 2. 为设备定义它会产生哪些 stream，以及每个 stream 的 `StreamDescriptor`
 3. 驱动通过 signal 持续发出 `FrameEnvelope`
 4. `modlink_core` 的总线、录制和其他上层模块消费这些流
@@ -113,7 +113,7 @@ uv run modlink-studio
 或者：
 
 ```bash
-uv run python -m apps.modlink_studio
+uv run python -m modlink_studio
 ```
 
 如果你还在排查旧入口，也可以继续用 `openbciganglionui` 兼容命令，但新项目身份和默认入口已经切到 `ModLink Studio`。
