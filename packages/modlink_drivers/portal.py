@@ -3,9 +3,9 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-from PyQt6.QtCore import QObject, QThread, Qt, pyqtBoundSignal, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
 
-from packages.modlink_shared import StreamDescriptor
+from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 from .base import Driver, DriverFactory
 
@@ -26,6 +26,7 @@ class DriverPortal(QObject):
 
     sig_event = pyqtSignal(object)
     sig_error = pyqtSignal(str)
+    sig_frame = pyqtSignal(FrameEnvelope)
 
     _request_on_thread_started = pyqtSignal()
     _request_shutdown = pyqtSignal()
@@ -58,6 +59,7 @@ class DriverPortal(QObject):
 
         self._driver.moveToThread(self._thread)
         self._driver.sig_event.connect(self._forward_event)
+        self._driver.sig_frame.connect(self._forward_frame)
 
         self._request_on_thread_started.connect(
             self._driver.on_thread_started,
@@ -103,8 +105,8 @@ class DriverPortal(QObject):
     def is_running(self) -> bool:
         return self._running and self._thread.isRunning()
 
-    def streams(self) -> list[tuple[StreamDescriptor, pyqtBoundSignal]]:
-        return self._driver.streams()
+    def descriptors(self) -> list[StreamDescriptor]:
+        return self._driver.descriptors()
 
     def start(self) -> None:
         if self._thread.isRunning():
@@ -142,6 +144,9 @@ class DriverPortal(QObject):
         self.sig_event.emit(
             DriverEvent(driver_id=self.driver_id, event=event, ts=time.time())
         )
+
+    def _forward_frame(self, frame: FrameEnvelope) -> None:
+        self.sig_frame.emit(frame)
 
     def _on_thread_started(self) -> None:
         self._running = True

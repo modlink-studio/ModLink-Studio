@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TypeAlias
 
-from PyQt6.QtCore import QObject, Qt, pyqtBoundSignal, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 
 from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
@@ -36,7 +36,7 @@ class FrameSubscription:
 
 
 class StreamBus(QObject):
-    """Registers streams and broadcasts every accepted frame to subscribers."""
+    """Stores stream descriptors and broadcasts every accepted frame."""
 
     sig_stream_descriptor = pyqtSignal(object)
     sig_frame = pyqtSignal(FrameEnvelope)
@@ -45,15 +45,11 @@ class StreamBus(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent=parent)
         self._descriptors: dict[str, StreamDescriptor] = {}
-        self._frame_signals: dict[str, pyqtBoundSignal] = {}
 
-    def register_stream(
-        self, descriptor: StreamDescriptor, frame_signal: pyqtBoundSignal
-    ) -> None:
+    def add_descriptor(self, descriptor: StreamDescriptor) -> None:
         existing_descriptor = self._descriptors.get(descriptor.stream_id)
-        existing_signal = self._frame_signals.get(descriptor.stream_id)
         if existing_descriptor is not None:
-            if existing_descriptor == descriptor and existing_signal is frame_signal:
+            if existing_descriptor == descriptor:
                 return
 
             self.sig_error.emit(
@@ -64,12 +60,14 @@ class StreamBus(QObject):
             )
 
         self._descriptors[descriptor.stream_id] = descriptor
-        self._frame_signals[descriptor.stream_id] = frame_signal
-        frame_signal.connect(self.publish_frame)
         self.sig_stream_descriptor.emit(descriptor)
 
+    def add_descriptors(self, descriptors: Iterable[StreamDescriptor]) -> None:
+        for descriptor in descriptors:
+            self.add_descriptor(descriptor)
+
     @pyqtSlot(object)
-    def publish_frame(self, frame: object) -> None:
+    def ingest_frame(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
             self.sig_error.emit(
                 f"INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
