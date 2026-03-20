@@ -14,6 +14,7 @@ class MainPage(QWidget):
     def __init__(self, engine: ModLinkEngine, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self.engine = engine
+        self.setObjectName("main-page")
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(36, 28, 36, 28)

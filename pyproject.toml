@@ -18,18 +18,20 @@ dependencies = [
 ]
 
 [project.scripts]
-modlink-studio = "apps.modlink_studio:main"
-openbciganglionui = "openbciganglionui:main"
-openbci-ganglion-ui = "openbciganglionui:main"
-openbciganglionui-backend-smoke = "openbciganglionui.tools.backend_smoke:main"
-openbciganglionui-brainflow-native-probe = "openbciganglionui.tools.brainflow_native_probe:main"
+modlink-studio = "apps.modlink_studio.app:main"
 
 [project.entry-points."modlink.drivers"]
 minimal = "packages.modlink_drivers.minimal:create_minimal_driver"
 
 [build-system]
-requires = ["uv_build>=0.9.28,<0.10.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "apps",
+    "packages"
+]
 
 [dependency-groups]
 dev = [
