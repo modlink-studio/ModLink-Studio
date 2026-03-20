@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QObject, pyqtBoundSignal, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal
 
-from packages.modlink_shared import StreamDescriptor
+from packages.modlink_shared import FrameEnvelope, StreamDescriptor
 
 
 class Driver(QObject):
     sig_event = pyqtSignal(object)
+    sig_frame = pyqtSignal(FrameEnvelope)
 
     @property
     def device_id(self) -> str:
@@ -21,8 +22,8 @@ class Driver(QObject):
     def on_thread_started(self) -> None:
         """Optional hook invoked after the driver thread starts."""
 
-    def streams(self) -> list[tuple[StreamDescriptor, pyqtBoundSignal]]:
-        raise NotImplementedError(f"{type(self).__name__} must implement streams")
+    def descriptors(self) -> list[StreamDescriptor]:
+        raise NotImplementedError(f"{type(self).__name__} must implement descriptors")
 
     def shutdown(self) -> None:
         try:

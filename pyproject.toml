@@ -25,8 +25,7 @@ openbciganglionui-backend-smoke = "openbciganglionui.tools.backend_smoke:main"
 openbciganglionui-brainflow-native-probe = "openbciganglionui.tools.brainflow_native_probe:main"
 
 [project.entry-points."modlink.drivers"]
-mock = "packages.modlink_drivers.mock:create_mock_driver"
-webcam = "packages.modlink_drivers.webcam:create_webcam_driver"
+minimal = "packages.modlink_drivers.minimal:create_minimal_driver"
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]

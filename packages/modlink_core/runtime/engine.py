@@ -52,9 +52,9 @@ class ModLinkEngine(QObject):
         portal.setParent(self)
         portal.sig_event.connect(self.sig_driver_event)
         portal.sig_error.connect(self.sig_error.emit)
+        portal.sig_frame.connect(self.bus.ingest_frame)
 
-        for descriptor, frame_signal in portal.streams():
-            self.bus.register_stream(descriptor, frame_signal)
+        self.bus.add_descriptors(portal.descriptors())
 
         self._driver_portals[driver_id] = portal
         portal.start()
