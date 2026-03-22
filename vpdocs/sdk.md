@@ -1,13 +1,15 @@
 # SDK 开发者指南
 
-这个页面面向的是要把自己的设备接入 ModLink Studio 的开发者。
+这一页记录的是把设备接入 `ModLink Studio` 时最常用的约定。
 
-如果你只想知道一件事，那就是：
+目前的 SDK 重点是把 driver 开发收敛成一组足够小、但又能覆盖常见设备形态的接口。对大多数设备来说，判断通常先从这里开始：
 
 - 常见轮询设备优先考虑 `LoopDriver`
 - callback 型设备直接继承 `Driver`
 
 ## 快速定位
+
+这一页主要分成下面几部分：
 
 - [先选哪一个基类](#先选哪一个基类)
 - [最小接入流程](#最小接入流程)
@@ -26,9 +28,9 @@
 
 - callback 型 SDK
 - 比较特殊的第三方库
-- 一个固定 `loop` 很难表达清楚的设备
+- 一个固定 `loop()` 很难表达清楚的设备
 
-你通常需要自己实现：
+常见实现点包括：
 
 - `search()`
 - `connect_device()`
@@ -44,10 +46,10 @@
 适合这类设备：
 
 - 串口轮询
-- BrainFlow 这类“查有没有数据，再取数据”的设备
-- 自己的协议里天然就是一个短循环的设备
+- BrainFlow 这类“先看有没有数据，再取数据”的设备
+- 协议本身天然就是一个短循环的设备
 
-你通常需要实现：
+常见实现点包括：
 
 - `search()`
 - `connect_device()`
@@ -65,7 +67,7 @@
 
 ## 最小接入流程
 
-不管你最终选哪一个基类，最小接入流程都差不多：
+不管最终选哪一个基类，最小接入流程都差不多：
 
 1. 定义一个 driver 类
 2. 实现 `device_id`
@@ -74,12 +76,12 @@
 5. 实现连接和采集逻辑
 6. 通过 `sig_frame` 发出 `FrameEnvelope`
 
-如果你想先把链路跑通，推荐优先把这两件事定住：
+如果目的是先把链路跑通，最值得先定住的是这两件事：
 
 - `StreamDescriptor`
 - `FrameEnvelope.data` 的 shape
 
-因为这两件事一旦定住，UI、录制和调试路径都会稳定很多。
+一旦这两件事稳定下来，UI、录制和调试路径通常也会稳定很多。
 
 ## 三个核心数据模型
 
@@ -89,8 +91,8 @@
 
 它的职责很简单：
 
-- `title` / `subtitle` 给用户看
-- `extra` 给 driver 自己用
+- `title` / `subtitle` 给界面展示
+- `extra` 给 driver 自己使用
 
 宿主不会解析 `extra`，只是把它原样传回 `connect_device()`。
 
@@ -108,19 +110,19 @@
 - `channel_names`
 - `unit`
 
-注意：
+这里有一个当前实现上的边界：
 
-- host 可能在设备连接前就读取 descriptor
+- host 可能会在设备连接前就读取 descriptor
 - 所以 `descriptors()` 最好不要依赖“必须先连上设备才能知道”的动态状态
 
 ### `FrameEnvelope`
 
 `FrameEnvelope` 是 driver 在运行时真正发出的数据块。
 
-你可以把它理解成：
+可以把它理解成：
 
-- `stream_id`：这是哪个流
-- `timestamp_ns`：这一块数据的时间戳
+- `stream_id`：这块数据属于哪个流
+- `timestamp_ns`：这块数据对应的时间戳
 - `data`：数据本体
 - `seq`：可选顺序号
 
@@ -137,14 +139,14 @@
 7. 调 `start_streaming()`
 8. 后续调 `stop_streaming()` / `disconnect_device()` / `shutdown()`
 
-对 driver 作者来说，最重要的边界是：
+从 driver 侧看，最重要的边界是：
 
-- `search()` 是一次性发现
+- `search()` 负责一次性发现
 - `connect_device()` 负责建立连接，但不开始实时采集
 - `start_streaming()` 负责开始发 `FrameEnvelope`
 - `stop_streaming()` 负责停止发流
 
-如果你继承的是 `LoopDriver`，第 7 步里的 `start_streaming()` 已经由基类实现好了，你只需要写 `loop()`。
+继承 `LoopDriver` 时，第 7 步里的 `start_streaming()` 已经由基类实现，driver 只需要写 `loop()` 即可。
 
 ## `FrameEnvelope.data` 的常见 shape
 
@@ -160,7 +162,7 @@
 - PPG / ECG 多通道数据
 - 加速度计 `x/y/z`
 
-同一个设备、同一种模态下的多个 channel，通常应该放在**同一个 stream**里，而不是拆成多个 stream。
+同一个设备、同一种模态下的多个 channel，通常更适合放在**同一个 stream**里，而不是拆成多个 stream。
 
 ## 插件项目怎么组织
 
@@ -223,7 +225,7 @@ uv run --with-editable ./plugins/openbciganglion modlink-studio
 
 ## 什么时候不要急着抽新基类
 
-如果你接的是 callback 型设备，先直接继承 `Driver` 往往更干净。
+对于 callback 型设备，直接继承 `Driver` 往往会更干净。
 
 原因很简单：
 

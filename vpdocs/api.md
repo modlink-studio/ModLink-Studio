@@ -1,23 +1,23 @@
 # API 快速索引
 
-这个页面不是完整教程，而是一个快速入口页。
+这个页面主要作为一个快速入口，而不是完整教程。
 
-如果你已经知道自己要找什么类型或模块，可以直接从这里跳过去。
+如果目标已经比较明确，可以直接从这里跳到对应类型或对应包的 API 页面。
 
 ## 完整 API 参考
 
-如果你想看从源码 docstring 自动生成的 API 文档，直接跳到 pdoc：
+从源码 docstring 自动生成的 API 文档入口如下：
 
 - [打开 pdoc 总览](./pdoc/index.html)
 
-如果你想直接看某个包：
+各个主要包的入口如下：
 
 - [modlink_sdk](./pdoc/modlink_sdk.html)
 - [modlink_core](./pdoc/modlink_core.html)
 - [modlink_ui](./pdoc/modlink_ui.html)
 - [modlink_studio](./pdoc/modlink_studio.html)
 
-如果这些链接 404，先重新构建文档站和 pdoc 产物。
+如果这些链接出现 404，通常说明文档站或 pdoc 产物还没有重新构建。
 
 ## SDK 里最常看的对象
 
@@ -71,7 +71,7 @@ driver 实时发出的数据块。
 - 数据时间戳是什么
 - 数据 shape 应该怎么解释
 
-## 如果你还不确定先看哪页
+## 继续阅读的入口
 
 - 想接设备：看 [SDK](/sdk)
 - 想理解运行时：看 [Core](/core)
