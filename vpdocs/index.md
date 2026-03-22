@@ -28,6 +28,8 @@ features:
     details: SDK 负责接入契约，Core 负责运行时和总线，UI 负责展示，App 负责最终组装和启动。
 ---
 
+<div style="height: 1.5rem"></div>
+
 # ModLink Studio 文档总览
 
 这个站点主要服务两类人：
@@ -76,3 +78,4 @@ features:
 - [UI 页面](/ui)：UI 应该依赖哪些稳定约定
 - [App 页面](/app)：插件发现、应用入口、推荐启动方式
 - [API 页面](/api)：pdoc 自动文档入口
+

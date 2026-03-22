@@ -1,0 +1,75 @@
+name: Publish Docs Site
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-docs
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build API reference
+        run: npm run docs:pdoc:build
+
+      - name: Build VitePress site
+        run: npm run docs:vp:build
+
+      - name: Checkout published site repository
+        uses: actions/checkout@v4
+        with:
+          repository: modlink-studio/modlink-studio.github.io
+          token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          path: site
+
+      - name: Sync built site
+        run: |
+          find site -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -R vpdocs/.vitepress/dist/. site/
+          touch site/.nojekyll
+
+      - name: Commit and push published site
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "docs: update site"
+            git push origin main
+          else
+            echo "No docs changes to publish."
+          fi
