@@ -141,6 +141,11 @@ uv run --with-editable ./plugins/openbciganglion modlink-studio
 
 项目文档目前使用 `VitePress` 维护，源码位于 `vpdocs/`。
 
+文档源码和 GitHub Pages 发布仓库现在分开维护：
+
+- 当前代码仓负责保存文档源码
+- `modlink-studio.github.io` 仓库负责承载最终静态站点
+
 本地预览：
 
 ```bash
@@ -156,6 +161,15 @@ npm run docs:pdoc:build
 npm run docs:vp:build
 ```
 
+如果你本地已经把 `modlink-studio.github.io` 仓库克隆到当前仓库旁边，可以直接用：
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\export-docs.ps1
+```
+
+这个脚本会构建文档，并把 `vpdocs/.vitepress/dist/` 的内容同步到
+`..\modlink-studio.github.io\`。
+
 ## 给设备开发者的说明
 
 如果你后续要把自己的设备接进来，建议先关注三件事：
@@ -169,3 +183,4 @@ npm run docs:vp:build
 ## 说明
 
 这个 README 现在描述的是项目目标和当前迁移方向，而不是最终完成态。随着 `packages/`、`apps/` 和新的应用入口逐步成形，这份文档也会继续更新。
+
