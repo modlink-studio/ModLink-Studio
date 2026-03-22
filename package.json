@@ -6,7 +6,8 @@
         "docs:vp:dev": "vitepress dev vpdocs",
         "docs:vp:build": "vitepress build vpdocs",
         "docs:vp:preview": "vitepress preview vpdocs",
-        "docs:pdoc:build": "uv run pdoc packages/modlink_sdk/modlink_sdk packages/modlink_core/modlink_core packages/modlink_ui/modlink_ui apps/modlink_studio/modlink_studio -o vpdocs/public/pdoc"
+        "docs:pdoc:build": "uv run pdoc packages/modlink_sdk/modlink_sdk packages/modlink_core/modlink_core packages/modlink_ui/modlink_ui apps/modlink_studio/modlink_studio -o vpdocs/public/pdoc",
+        "docs:build": "npm run docs:pdoc:build && npm run docs:vp:build"
     },
     "devDependencies": {
         "vitepress": "^1.6.3",
