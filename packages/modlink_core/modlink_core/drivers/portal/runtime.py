@@ -4,10 +4,11 @@ from uuid import uuid4
 
 from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal, pyqtSlot
 
-from modlink_sdk import Driver, DriverFactory, FrameEnvelope, StreamDescriptor
+from modlink_sdk import Driver, DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
 from .invoker import DriverInvoker
 from .task import DriverTask
+
 
 class DriverRuntime(QObject):
     sig_error = pyqtSignal(str)
@@ -83,14 +84,10 @@ class DriverRuntime(QObject):
                 f"DRIVER_STOP_TIMEOUT: driver_id={self.driver_id}: timeout_ms={timeout_ms}"
             )
 
-    def search(self, provider: str, request: object | None = None) -> DriverTask:
-        search_request = {
-            "provider": provider,
-            "request": request,
-        }
-        return self._dispatch_task("search", search_request)
+    def search(self, provider: str) -> DriverTask:
+        return self._dispatch_task("search", provider)
 
-    def connect_device(self, config: object | None = None) -> DriverTask:
+    def connect_device(self, config: SearchResult) -> DriverTask:
         return self._dispatch_task("connect_device", config)
 
     def disconnect_device(self) -> DriverTask:

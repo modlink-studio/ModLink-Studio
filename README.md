@@ -1,14 +1,14 @@
 # ModLink Studio
 
-面向组内使用的多模态数据采集项目。
+面向多设备接入、多模态采集与展示的数据平台。
 
-这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。后续组内师兄师姐可以通过实现自己的 driver plugin，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
+这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。设备开发者可以通过实现自己的 driver plugin，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
 
-![OpenBCI Ganglion UI screenshot](docs/images/ui-demo.png)
+![OpenBCI Ganglion UI screenshot](assets/ui-demo.png)
 
 ## 项目定位
 
-`ModLink Studio` 的目标不是做一个只服务某一块板卡的 demo，而是做一套组内可复用的采集基础设施。
+`ModLink Studio` 的目标不是做一个只服务某一块板卡的 demo，而是做一套可复用的采集基础设施。
 
 这套基础设施希望解决的问题包括：
 
@@ -25,14 +25,14 @@
 
 因此当前仓库里会同时看到两条线：
 
-- `src/openbciganglionui/`
+- `deprecated/src/openbciganglionui/`
   现有的旧应用实现，也是当前最完整、最可运行的参考
 - `packages/`
   正在建设中的新 monorepo 基础层，后续新的通用能力主要会沉淀在这里
 
 ## 面向谁
 
-这个项目主要服务组内同学，尤其是两类角色：
+这个项目主要面向两类角色：
 
 - 平台维护者：维护共享数据模型、总线、录制、设置、公共 UI 和应用组装逻辑
 - 设备接入者：为自己的设备实现 plugin/driver，把设备数据接到平台里
@@ -50,7 +50,7 @@ modlink-studio/
 │  ├─ modlink_core/
 │  └─ modlink_ui/
 ├─ plugins/
-├─ docs/
+├─ vpdocs/
 └─ deprecated/
 ```
 
@@ -66,12 +66,12 @@ modlink-studio/
   未来可复用的 UI 组件和 UI 基础设施
 - `plugins/`
   具体设备插件所在的位置，后续官方维护和实验性 driver 都放这里
-- `src/openbciganglionui/`
+- `deprecated/src/openbciganglionui/`
   迁移参考来源，保留现有 Ganglion 专用实现，供抽取和对照
 
 ## 驱动接入思路
 
-后续组内同学接入设备时，推荐遵循下面这条思路：
+后续接入设备时，推荐遵循下面这条思路：
 
 1. 基于 `modlink_sdk` 实现自己的 driver/plugin
 2. 为设备定义它会产生哪些 stream，以及每个 stream 的 `StreamDescriptor`
@@ -83,14 +83,14 @@ modlink-studio/
 
 ## 当前状态
 
-目前仓库处在迁移期，整体状态是：
+目前仓库已经以 `ModLink Studio` 为默认入口，核心方向也已经切到新的分层结构：
 
-- `openbciganglionui` 仍然是当前最完整的可运行实现
-- `packages/` 里的基础层正在补齐，用来承接新的通用架构
-- 项目级入口、命名和发布配置还没有完全切换到 `ModLink Studio`
-- 一些文档和目录已经是新的方向，但仍会保留旧项目痕迹
+- `apps/` 负责应用入口和最终组装
+- `packages/` 负责 SDK、Core 和 UI 基础层
+- `plugins/` 负责按需挂载的设备 driver
+- `deprecated/src/openbciganglionui/` 保留为迁移参考
 
-这意味着：现在这个仓库既是正在运行的旧项目，也是正在建设的新平台。
+也就是说，这个仓库的重点已经不是继续扩大单设备专用应用，而是稳定一套可复用的设备接入和采集平台。
 
 ## 开发目标
 
@@ -118,7 +118,45 @@ uv run python -m modlink_studio
 
 如果你还在排查旧入口，也可以继续用 `openbciganglionui` 兼容命令，但新项目身份和默认入口已经切到 `ModLink Studio`。
 
-## 给组内设备开发者的说明
+如果你需要某个可选 driver plugin，推荐在启动时临时附加它。例如启用
+`openbciganglion`：
+
+```bash
+uv sync
+uv run --with ./plugins/openbciganglion modlink-studio
+```
+
+如果你正在开发某个 plugin，希望本地代码修改立即生效，推荐使用 editable
+模式启动：
+
+```bash
+uv sync
+uv run --with-editable ./plugins/openbciganglion modlink-studio
+```
+
+默认的 `uv sync` 不会安装这些插件，只有显式通过 `--with` /
+`--with-editable` 附加时才会参与本次运行。
+
+## 文档
+
+项目文档目前使用 `VitePress` 维护，源码位于 `vpdocs/`。
+
+本地预览：
+
+```bash
+npm ci
+npm run docs:vp:dev
+```
+
+构建静态站点：
+
+```bash
+npm ci
+npm run docs:pdoc:build
+npm run docs:vp:build
+```
+
+## 给设备开发者的说明
 
 如果你后续要把自己的设备接进来，建议先关注三件事：
 

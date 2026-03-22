@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from modlink_sdk import DriverFactory, FrameEnvelope, StreamDescriptor
+from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
 from .runtime import DriverRuntime
 from .state import DeviceState
@@ -79,10 +79,10 @@ class DriverPortal(QObject):
         self._runtime.stop(timeout_ms=timeout_ms)
         self._state._mark_disconnected()
 
-    def search(self, provider: str, request: object | None = None) -> DriverTask:
-        return self._runtime.search(provider, request)
+    def search(self, provider: str) -> DriverTask:
+        return self._runtime.search(provider)
 
-    def connect_device(self, config: object | None = None) -> DriverTask:
+    def connect_device(self, config: SearchResult) -> DriverTask:
         task = self._runtime.connect_device(config)
         task.sig_done.connect(lambda: self._on_connect_done(task))
         return task

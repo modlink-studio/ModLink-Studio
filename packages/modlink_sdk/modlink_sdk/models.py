@@ -1,3 +1,5 @@
+"""Public SDK data models shared by drivers, runtime services, and UI."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,20 +11,82 @@ PayloadType: TypeAlias = Literal["line", "plane", "video"]
 
 
 @dataclass(slots=True)
+class SearchResult:
+    """One discovery candidate returned by ``Driver.search()``.
+
+    Hosts use ``title`` and ``subtitle`` for presentation. ``extra`` is owned
+    by the driver and is passed back to ``connect_device()`` unchanged.
+    """
+
+    title: str
+    """Primary label shown to the user."""
+
+    subtitle: str = ""
+    """Optional secondary label shown to the user."""
+
+    extra: dict[str, Any] = field(default_factory=dict)
+    """Driver-owned JSON-friendly payload for later connection."""
+
+
+@dataclass(slots=True)
 class FrameEnvelope:
+    """One emitted payload chunk from a driver.
+
+    Drivers emit ``FrameEnvelope`` objects through ``Driver.sig_frame``. The
+    host forwards them to the stream bus, recording backends, and UI
+    consumers.
+    """
+
     stream_id: str
+    """Identifier of the stream that produced this payload."""
+
     timestamp_ns: int
+    """Driver-supplied timestamp in nanoseconds."""
+
     data: np.ndarray
+    """Payload array for this emitted chunk.
+
+    The expected array shape depends on the matching ``StreamDescriptor``.
+    """
+
     seq: int | None = None
+    """Optional monotonically increasing sequence number."""
+
     extra: dict[str, object] = field(default_factory=dict)
+    """Optional extension metadata forwarded unchanged by the host."""
 
 
 @dataclass(slots=True)
 class StreamDescriptor:
+    """Static metadata describing one stream exposed by a driver.
+
+    Hosts may read descriptors before a device is connected. The returned
+    values should remain stable for the lifetime of the driver instance.
+    """
+
     stream_id: str
+    """Stable identifier for this stream."""
+
     modality: str
+    """High-level modality label, such as ``eeg``, ``accel``, or ``audio``."""
+
     payload_type: PayloadType
+    """Payload type used to interpret ``FrameEnvelope.data``."""
+
     nominal_sample_rate_hz: float
+    """Nominal sample rate in Hz."""
+
     chunk_size: int
+    """Expected number of samples or frames per emitted chunk."""
+
+    channel_names: tuple[str, ...] = ()
+    """Optional channel labels, usually matching axis 0 for line payloads."""
+
+    unit: str | None = None
+    """Optional unit string, such as ``"uV"`` or ``"m/s^2"``."""
+
     display_name: str | None = None
+    """Optional human-readable stream label."""
+
     metadata: dict[str, Any] = field(default_factory=dict)
+    """Additional driver- or device-specific metadata."""
