@@ -153,7 +153,7 @@ npm ci
 npm run docs:vp:dev
 ```
 
-构建静态站点：
+本地构建：
 
 ```bash
 npm ci
@@ -161,7 +161,16 @@ npm run docs:pdoc:build
 npm run docs:vp:build
 ```
 
-如果你本地已经把 `modlink-studio.github.io` 仓库克隆到当前仓库旁边，可以直接用：
+推荐发布方式是自动发布：当前代码仓已经提供了
+`.github/workflows/publish-docs.yml`，会在 `main` 分支更新后自动构建文档并同步到
+`modlink-studio.github.io`。
+
+要启用这条自动发布链，需要先在 `ModLink-Studio` 仓库里配置一个 GitHub Actions secret：
+
+- `DOCS_DEPLOY_TOKEN`
+  建议使用 fine-grained personal access token，并只授予 `modlink-studio/modlink-studio.github.io` 这个仓库的 `Contents: Read and write` 权限
+
+本地兜底方式仍然保留。如果你本地已经把 `modlink-studio.github.io` 仓库克隆到当前仓库旁边，可以直接用：
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\scripts\export-docs.ps1
@@ -183,4 +192,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\export-docs.ps1
 ## 说明
 
 这个 README 现在描述的是项目目标和当前迁移方向，而不是最终完成态。随着 `packages/`、`apps/` 和新的应用入口逐步成形，这份文档也会继续更新。
+
+
 

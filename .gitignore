@@ -14,6 +14,7 @@ __pycache__/
 node_modules/
 
 # VitePress
+vpdocs/image/
 vpdocs/.vitepress/.temp/
 vpdocs/.vitepress/cache/
 vpdocs/.vitepress/dist/
@@ -25,3 +26,5 @@ build/
 release/
 data/
 tmp/
+
+
