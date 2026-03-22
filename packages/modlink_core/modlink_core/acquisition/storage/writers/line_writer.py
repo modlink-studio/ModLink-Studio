@@ -33,9 +33,9 @@ class LineStreamRecordingWriter(BaseStreamRecordingWriter):
 
         if self._channel_count is None:
             self._channel_count = channel_count
-            channel_names = self.descriptor.metadata.get("channel_names")
+            channel_names = self.descriptor.channel_names
             if (
-                isinstance(channel_names, list)
+                isinstance(channel_names, tuple)
                 and all(isinstance(name, str) and name for name in channel_names)
                 and len(channel_names) == channel_count
             ):
