@@ -19,7 +19,7 @@ class Driver(QObject):
 
     General contract:
 
-    - ``device_id`` must be stable and non-empty.
+    - ``device_id`` must be stable, non-empty, and use ``name.XX`` form.
     - ``descriptors()`` must describe every stream the driver may emit.
     - control methods are synchronous and run on the driver worker thread.
     - ``start_streaming()`` should return quickly after acquisition starts.
@@ -29,7 +29,8 @@ class Driver(QObject):
     sig_frame = pyqtSignal(FrameEnvelope)
     """Emitted when a new payload chunk is available.
 
-    The emitted ``stream_id`` must match one of the driver's registered
+    ``FrameEnvelope.stream_id`` is derived from ``device_id`` and ``modality``.
+    The derived value must match one of the driver's registered
     ``StreamDescriptor.stream_id`` values.
     """
 
@@ -51,7 +52,8 @@ class Driver(QObject):
         """Return the stable identifier of this driver instance.
 
         The value must be non-empty, stable for the lifetime of the instance,
-        and independent of connection state.
+        independent of connection state, and use ``name.XX`` form such as
+        ``openbciganglion.01``.
         """
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 

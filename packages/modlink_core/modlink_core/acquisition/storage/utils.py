@@ -14,6 +14,7 @@ SCHEMA_VERSION = 1
 
 def descriptor_to_dict(descriptor: StreamDescriptor) -> dict[str, Any]:
     return {
+        "device_id": descriptor.device_id,
         "stream_id": descriptor.stream_id,
         "modality": descriptor.modality,
         "payload_type": descriptor.payload_type,

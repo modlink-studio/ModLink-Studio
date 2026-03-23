@@ -7,8 +7,7 @@ import sounddevice as sd
 
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
-DEFAULT_DEVICE_ID = "audio:microphone:demo"
-DEFAULT_STREAM_ID = f"{DEFAULT_DEVICE_ID}:waveform"
+DEFAULT_DEVICE_ID = "microphone_demo.01"
 DEFAULT_SAMPLE_RATE_HZ = 16_000.0
 DEFAULT_CHUNK_SIZE = 1024
 
@@ -33,7 +32,7 @@ class MicrophoneDemoDriver(Driver):
     def descriptors(self) -> list[StreamDescriptor]:
         return [
             StreamDescriptor(
-                stream_id=DEFAULT_STREAM_ID,
+                device_id=self.device_id,
                 modality="audio",
                 payload_type="line",
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
@@ -103,7 +102,8 @@ class MicrophoneDemoDriver(Driver):
 
         self.sig_frame.emit(
             FrameEnvelope(
-                stream_id=DEFAULT_STREAM_ID,
+                device_id=self.device_id,
+                modality="audio",
                 timestamp_ns=time.time_ns(),
                 data=np.ascontiguousarray(indata[:, 0], dtype=np.float32)[
                     np.newaxis, :

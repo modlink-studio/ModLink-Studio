@@ -18,10 +18,10 @@ class MainWindow(MSFluentWindow):
         self.engine = engine
 
         self.main_page = MainPage(engine=self.engine, parent=self)
-        self.device_page = DevicePage(parent=self)
-        self.settings_page = SettingsPage(parent=self)
+        self.device_page = DevicePage(engine=self.engine, parent=self)
+        self.settings_page = SettingsPage(engine=self.engine, parent=self)
 
-        self.addSubInterface(self.main_page, FIF.HOME, "主页")
+        self.addSubInterface(self.main_page, FIF.HOME, "实时展示")
         self.addSubInterface(self.device_page, FIF.IOT, "设备", position=NavigationItemPosition.BOTTOM)
         self.addSubInterface(self.settings_page, FIF.SETTING, "设置", position=NavigationItemPosition.BOTTOM)
 

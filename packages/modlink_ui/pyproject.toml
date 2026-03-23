@@ -7,6 +7,7 @@ dependencies = [
     "modlink-core",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
+    "pyqtgraph>=0.13.7",
 ]
 
 [tool.uv.sources]

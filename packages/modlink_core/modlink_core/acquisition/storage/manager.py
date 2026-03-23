@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import csv
-import hashlib
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -134,13 +134,9 @@ class RecordingStorage:
         )
 
     def _stream_dir_for(self, descriptor: StreamDescriptor) -> Path:
-        modality_dir = descriptor.modality or "unknown"
-        stream_name = descriptor.stream_id
-        stream_hash = hashlib.sha1(
-            descriptor.stream_id.encode("utf-8"),
-            usedforsecurity=False,
-        ).hexdigest()[:8]
-        return self.streams_dir / modality_dir / f"{stream_name}-{stream_hash}"
+        device_dir = _safe_path_component(descriptor.device_id) or "unknown_device"
+        modality_dir = _safe_path_component(descriptor.modality) or "unknown"
+        return self.streams_dir / device_dir / modality_dir
 
     def _write_recording_manifest(
         self,
@@ -165,3 +161,9 @@ class RecordingStorage:
                 "frame_counts_by_stream": self.frame_counts_by_stream,
             },
         )
+
+
+def _safe_path_component(value: str) -> str:
+    normalized = re.sub(r'[<>:"/\\\\|?*]+', "_", str(value).strip())
+    normalized = normalized.rstrip(". ")
+    return normalized or "_"

@@ -7,6 +7,8 @@ from typing import Any, Literal, TypeAlias
 
 import numpy as np
 
+from .utils import make_stream_id, normalize_device_id, normalize_modality
+
 PayloadType: TypeAlias = Literal["line", "plane", "video"]
 
 
@@ -24,8 +26,15 @@ class SearchResult:
     subtitle: str = ""
     """Optional secondary label shown to the user."""
 
+    device_id: str | None = None
+    """Optional canonical device identifier suggested by the driver."""
+
     extra: dict[str, Any] = field(default_factory=dict)
     """Driver-owned JSON-friendly payload for later connection."""
+
+    def __post_init__(self) -> None:
+        if self.device_id is not None:
+            self.device_id = normalize_device_id(self.device_id)
 
 
 @dataclass(slots=True)
@@ -37,8 +46,14 @@ class FrameEnvelope:
     consumers.
     """
 
-    stream_id: str
-    """Identifier of the stream that produced this payload."""
+    device_id: str
+    """Identifier of the device that produced this payload."""
+
+    modality: str
+    """High-level modality label for this payload, such as ``eeg`` or ``video``."""
+
+    stream_id: str = field(init=False)
+    """Derived stable identifier of the stream that produced this payload."""
 
     timestamp_ns: int
     """Driver-supplied timestamp in nanoseconds."""
@@ -55,6 +70,11 @@ class FrameEnvelope:
     extra: dict[str, object] = field(default_factory=dict)
     """Optional extension metadata forwarded unchanged by the host."""
 
+    def __post_init__(self) -> None:
+        self.device_id = normalize_device_id(self.device_id)
+        self.modality = normalize_modality(self.modality)
+        self.stream_id = make_stream_id(self.device_id, self.modality)
+
 
 @dataclass(slots=True)
 class StreamDescriptor:
@@ -64,11 +84,14 @@ class StreamDescriptor:
     values should remain stable for the lifetime of the driver instance.
     """
 
-    stream_id: str
-    """Stable identifier for this stream."""
+    device_id: str
+    """Stable device identifier in ``name.XX`` form."""
 
     modality: str
     """High-level modality label, such as ``eeg``, ``accel``, or ``audio``."""
+
+    stream_id: str = field(init=False)
+    """Derived stable identifier for this stream."""
 
     payload_type: PayloadType
     """Payload type used to interpret ``FrameEnvelope.data``."""
@@ -90,3 +113,8 @@ class StreamDescriptor:
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional driver- or device-specific metadata."""
+
+    def __post_init__(self) -> None:
+        self.device_id = normalize_device_id(self.device_id)
+        self.modality = normalize_modality(self.modality)
+        self.stream_id = make_stream_id(self.device_id, self.modality)

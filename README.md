@@ -118,24 +118,27 @@ uv run python -m modlink_studio
 
 如果你还在排查旧入口，也可以继续用 `openbciganglionui` 兼容命令，但新项目身份和默认入口已经切到 `ModLink Studio`。
 
-如果你需要某个可选 driver plugin，推荐在启动时临时附加它。例如启用
+如果你需要某个可选 driver plugin，推荐通过 extras 启动。例如启用
 `openbciganglion`：
 
 ```bash
 uv sync
-uv run --with ./plugins/openbciganglion modlink-studio
+uv run --extra openbciganglion modlink-studio
 ```
 
-如果你正在开发某个 plugin，希望本地代码修改立即生效，推荐使用 editable
-模式启动：
+如果你还想同时启用多个插件，可以重复传多个 `--extra`：
 
 ```bash
-uv sync
-uv run --with-editable ./plugins/openbciganglion modlink-studio
+uv run --extra openbciganglion --extra microphone-demo modlink-studio
 ```
 
-默认的 `uv sync` 不会安装这些插件，只有显式通过 `--with` /
-`--with-editable` 附加时才会参与本次运行。
+如果你想一次性启用当前仓库里所有内置插件，也可以直接：
+
+```bash
+uv run --extra drivers-all modlink-studio
+```
+
+默认的 `uv sync` 不会安装这些插件，只有显式通过 `--extra` 附加时才会参与本次运行。
 
 ## 文档
 
