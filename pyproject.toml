@@ -5,6 +5,16 @@ description = "Workspace root for ModLink Studio"
 requires-python = ">=3.13"
 dependencies = ["modlink-studio"]
 
+[project.optional-dependencies]
+openbciganglion = ["openbciganglion"]
+microphone-demo = ["microphone-demo"]
+webcam = ["webcam"]
+drivers-all = [
+    "openbciganglion",
+    "microphone-demo",
+    "webcam",
+]
+
 [tool.uv]
 default-groups = ["dev"]
 
@@ -13,6 +23,9 @@ modlink-studio = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
 modlink-ui = { workspace = true }
+openbciganglion = { path = "plugins/openbciganglion", editable = true }
+microphone-demo = { path = "plugins/microphone_demo", editable = true }
+webcam = { path = "plugins/webcam", editable = true }
 
 [tool.uv.workspace]
 members = [
@@ -27,4 +40,5 @@ dev = [
     "black>=26.3.1",
     "pdoc>=16.0.0",
     "pyinstaller>=6.16.0",
+    "rich>=14.3.3",
 ]

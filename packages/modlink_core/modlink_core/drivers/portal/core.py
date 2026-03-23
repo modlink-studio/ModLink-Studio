@@ -54,6 +54,10 @@ class DriverPortal(QObject):
         return self._runtime.display_name
 
     @property
+    def supported_providers(self) -> tuple[str, ...]:
+        return self._runtime.supported_providers
+
+    @property
     def is_running(self) -> bool:
         return self._runtime.is_running
 

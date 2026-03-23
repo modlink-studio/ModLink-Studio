@@ -28,6 +28,13 @@ class DriverRuntime(QObject):
         self._driver = self._create_driver(driver_factory)
         self._driver_id = self._driver.device_id
         self._display_name = self._driver.display_name
+        self._supported_providers = tuple(
+            provider
+            for provider in (
+                str(item).strip() for item in self._driver.supported_providers
+            )
+            if provider
+        )
         self._thread = QThread(self)
         self._thread.setObjectName(
             thread_name or f"modlink.driver.{self._driver_id.strip()}"
@@ -59,6 +66,10 @@ class DriverRuntime(QObject):
     @property
     def display_name(self) -> str:
         return self._display_name
+
+    @property
+    def supported_providers(self) -> tuple[str, ...]:
+        return self._supported_providers
 
     @property
     def is_running(self) -> bool:

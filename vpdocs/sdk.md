@@ -203,25 +203,36 @@ uv run --with-editable ./plugins/openbciganglion modlink-studio
 
 ### `device_id`
 
-建议表达“这是哪个 driver / 哪类设备”，并保持稳定。
+建议表达“这是哪个 driver 的第几个设备实例”，并保持稳定。
+
+推荐格式：
+
+```text
+name.XX
+```
+
+其中：
+
+- `name` 用 driver 名字的规范化 token，例如 `openbciganglion`
+- `XX` 用两位及以上数字表示实例序号，例如 `01`、`02`
 
 例如：
 
-- `eeg:openbci:ganglion`
-- `audio:microphone:demo`
+- `openbciganglion.01`
+- `microphone_demo.01`
 
 ### `stream_id`
 
-建议用：
+`stream_id` 不建议手写，当前约定是由 `device_id + modality` 自动派生：
 
 ```text
-{device_id}:{stream_name}
+{device_id}:{modality}
 ```
 
 例如：
 
-- `eeg:openbci:ganglion:eeg`
-- `audio:microphone:demo:waveform`
+- `openbciganglion.01:eeg`
+- `microphone_demo.01:audio`
 
 ## 什么时候不要急着抽新基类
 

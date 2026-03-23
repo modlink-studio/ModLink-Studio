@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Iterable
 
 import numpy as np
 from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
@@ -11,12 +12,13 @@ from serial.tools import list_ports
 from modlink_sdk import FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
-DEFAULT_GANGLION_DEVICE_ID = "eeg:openbci:ganglion"
+DEFAULT_GANGLION_DEVICE_ID = "openbciganglion.01"
 DEFAULT_GANGLION_DISPLAY_NAME = "OpenBCI Ganglion"
-DEFAULT_STREAM_ID = f"{DEFAULT_GANGLION_DEVICE_ID}:eeg"
 DEFAULT_SAMPLE_RATE_HZ = 200.0
 DEFAULT_CHUNK_SIZE = 10
 DEFAULT_CHANNEL_NAMES = ("ch1", "ch2", "ch3", "ch4")
+_LIKELY_GANGLION_TOKENS = ("ganglion", "openbci")
+_LIKELY_DONGLE_TOKENS = ("ganglion", "openbci", "bled112", "silicon labs", "cp210")
 
 
 class OpenBCIGanglionDriver(LoopDriver):
@@ -42,7 +44,7 @@ class OpenBCIGanglionDriver(LoopDriver):
     def descriptors(self) -> list[StreamDescriptor]:
         return [
             StreamDescriptor(
-                stream_id=DEFAULT_STREAM_ID,
+                device_id=self.device_id,
                 modality="eeg",
                 payload_type="line",
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
@@ -56,24 +58,25 @@ class OpenBCIGanglionDriver(LoopDriver):
     def search(self, provider: str) -> list[SearchResult]:
         if provider == "ble":
             devices = asyncio.run(BleakScanner.discover(timeout=5.0))
-            return [
+            results = [
                 SearchResult(
-                    title=(device.name or "OpenBCI Ganglion").strip()
-                    or "OpenBCI Ganglion",
+                    title=(device.name or "BLE device").strip() or "BLE device",
                     subtitle=f"Native BLE | {device.address}",
                     extra={
                         "transport": "native_ble",
                         "serial_number": (device.name or "").strip(),
+                        "address": device.address,
                     },
                 )
                 for device in devices
                 if device.address
             ]
+            return _preferred_results(results, transport="native_ble")
 
         if provider == "serial":
-            return [
+            results = [
                 SearchResult(
-                    title=port.description or port.device,
+                    title=_port_title(port),
                     subtitle=(
                         f"Dongle | {port.device} | {port.serial_number}"
                         if port.serial_number
@@ -82,11 +85,13 @@ class OpenBCIGanglionDriver(LoopDriver):
                     extra={
                         "transport": "dongle",
                         "serial_port": port.device,
+                        "serial_number": str(port.serial_number or "").strip(),
                     },
                 )
                 for port in list_ports.comports()
                 if port.device
             ]
+            return _preferred_results(results, transport="dongle")
 
         raise ValueError("OpenBCI Ganglion search provider must be 'ble' or 'serial'")
 
@@ -189,10 +194,68 @@ class OpenBCIGanglionDriver(LoopDriver):
             )
             self.sig_frame.emit(
                 FrameEnvelope(
-                    stream_id=DEFAULT_STREAM_ID,
+                    device_id=self.device_id,
+                    modality="eeg",
                     timestamp_ns=time.time_ns(),
                     data=chunk,
                     seq=self._seq,
                 )
             )
             self._seq += 1
+
+
+def _preferred_results(
+    results: Iterable[SearchResult],
+    *,
+    transport: str,
+) -> list[SearchResult]:
+    unique: list[SearchResult] = []
+    seen: set[tuple[str, str]] = set()
+
+    for result in results:
+        extra = result.extra
+        key = (
+            transport,
+            str(extra.get("address") or extra.get("serial_port") or "").strip().lower(),
+        )
+        if not key[1] or key in seen:
+            continue
+        seen.add(key)
+        unique.append(result)
+
+    tokens = (
+        _LIKELY_GANGLION_TOKENS
+        if transport == "native_ble"
+        else _LIKELY_DONGLE_TOKENS
+    )
+    preferred = [
+        result
+        for result in unique
+        if _contains_any_token(
+            (
+                result.title,
+                result.subtitle,
+                str(result.extra.get("serial_number", "")),
+            ),
+            tokens,
+        )
+    ]
+    ordered = preferred or unique
+    return sorted(ordered, key=lambda item: (item.title.lower(), item.subtitle.lower()))
+
+
+def _contains_any_token(parts: Iterable[str], tokens: Iterable[str]) -> bool:
+    haystack = " ".join(
+        str(part).strip().lower() for part in parts if str(part).strip()
+    )
+    return any(token in haystack for token in tokens)
+
+
+def _port_title(port: object) -> str:
+    description = str(getattr(port, "description", "") or "").strip()
+    manufacturer = str(getattr(port, "manufacturer", "") or "").strip()
+    device = str(getattr(port, "device", "") or "").strip()
+    for candidate in (description, manufacturer, device):
+        if candidate:
+            return candidate
+    return "Serial device"
