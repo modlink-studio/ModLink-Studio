@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import QWidget
 
 from modlink_core.runtime.engine import ModLinkEngine
 
-from .base_page import BasePage
-from ..widgets import AcquisitionControlPanel, StreamPreviewPanel
+from ..base_page import BasePage
+from .acquisition import AcquisitionControlPanel
+from .preview import StreamPreviewPanel
 
 
 class MainPage(BasePage):

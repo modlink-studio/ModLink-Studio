@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QWidget
 
 from modlink_core.drivers import DriverPortal
 
-from ..base import BaseDeviceControlPanel
+from ...widgets.base import BaseDeviceControlPanel
 
 
 class GenericDeviceControlPanel(BaseDeviceControlPanel):

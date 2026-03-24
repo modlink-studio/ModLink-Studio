@@ -3,20 +3,25 @@ from __future__ import annotations
 import numpy as np
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel
 
 from modlink_core.settings.service import SettingsService
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ...ui_settings import (
-    UI_PREVIEW_REFRESH_RATE_HZ_KEY,
-    load_preview_refresh_rate_hz,
-)
+import pyqtgraph as pg
 
-try:
-    import pyqtgraph as pg
-except Exception:
-    pg = None
+UI_PREVIEW_REFRESH_RATE_HZ_KEY = "ui.preview.refresh_rate_hz"
+DEFAULT_PREVIEW_REFRESH_RATE_HZ = 30
+
+
+def normalize_preview_refresh_rate_hz(value: object) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_PREVIEW_REFRESH_RATE_HZ
+
+    if normalized in {15, 24, 30, 60}:
+        return normalized
+    return DEFAULT_PREVIEW_REFRESH_RATE_HZ
 
 
 class BaseStreamView(QWidget):
@@ -33,7 +38,7 @@ class BaseStreamView(QWidget):
 
         self._refresh_timer = QTimer(self)
         self._refresh_timer.timeout.connect(self._flush)
-        self._apply_refresh_rate(load_preview_refresh_rate_hz(self._settings))
+        self._apply_refresh_rate(self._load_refresh_rate_hz())
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     def push_frame(self, frame: FrameEnvelope) -> None:
@@ -61,7 +66,15 @@ class BaseStreamView(QWidget):
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != UI_PREVIEW_REFRESH_RATE_HZ_KEY:
             return
-        self._apply_refresh_rate(load_preview_refresh_rate_hz(self._settings))
+        self._apply_refresh_rate(self._load_refresh_rate_hz())
+
+    def _load_refresh_rate_hz(self) -> int:
+        return normalize_preview_refresh_rate_hz(
+            self._settings.get(
+                UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+                DEFAULT_PREVIEW_REFRESH_RATE_HZ,
+            )
+        )
 
     def _apply_refresh_rate(self, refresh_rate_hz: int) -> None:
         interval_ms = max(16, int(round(1000 / max(1, int(refresh_rate_hz)))))
@@ -77,32 +90,22 @@ class ImageStreamView(BaseStreamView):
         super().__init__(descriptor, parent=parent)
         self._latest_image: np.ndarray | None = None
 
-        self._graphics_widget = (
-            pg.GraphicsLayoutWidget(self) if pg is not None else None
-        )
+        self._graphics_widget = pg.GraphicsLayoutWidget(self)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        if self._graphics_widget is not None:
-            layout.addWidget(self._graphics_widget, 1)
-        else:
-            placeholder = BodyLabel("当前环境还没有安装 pyqtgraph。", self)
-            placeholder.setWordWrap(True)
-            layout.addWidget(placeholder)
+        layout.addWidget(self._graphics_widget, 1)
 
-        self._view_box = None
-        self._image_item = None
         self._last_shape: tuple[int, ...] | None = None
-        if self._graphics_widget is not None:
-            self._graphics_widget.setBackground("transparent")
-            self._view_box = self._graphics_widget.addViewBox()
-            self._view_box.setAspectLocked(True)
-            self._view_box.setMenuEnabled(False)
-            self._view_box.setMouseEnabled(x=False, y=False)
-            self._view_box.invertY(True)
-            self._image_item = pg.ImageItem(axisOrder="row-major")
-            self._view_box.addItem(self._image_item)
+        self._graphics_widget.setBackground("transparent")
+        self._view_box = self._graphics_widget.addViewBox()
+        self._view_box.setAspectLocked(True)
+        self._view_box.setMenuEnabled(False)
+        self._view_box.setMouseEnabled(x=False, y=False)
+        self._view_box.invertY(True)
+        self._image_item = pg.ImageItem(axisOrder="row-major")
+        self._view_box.addItem(self._image_item)
 
         self.setMinimumHeight(280)
 
@@ -115,8 +118,6 @@ class ImageStreamView(BaseStreamView):
         return True
 
     def _render(self) -> None:
-        if self._graphics_widget is None or self._image_item is None:
-            return
         if self._latest_image is None:
             return
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from collections.abc import Iterable
+
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
     QDialog,
     QFrame,
@@ -20,11 +22,39 @@ from qfluentwidgets import (
     PushSettingCard,
     StrongBodyLabel,
     TransparentToolButton,
+    isDarkTheme,
 )
 
 from modlink_core.settings.service import SettingsService
 
-from ...ui_settings import UI_LABELS_KEY, load_labels, save_labels
+UI_LABELS_KEY = "ui.labels.items"
+DEFAULT_LABELS = ("default",)
+
+
+def normalize_labels(values: object) -> tuple[str, ...]:
+    if not isinstance(values, Iterable) or isinstance(values, (str, bytes)):
+        return DEFAULT_LABELS
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        normalized.append(text)
+        seen.add(text)
+
+    return tuple(normalized) or DEFAULT_LABELS
+
+
+def serialize_labels(values: tuple[str, ...]) -> list[str]:
+    return list(values)
+
+
+def _dialog_background_stylesheet() -> str:
+    if isDarkTheme():
+        return "background: rgba(15, 23, 42, 0.96);"
+    return "background: rgba(255, 255, 255, 0.98);"
 
 
 class LabelChip(QFrame):
@@ -55,8 +85,8 @@ class LabelChip(QFrame):
 
         self.text_label = BodyLabel(text, self)
         self.remove_button = TransparentToolButton(FIF.CLOSE, self)
-        self.remove_button.setFixedSize(24, 24)
-        self.remove_button.setToolTip(f"删除 {text}")
+        self.remove_button.setFixedSize(20, 20)
+        self.remove_button.setIconSize(QSize(8, 8))
         self.remove_button.clicked.connect(self._remove)
 
         layout.addWidget(self.text_label)
@@ -95,11 +125,12 @@ class LabelManagerDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self._settings = SettingsService.instance()
-        self._labels = load_labels(self._settings)
+        self._labels = normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
         self.setWindowTitle("标签管理")
         self.resize(600, 420)
         self.setMinimumSize(500, 360)
+        self.setStyleSheet(_dialog_background_stylesheet())
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(20, 20, 20, 20)
@@ -107,7 +138,7 @@ class LabelManagerDialog(QDialog):
 
         self.title_label = StrongBodyLabel("标签管理", self)
         self.tip_label = CaptionLabel(
-            "新增常用标签，后续会用于录制标签和标注输入建议。",
+            "设置标签，后续录制和标注时直接从这里取用。",
             self,
         )
         self.tip_label.setWordWrap(True)
@@ -154,33 +185,32 @@ class LabelManagerDialog(QDialog):
         root_layout.addLayout(footer_row)
 
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
-        self._refresh_labels()
+        self.label_cloud.set_labels(self._labels)
 
     def _add_current_label(self) -> None:
         text = self.input.text().strip()
         if not text:
             return
-        self._labels = save_labels([*self._labels, text], self._settings)
+        self._labels = normalize_labels([*self._labels, text])
+        self._settings.set(UI_LABELS_KEY, serialize_labels(self._labels))
         self.input.clear()
 
     def _remove_label(self, text: str) -> None:
         filtered = [label for label in self._labels if label != text]
-        self._labels = save_labels(filtered, self._settings)
+        self._labels = normalize_labels(filtered)
+        self._settings.set(UI_LABELS_KEY, serialize_labels(self._labels))
 
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != UI_LABELS_KEY:
             return
-        self._labels = load_labels(self._settings)
-        self._refresh_labels()
-
-    def _refresh_labels(self) -> None:
+        self._labels = normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
         self.label_cloud.set_labels(self._labels)
 
 
 class LabelManagerCard(PushSettingCard):
     def __init__(self, parent: QWidget | None = None) -> None:
-        settings = SettingsService.instance()
-        labels = load_labels(settings)
+        self._settings = SettingsService.instance()
+        labels = self._load_labels()
 
         super().__init__(
             "打开",
@@ -189,7 +219,6 @@ class LabelManagerCard(PushSettingCard):
             self._summary_text(labels),
             parent,
         )
-        self._settings = settings
         self._labels = labels
         self._dialog: LabelManagerDialog | None = None
 
@@ -212,8 +241,11 @@ class LabelManagerCard(PushSettingCard):
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != UI_LABELS_KEY:
             return
-        self._labels = load_labels(self._settings)
+        self._labels = self._load_labels()
         self._refresh_summary()
+
+    def _load_labels(self) -> tuple[str, ...]:
+        return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
     def _refresh_summary(self) -> None:
         self.setContent(self._summary_text(self._labels))

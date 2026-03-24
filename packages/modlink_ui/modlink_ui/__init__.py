@@ -1,9 +1,3 @@
-"""Public UI exports for ModLink Studio."""
+from .main_window import MainWindow
 
-
-def __getattr__(name: str):
-    if name == "MainWindow":
-        from .main_window import MainWindow
-
-        return MainWindow
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__all__ = ["MainWindow"]
