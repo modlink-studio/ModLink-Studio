@@ -9,12 +9,9 @@ from qfluentwidgets import BodyLabel
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ..base import BaseStreamView, ImageStreamView
+from ....widgets.base import BaseStreamView, ImageStreamView
 
-try:
-    import pyqtgraph as pg
-except Exception:
-    pg = None
+import pyqtgraph as pg
 
 
 class UnavailableStreamView(BaseStreamView):
@@ -75,16 +72,13 @@ class LineStreamView(BaseStreamView):
         self._buffers: list[deque[float]] = []
         self._curves: list[object] = []
 
-        self._plot_widget = pg.PlotWidget(self) if pg is not None else None
+        self._plot_widget = pg.PlotWidget(self)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        if self._plot_widget is not None:
-            layout.addWidget(self._plot_widget, 1)
-
-        if self._plot_widget is not None:
-            self._configure_plot()
+        layout.addWidget(self._plot_widget, 1)
+        self._configure_plot()
 
         self.setMinimumHeight(260)
 
@@ -114,9 +108,6 @@ class LineStreamView(BaseStreamView):
                 f"ch{index + 1}" for index in range(channel_count)
             )
 
-        if self._plot_widget is None:
-            return
-
         plot_item = self._plot_widget.getPlotItem()
         for curve in self._curves:
             plot_item.removeItem(curve)
@@ -145,7 +136,7 @@ class LineStreamView(BaseStreamView):
         return True
 
     def _render(self) -> None:
-        if self._plot_widget is None or not self._buffers:
+        if not self._buffers:
             return
 
         arrays = [
@@ -207,13 +198,6 @@ def create_stream_view(
     descriptor: StreamDescriptor,
     parent: QWidget | None = None,
 ) -> BaseStreamView:
-    if pg is None:
-        return UnavailableStreamView(
-            descriptor,
-            reason="当前环境还没有安装 pyqtgraph，预览区暂时只能显示占位。",
-            parent=parent,
-        )
-
     if descriptor.payload_type == "line":
         return LineStreamView(descriptor, parent=parent)
     if descriptor.payload_type == "plane":

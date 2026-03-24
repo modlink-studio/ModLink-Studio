@@ -5,12 +5,10 @@ from qfluentwidgets import SettingCardGroup
 
 from modlink_core.runtime.engine import ModLinkEngine
 
-from .base_page import BasePage
-from ..widgets.settings import (
-    LabelManagerCard,
-    PreviewRefreshRateCard,
-    SaveDirectoryCard,
-)
+from ..base_page import BasePage
+from .label_manager_card import LabelManagerCard
+from .preview_refresh_rate_card import PreviewRefreshRateCard
+from .save_directory_card import SaveDirectoryCard
 
 
 class SettingsPage(BasePage):
@@ -24,7 +22,7 @@ class SettingsPage(BasePage):
         super().__init__(
             page_key="settings-page",
             title="设置",
-            description="当前先保留数据保存、实时展示和标签管理，录制模式先不放进来。",
+            description="配置数据保存、预览刷新率和标签管理。",
             parent=parent,
         )
         self.engine = engine

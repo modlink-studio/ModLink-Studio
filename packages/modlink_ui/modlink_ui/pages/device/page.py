@@ -5,8 +5,8 @@ from qfluentwidgets import BodyLabel, StrongBodyLabel
 
 from modlink_core.runtime.engine import ModLinkEngine
 
-from .base_page import BasePage
-from ..widgets import create_device_control_panel
+from ..base_page import BasePage
+from .control_panel import create_device_control_panel
 
 
 class DevicePage(BasePage):

@@ -7,7 +7,7 @@ from qfluentwidgets import CaptionLabel, SimpleCardWidget, StrongBodyLabel
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ..base import DetachableWidgetHost
+from ....widgets.base import DetachableWidgetHost
 from .views import create_stream_view
 
 

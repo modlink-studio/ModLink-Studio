@@ -6,18 +6,26 @@ from qfluentwidgets import ComboBox, FluentIcon as FIF, SettingCard
 
 from modlink_core.settings.service import SettingsService
 
-from ...ui_settings import (
-    PREVIEW_REFRESH_RATE_OPTIONS,
-    UI_PREVIEW_REFRESH_RATE_HZ_KEY,
-    load_preview_refresh_rate_hz,
-    save_preview_refresh_rate_hz,
-)
+UI_PREVIEW_REFRESH_RATE_HZ_KEY = "ui.preview.refresh_rate_hz"
+PREVIEW_REFRESH_RATE_OPTIONS = (15, 24, 30, 60)
+DEFAULT_PREVIEW_REFRESH_RATE_HZ = 30
+
+
+def normalize_preview_refresh_rate_hz(value: object) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_PREVIEW_REFRESH_RATE_HZ
+
+    if normalized in PREVIEW_REFRESH_RATE_OPTIONS:
+        return normalized
+    return DEFAULT_PREVIEW_REFRESH_RATE_HZ
 
 
 class PreviewRefreshRateCard(SettingCard):
     def __init__(self, parent: QWidget | None = None) -> None:
         self._settings = SettingsService.instance()
-        self._refresh_rate_hz = load_preview_refresh_rate_hz(self._settings)
+        self._refresh_rate_hz = self._load_refresh_rate_hz()
 
         super().__init__(
             FIF.SPEED_HIGH,
@@ -34,25 +42,39 @@ class PreviewRefreshRateCard(SettingCard):
         self.hBoxLayout.addWidget(self.combo_box, 0, Qt.AlignmentFlag.AlignRight)
         self.hBoxLayout.addSpacing(16)
 
-        self.combo_box.currentIndexChanged.connect(self._on_index_changed)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
         self._refresh_ui()
+        self.combo_box.currentIndexChanged.connect(self._on_index_changed)
 
     def _on_index_changed(self, index: int) -> None:
         rate_hz = self.combo_box.itemData(index)
-        self._refresh_rate_hz = save_preview_refresh_rate_hz(rate_hz, self._settings)
+        self._refresh_rate_hz = normalize_preview_refresh_rate_hz(rate_hz)
+        self._settings.set(
+            UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+            self._refresh_rate_hz,
+        )
         self._refresh_ui()
 
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != UI_PREVIEW_REFRESH_RATE_HZ_KEY:
             return
-        self._refresh_rate_hz = load_preview_refresh_rate_hz(self._settings)
+        self._refresh_rate_hz = self._load_refresh_rate_hz()
         self._refresh_ui()
+
+    def _load_refresh_rate_hz(self) -> int:
+        return normalize_preview_refresh_rate_hz(
+            self._settings.get(
+                UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+                DEFAULT_PREVIEW_REFRESH_RATE_HZ,
+            )
+        )
 
     def _refresh_ui(self) -> None:
         index = self.combo_box.findData(self._refresh_rate_hz)
         if index >= 0 and index != self.combo_box.currentIndex():
+            was_blocked = self.combo_box.blockSignals(True)
             self.combo_box.setCurrentIndex(index)
+            self.combo_box.blockSignals(was_blocked)
 
         self.setContent(self._content_text(self._refresh_rate_hz))
 
