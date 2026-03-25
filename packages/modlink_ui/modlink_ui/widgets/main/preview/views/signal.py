@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
@@ -83,7 +83,9 @@ class _SignalFilterPipeline:
             return
         self._channel_count = channel_count
 
-        main_sections = int(self._main_sos.shape[0]) if self._main_sos is not None else 0
+        main_sections = (
+            int(self._main_sos.shape[0]) if self._main_sos is not None else 0
+        )
         self._main_states = [
             np.zeros((main_sections, 2), dtype=np.float64) for _ in range(channel_count)
         ]
@@ -177,6 +179,73 @@ class _SignalFilterPipeline:
         return result
 
 
+class _NonInteractivePlotWidget(pg.PlotWidget):
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class _SignalRingBuffer:
+    def __init__(self, channels: int, max_samples: int):
+        self.channels = channels
+        self.max_samples = max_samples
+        self.data = np.zeros((channels, max_samples), dtype=np.float32)
+        self.ptr = 0
+        self.full = False
+
+    def extend(self, new_data: np.ndarray):
+        chunk_size = new_data.shape[1]
+        if chunk_size == 0:
+            return
+
+        if chunk_size >= self.max_samples:
+            self.data[:, :] = new_data[:, -self.max_samples :]
+            self.ptr = 0
+            self.full = True
+            return
+
+        end = self.ptr + chunk_size
+        if end <= self.max_samples:
+            self.data[:, self.ptr : end] = new_data
+            self.ptr = end
+            if self.ptr == self.max_samples:
+                self.ptr = 0
+                self.full = True
+        else:
+            overflow = end - self.max_samples
+            self.data[:, self.ptr :] = new_data[:, : self.max_samples - self.ptr]
+            self.data[:, :overflow] = new_data[:, self.max_samples - self.ptr :]
+            self.ptr = overflow
+            self.full = True
+
+    def get_linear(self) -> np.ndarray:
+        if not self.full:
+            return self.data[:, : self.ptr]
+        return np.concatenate(
+            (self.data[:, self.ptr :], self.data[:, : self.ptr]), axis=1
+        )
+
+    def clear(self):
+        self.ptr = 0
+        self.full = False
+
+    def resize(self, new_max_samples: int):
+        new_data = np.zeros((self.channels, new_max_samples), dtype=np.float32)
+        old_linear = self.get_linear()
+        valid_len = old_linear.shape[1]
+
+        if valid_len > new_max_samples:
+            new_data[:, :] = old_linear[:, -new_max_samples:]
+            self.ptr = 0
+            self.full = True
+        else:
+            new_data[:, :valid_len] = old_linear
+            self.ptr = valid_len % new_max_samples
+            self.full = valid_len == new_max_samples
+
+        self.data = new_data
+        self.max_samples = new_max_samples
+
+
 class SignalStreamView(BaseStreamView):
     _colors = (
         "#2D8CF0",
@@ -200,15 +269,18 @@ class SignalStreamView(BaseStreamView):
         self._window_seconds = DEFAULT_SIGNAL_WINDOW_SECONDS
         self._max_samples = self._compute_max_samples(self._window_seconds)
         self._channel_names = tuple(descriptor.channel_names)
-        self._buffers: list[deque[float]] = []
+        self._ring_buffer: _SignalRingBuffer | None = None
         self._curves: list[object] = []
-        self._antialias_enabled = True
+        self._antialias_enabled = False  # Disabled by default for better performance
         self._auto_downsample_enabled = True
+        self._y_range_mode = "auto"
+        self._manual_y_min = -1.0
+        self._manual_y_max = 1.0
         self._filter_spec = _SignalFilterSpec()
         self._pipeline = _SignalFilterPipeline(sample_rate_hz=self._sample_rate_hz)
         self._pipeline.configure(self._filter_spec)
 
-        self._plot_widget = pg.PlotWidget(self)
+        self._plot_widget = _NonInteractivePlotWidget(self)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -230,6 +302,21 @@ class SignalStreamView(BaseStreamView):
         self._apply_window_seconds(window_seconds)
         self._antialias_enabled = bool(
             getattr(settings, "antialias_enabled", self._antialias_enabled)
+        )
+        y_range_mode = self._coerce_str(
+            getattr(settings, "y_range_mode", self._y_range_mode),
+            fallback=self._y_range_mode,
+        )
+        self._y_range_mode = (
+            y_range_mode if y_range_mode in {"auto", "manual"} else "auto"
+        )
+        self._manual_y_min = self._coerce_float(
+            getattr(settings, "manual_y_min", self._manual_y_min),
+            fallback=self._manual_y_min,
+        )
+        self._manual_y_max = self._coerce_float(
+            getattr(settings, "manual_y_max", self._manual_y_max),
+            fallback=self._manual_y_max,
         )
         self._auto_downsample_enabled = True
         self._apply_render_quality()
@@ -256,18 +343,17 @@ class SignalStreamView(BaseStreamView):
             return
 
         self._max_samples = max_samples
-        if self._buffers:
-            self._buffers = [
-                deque(list(buffer)[-self._max_samples :], maxlen=self._max_samples)
-                for buffer in self._buffers
-            ]
+        if self._ring_buffer is not None:
+            self._ring_buffer.resize(self._max_samples)
 
         if self.has_frame:
             self._dirty = True
 
     def _configure_plot(self) -> None:
         assert self._plot_widget is not None
-        self._plot_widget.setBackground("transparent")
+        self._plot_widget.setBackground(
+            self.palette().color(QPalette.ColorRole.Window).name()
+        )
         self._plot_widget.showGrid(x=True, y=True, alpha=0.16)
         self._plot_widget.setMenuEnabled(False)
         self._plot_widget.setMouseEnabled(x=False, y=False)
@@ -306,10 +392,13 @@ class SignalStreamView(BaseStreamView):
     def _ensure_channels(self, channel_count: int) -> None:
         if channel_count <= 0:
             return
-        if len(self._buffers) == channel_count:
+        if (
+            self._ring_buffer is not None
+            and self._ring_buffer.channels == channel_count
+        ):
             return
 
-        self._buffers = [deque(maxlen=self._max_samples) for _ in range(channel_count)]
+        self._ring_buffer = _SignalRingBuffer(channel_count, self._max_samples)
         if len(self._channel_names) != channel_count:
             self._channel_names = tuple(
                 f"ch{index + 1}" for index in range(channel_count)
@@ -342,27 +431,25 @@ class SignalStreamView(BaseStreamView):
 
         self._ensure_channels(channel_count)
         processed = self._pipeline.process(np.asarray(data, dtype=np.float32))
-        for channel_index in range(channel_count):
-            self._buffers[channel_index].extend(
-                np.asarray(processed[channel_index], dtype=np.float32).tolist()
-            )
+
+        if self._ring_buffer is not None:
+            self._ring_buffer.extend(processed)
+
         return True
 
     def _render(self) -> None:
-        if not self._buffers:
+        if self._ring_buffer is None:
             return
 
-        arrays = [
-            np.fromiter(buffer, dtype=np.float32) for buffer in self._buffers if buffer
-        ]
-        if not arrays:
+        linear = self._ring_buffer.get_linear()
+        if linear.size == 0:
             return
 
-        sample_count = min(array.size for array in arrays)
+        sample_count = int(linear.shape[1])
         if sample_count <= 0:
             return
 
-        trimmed = [array[-sample_count:] for array in arrays]
+        trimmed = [linear[index] for index in range(int(linear.shape[0]))]
         time_axis = (
             np.arange(sample_count, dtype=np.float32) - float(sample_count - 1)
         ) / np.float32(self._sample_rate_hz)
@@ -388,12 +475,30 @@ class SignalStreamView(BaseStreamView):
         plot_item = self._plot_widget.getPlotItem()
         plot_item.getAxis("left").setTicks([ticks])
         plot_item.setXRange(float(time_axis[0]), 0.0, padding=0.0)
-        plot_item.setYRange(-spacing, top_offset + spacing, padding=0.02)
+        if self._y_range_mode == "manual":
+            plot_item.setYRange(
+                float(min(self._manual_y_min, self._manual_y_max)),
+                float(max(self._manual_y_min, self._manual_y_max)),
+                padding=0.0,
+            )
+        else:
+            y_min = float("inf")
+            y_max = float("-inf")
+            for index, values in enumerate(trimmed):
+                offset = top_offset - float(index) * spacing
+                shifted = values + offset
+                y_min = min(y_min, float(np.min(shifted)))
+                y_max = max(y_max, float(np.max(shifted)))
+            if not np.isfinite(y_min) or not np.isfinite(y_max):
+                y_min, y_max = -spacing, top_offset + spacing
+            span = max(y_max - y_min, 1e-6)
+            padding = max(span * 0.08, spacing * 0.1, 1e-3)
+            plot_item.setYRange(y_min - padding, y_max + padding, padding=0.0)
 
     def _reset_signal_state(self) -> None:
         self._pipeline.reset_states()
-        for buffer in self._buffers:
-            buffer.clear()
+        if self._ring_buffer is not None:
+            self._ring_buffer.clear()
         if self.has_frame:
             self._dirty = True
 
@@ -411,8 +516,16 @@ class SignalStreamView(BaseStreamView):
             self._read_attr(filter_settings, "family", "butterworth"),
             fallback="butterworth",
         )
-        mode = mode if mode in {"none", "low_pass", "high_pass", "band_pass", "band_stop"} else "none"
-        family = family if family in {"butterworth", "chebyshev1", "bessel"} else "butterworth"
+        mode = (
+            mode
+            if mode in {"none", "low_pass", "high_pass", "band_pass", "band_stop"}
+            else "none"
+        )
+        family = (
+            family
+            if family in {"butterworth", "chebyshev1", "bessel"}
+            else "butterworth"
+        )
 
         order = max(
             1,

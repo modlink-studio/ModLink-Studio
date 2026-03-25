@@ -4,6 +4,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 from qfluentwidgets import Theme, setTheme
@@ -38,6 +39,7 @@ def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
     app = _create_application()
+    pg.setConfigOptions(useOpenGL=True)
     setTheme(Theme.AUTO)
     SettingsService(parent=app)
     driver_factories = discover_driver_factories()

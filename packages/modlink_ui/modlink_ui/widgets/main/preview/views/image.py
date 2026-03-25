@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
@@ -33,7 +34,9 @@ class ImageStreamView(BaseStreamView):
         layout.addWidget(self._graphics_widget, 1)
 
         self._last_shape: tuple[int, ...] | None = None
-        self._graphics_widget.setBackground("transparent")
+        self._graphics_widget.setBackground(
+            self.palette().color(QPalette.ColorRole.Window).name()
+        )
         self._view_box = self._graphics_widget.addViewBox()
         self._view_box.setAspectLocked(True)
         self._view_box.setMenuEnabled(False)
