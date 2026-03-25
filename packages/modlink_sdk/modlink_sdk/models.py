@@ -9,7 +9,7 @@ import numpy as np
 
 from .utils import make_stream_id, normalize_device_id, normalize_modality
 
-PayloadType: TypeAlias = Literal["line", "plane", "video"]
+PayloadType: TypeAlias = Literal["signal", "raster", "field", "video"]
 
 
 @dataclass(slots=True)
@@ -103,18 +103,16 @@ class StreamDescriptor:
     """Expected number of samples or frames per emitted chunk."""
 
     channel_names: tuple[str, ...] = ()
-    """Optional channel labels, usually matching axis 0 for line payloads."""
-
-    unit: str | None = None
-    """Optional unit string, such as ``"uV"`` or ``"m/s^2"``."""
+    """Optional channel labels, usually matching axis 0 for signal payloads."""
 
     display_name: str | None = None
     """Optional human-readable stream label."""
 
     metadata: dict[str, Any] = field(default_factory=dict)
-    """Additional driver- or device-specific metadata."""
+    """Additional metadata, including payload-specific fields such as ``unit``."""
 
     def __post_init__(self) -> None:
         self.device_id = normalize_device_id(self.device_id)
         self.modality = normalize_modality(self.modality)
         self.stream_id = make_stream_id(self.device_id, self.modality)
+        self.metadata = dict(self.metadata)

@@ -46,12 +46,12 @@ class OpenBCIGanglionDriver(LoopDriver):
             StreamDescriptor(
                 device_id=self.device_id,
                 modality="eeg",
-                payload_type="line",
+                payload_type="signal",
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
                 chunk_size=DEFAULT_CHUNK_SIZE,
                 channel_names=DEFAULT_CHANNEL_NAMES,
-                unit="uV",
                 display_name="Ganglion EEG",
+                metadata={"unit": "uV"},
             )
         ]
 

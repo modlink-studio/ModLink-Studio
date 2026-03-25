@@ -34,11 +34,10 @@ class MicrophoneDemoDriver(Driver):
             StreamDescriptor(
                 device_id=self.device_id,
                 modality="audio",
-                payload_type="line",
+                payload_type="signal",
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
                 chunk_size=DEFAULT_CHUNK_SIZE,
                 channel_names=("mic",),
-                unit=None,
                 display_name="Microphone Waveform",
             )
         ]

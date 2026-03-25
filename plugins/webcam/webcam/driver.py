@@ -42,7 +42,6 @@ class WebcamDriver(Driver):
                 nominal_sample_rate_hz=DEFAULT_FRAME_RATE_FPS,
                 chunk_size=1,
                 channel_names=("red", "green", "blue"),
-                unit=None,
                 display_name="Webcam RGB Stream",
                 metadata={"width": DEFAULT_WIDTH, "height": DEFAULT_HEIGHT},
             )

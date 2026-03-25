@@ -21,7 +21,6 @@ def descriptor_to_dict(descriptor: StreamDescriptor) -> dict[str, Any]:
         "nominal_sample_rate_hz": descriptor.nominal_sample_rate_hz,
         "chunk_size": descriptor.chunk_size,
         "channel_names": to_json_value(descriptor.channel_names),
-        "unit": descriptor.unit,
         "display_name": descriptor.display_name,
         "metadata": to_json_value(descriptor.metadata),
     }
