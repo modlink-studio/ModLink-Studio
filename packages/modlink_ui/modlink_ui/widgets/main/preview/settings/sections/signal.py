@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QSignalBlocker, Qt, pyqtSignal
-from PyQt6.QtWidgets import QGridLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     ComboBox,
+    CompactDoubleSpinBox,
     SimpleCardWidget,
     SpinBox,
     StrongBodyLabel,
@@ -173,8 +174,50 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
 
+        self.y_range_label = BodyLabel("Y 轴范围", self)
+        self.y_range_combo = ComboBox(self)
+        self.y_range_combo.setFixedWidth(180)
+        self.y_range_combo.addItem("自动", userData="auto")
+        self.y_range_combo.addItem("手动", userData="manual")
+        self.settings_grid.addWidget(self.y_range_label, 9, 0)
+        self.settings_grid.addWidget(
+            self.y_range_combo,
+            9,
+            1,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
+
+        self.manual_y_range_label = BodyLabel("手动范围", self)
+        self.manual_y_range_widget = QWidget(self)
+        manual_y_range_layout = QHBoxLayout(self.manual_y_range_widget)
+        manual_y_range_layout.setContentsMargins(0, 0, 0, 0)
+        manual_y_range_layout.setSpacing(8)
+        self.manual_y_min_spinbox = CompactDoubleSpinBox(self.manual_y_range_widget)
+        self.manual_y_min_spinbox.setRange(-1_000_000.0, 1_000_000.0)
+        self.manual_y_min_spinbox.setDecimals(3)
+        self.manual_y_min_spinbox.setSingleStep(0.1)
+        self.manual_y_min_spinbox.setFixedWidth(96)
+        self.manual_y_max_spinbox = CompactDoubleSpinBox(self.manual_y_range_widget)
+        self.manual_y_max_spinbox.setRange(-1_000_000.0, 1_000_000.0)
+        self.manual_y_max_spinbox.setDecimals(3)
+        self.manual_y_max_spinbox.setSingleStep(0.1)
+        self.manual_y_max_spinbox.setValue(1.0)
+        self.manual_y_max_spinbox.setFixedWidth(96)
+        self.manual_y_range_separator = CaptionLabel("到", self.manual_y_range_widget)
+        manual_y_range_layout.addWidget(self.manual_y_min_spinbox)
+        manual_y_range_layout.addWidget(self.manual_y_range_separator)
+        manual_y_range_layout.addWidget(self.manual_y_max_spinbox)
+        manual_y_range_layout.addStretch(1)
+        self.settings_grid.addWidget(self.manual_y_range_label, 10, 0)
+        self.settings_grid.addWidget(
+            self.manual_y_range_widget,
+            10,
+            1,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
+
         self.hint_label = CaptionLabel(
-            "当前支持时间长度、滤波器、陷波器，以及折线抗锯齿选项。",
+            "当前支持时间长度、滤波器、陷波器、Y 轴范围，以及折线抗锯齿选项。",
             self,
         )
         self.hint_label.setWordWrap(True)
@@ -198,14 +241,24 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         self.notch_enabled_switch.checkedChanged.connect(self._emit_state_changed)
         self.notch_frequencies_edit.sig_tokens_changed.connect(self._emit_state_changed)
         self.antialias_switch.checkedChanged.connect(self._emit_state_changed)
+        self.y_range_combo.currentIndexChanged.connect(
+            self._sync_manual_y_range_visibility
+        )
+        self.y_range_combo.currentIndexChanged.connect(self._emit_state_changed)
+        self.manual_y_min_spinbox.valueChanged.connect(self._emit_state_changed)
+        self.manual_y_max_spinbox.valueChanged.connect(self._emit_state_changed)
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())
+        self._sync_manual_y_range_visibility()
 
     def state(self) -> dict[str, object]:
         return {
             "window_seconds": int(self.duration_combo.currentData() or 8),
             "antialias_enabled": bool(self.antialias_switch.isChecked()),
+            "y_range_mode": self.y_range_combo.currentData(),
+            "manual_y_min": float(self.manual_y_min_spinbox.value()),
+            "manual_y_max": float(self.manual_y_max_spinbox.value()),
             "filter": {
                 "mode": self.filter_mode_combo.currentData(),
                 "family": self.filter_family_combo.currentData(),
@@ -219,7 +272,9 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
     def set_state(self, state: object) -> None:
         data = state if isinstance(state, dict) else {}
-        filter_data = data.get("filter", {}) if isinstance(data.get("filter"), dict) else {}
+        filter_data = (
+            data.get("filter", {}) if isinstance(data.get("filter"), dict) else {}
+        )
 
         with (
             QSignalBlocker(self.duration_combo),
@@ -231,27 +286,42 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             QSignalBlocker(self.notch_enabled_switch),
             QSignalBlocker(self.notch_frequencies_edit),
             QSignalBlocker(self.antialias_switch),
+            QSignalBlocker(self.y_range_combo),
+            QSignalBlocker(self.manual_y_min_spinbox),
+            QSignalBlocker(self.manual_y_max_spinbox),
         ):
             self._set_combo_to_data(
                 self.duration_combo,
                 data.get("window_seconds", SIGNAL_WINDOW_SECONDS_OPTIONS[0]),
             )
-            self._set_combo_to_data(self.filter_mode_combo, filter_data.get("mode", "none"))
+            self._set_combo_to_data(
+                self.filter_mode_combo, filter_data.get("mode", "none")
+            )
             self._set_combo_to_data(
                 self.filter_family_combo,
                 filter_data.get("family", "butterworth"),
             )
             self.filter_order_spinbox.setValue(int(filter_data.get("order", 4)))
             self.low_cutoff_spinbox.setValue(int(filter_data.get("low_cutoff_hz", 1)))
-            self.high_cutoff_spinbox.setValue(int(filter_data.get("high_cutoff_hz", 40)))
-            self.notch_enabled_switch.setChecked(bool(filter_data.get("notch_enabled", False)))
+            self.high_cutoff_spinbox.setValue(
+                int(filter_data.get("high_cutoff_hz", 40))
+            )
+            self.notch_enabled_switch.setChecked(
+                bool(filter_data.get("notch_enabled", False))
+            )
             tokens = filter_data.get("notch_frequencies_hz", [])
             if isinstance(tokens, list):
                 self.notch_frequencies_edit.set_tokens([str(v) for v in tokens])
             self.antialias_switch.setChecked(bool(data.get("antialias_enabled", True)))
+            self._set_combo_to_data(
+                self.y_range_combo, data.get("y_range_mode", "auto")
+            )
+            self.manual_y_min_spinbox.setValue(float(data.get("manual_y_min", -1.0)))
+            self.manual_y_max_spinbox.setValue(float(data.get("manual_y_max", 1.0)))
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())
+        self._sync_manual_y_range_visibility()
 
     def _sync_filter_mode_ui(self) -> None:
         mode = self.filter_mode_combo.currentData()
@@ -285,6 +355,11 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
     def _sync_notch_controls(self, enabled: bool) -> None:
         self.notch_frequencies_label.setVisible(enabled)
         self.notch_frequencies_edit.setVisible(enabled)
+
+    def _sync_manual_y_range_visibility(self) -> None:
+        is_manual = self.y_range_combo.currentData() == "manual"
+        self.manual_y_range_label.setVisible(is_manual)
+        self.manual_y_range_widget.setVisible(is_manual)
 
     def _parse_notch_tokens(self) -> list[float]:
         values: list[float] = []

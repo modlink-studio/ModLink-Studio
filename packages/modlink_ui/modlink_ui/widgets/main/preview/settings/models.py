@@ -15,6 +15,7 @@ SignalFilterMode: TypeAlias = Literal[
     "band_stop",
 ]
 ValueRangeMode: TypeAlias = Literal["auto", "zero_to_one", "zero_to_255", "manual"]
+SignalYAxisRangeMode: TypeAlias = Literal["auto", "manual"]
 InterpolationMode: TypeAlias = Literal["nearest", "bilinear", "bicubic"]
 TransformMode: TypeAlias = Literal[
     "none",
@@ -46,6 +47,9 @@ class SignalFilterSettings:
 class SignalPreviewSettings:
     window_seconds: int = 8
     antialias_enabled: bool = True
+    y_range_mode: SignalYAxisRangeMode = "auto"
+    manual_y_min: float = -1.0
+    manual_y_max: float = 1.0
     filter: SignalFilterSettings = field(default_factory=SignalFilterSettings)
 
 
@@ -145,6 +149,13 @@ def deserialize_preview_settings(
         return SignalPreviewSettings(
             window_seconds=_coerce_int(payload.get("window_seconds"), 8),
             antialias_enabled=bool(payload.get("antialias_enabled", True)),
+            y_range_mode=_coerce_literal(
+                payload.get("y_range_mode"),
+                ("auto", "manual"),
+                "auto",
+            ),
+            manual_y_min=_coerce_float(payload.get("manual_y_min"), -1.0),
+            manual_y_max=_coerce_float(payload.get("manual_y_max"), 1.0),
             filter=filter_settings,
         )
 
@@ -291,10 +302,21 @@ def _normalize_signal_settings(
     )
     notch_q = max(0.1, float(filter_settings.notch_q))
     ripple_db = max(0.01, float(filter_settings.chebyshev1_ripple_db))
+    manual_y_min, manual_y_max = _normalize_manual_range(
+        settings.manual_y_min,
+        settings.manual_y_max,
+    )
 
     return SignalPreviewSettings(
         window_seconds=window_seconds,
         antialias_enabled=bool(settings.antialias_enabled),
+        y_range_mode=_coerce_literal(
+            settings.y_range_mode,
+            ("auto", "manual"),
+            "auto",
+        ),
+        manual_y_min=manual_y_min,
+        manual_y_max=manual_y_max,
         filter=SignalFilterSettings(
             family=_coerce_literal(
                 filter_settings.family,
