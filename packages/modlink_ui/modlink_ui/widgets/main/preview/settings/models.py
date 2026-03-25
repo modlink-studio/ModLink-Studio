@@ -46,7 +46,6 @@ class SignalFilterSettings:
 class SignalPreviewSettings:
     window_seconds: int = 8
     antialias_enabled: bool = True
-    auto_downsample_enabled: bool = False
     filter: SignalFilterSettings = field(default_factory=SignalFilterSettings)
 
 
@@ -146,9 +145,6 @@ def deserialize_preview_settings(
         return SignalPreviewSettings(
             window_seconds=_coerce_int(payload.get("window_seconds"), 8),
             antialias_enabled=bool(payload.get("antialias_enabled", True)),
-            auto_downsample_enabled=bool(
-                payload.get("auto_downsample_enabled", False)
-            ),
             filter=filter_settings,
         )
 
@@ -299,7 +295,6 @@ def _normalize_signal_settings(
     return SignalPreviewSettings(
         window_seconds=window_seconds,
         antialias_enabled=bool(settings.antialias_enabled),
-        auto_downsample_enabled=bool(settings.auto_downsample_enabled),
         filter=SignalFilterSettings(
             family=_coerce_literal(
                 filter_settings.family,

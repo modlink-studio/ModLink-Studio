@@ -129,11 +129,6 @@ class _SignalSectionBridge(_SectionBridgeBase):
             "antialias_switch",
             settings.antialias_enabled,
         )
-        _set_checked(
-            self.section_widget,
-            "auto_downsample_switch",
-            settings.auto_downsample_enabled,
-        )
         _set_combo_data(self.section_widget, "filter_mode_combo", settings.filter.mode)
         _set_combo_data(self.section_widget, "filter_family_combo", settings.filter.family)
         _set_spin_value(self.section_widget, "filter_order_spinbox", settings.filter.order)
@@ -166,9 +161,6 @@ class _SignalSectionBridge(_SectionBridgeBase):
             window_seconds=int(_combo_data(self.section_widget, "duration_combo", 8)),
             antialias_enabled=bool(
                 _checked(self.section_widget, "antialias_switch", True)
-            ),
-            auto_downsample_enabled=bool(
-                _checked(self.section_widget, "auto_downsample_switch", False)
             ),
             filter=SignalFilterSettings(
                 family=cast(
@@ -204,12 +196,6 @@ class _SignalSectionBridge(_SectionBridgeBase):
     def _connect_controls(self) -> None:
         _connect_signal(self.section_widget, "duration_combo", "currentIndexChanged", self._emit_state_changed)
         _connect_signal(self.section_widget, "antialias_switch", "checkedChanged", self._emit_state_changed)
-        _connect_signal(
-            self.section_widget,
-            "auto_downsample_switch",
-            "checkedChanged",
-            self._emit_state_changed,
-        )
         _connect_signal(self.section_widget, "filter_mode_combo", "currentIndexChanged", self._emit_state_changed)
         _connect_signal(self.section_widget, "filter_family_combo", "currentIndexChanged", self._emit_state_changed)
         _connect_signal(self.section_widget, "filter_order_spinbox", "valueChanged", self._emit_state_changed)
