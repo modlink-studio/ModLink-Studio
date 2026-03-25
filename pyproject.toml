@@ -8,10 +8,12 @@ dependencies = ["modlink-studio"]
 [project.optional-dependencies]
 openbciganglion = ["openbciganglion"]
 microphone-demo = ["microphone-demo"]
+plane-demo = ["plane-demo"]
 webcam = ["webcam"]
 drivers-all = [
     "openbciganglion",
     "microphone-demo",
+    "plane-demo",
     "webcam",
 ]
 
@@ -25,6 +27,7 @@ modlink-sdk = { workspace = true }
 modlink-ui = { workspace = true }
 openbciganglion = { path = "plugins/openbciganglion", editable = true }
 microphone-demo = { path = "plugins/microphone_demo", editable = true }
+plane-demo = { path = "plugins/plane_demo", editable = true }
 webcam = { path = "plugins/webcam", editable = true }
 
 [tool.uv.workspace]

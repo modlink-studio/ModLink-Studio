@@ -1,8 +1,3 @@
-from .base import BaseDeviceControlPanel, BaseStreamView, DetachableWidgetHost, ImageStreamView
+"""Feature-organized UI widgets for ModLink Studio."""
 
-__all__ = [
-    "BaseDeviceControlPanel",
-    "BaseStreamView",
-    "DetachableWidgetHost",
-    "ImageStreamView",
-]
+__all__: list[str] = []

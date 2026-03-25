@@ -27,4 +27,13 @@ release/
 data/
 tmp/
 
+# OS / editor / local tool settings
+.DS_Store
+Thumbs.db
+.idea/
+.cursor/
+.history/
+.vscode/
+.qwen/
+
 

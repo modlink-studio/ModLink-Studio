@@ -52,7 +52,7 @@ class PluginConfig:
         display_name: str,
         provider: str,
         modality: str,
-        payload_type: Literal["line", "plane", "video"],
+        payload_type: Literal["signal", "raster", "field", "video"],
         sample_rate: float,
         chunk_size: int,
         channel_names: list[str],
@@ -165,17 +165,18 @@ def prompt_for_config() -> PluginConfig:
     console.print("[dim]Examples: eeg, video, audio, accel, gyro, temperature[/dim]")
 
     console.print("\n[dim]Payload type determines how data is displayed:[/dim]")
-    console.print("  • [bold cyan]line[/bold cyan]  - Multi-channel time-series data")
-    console.print("  • [bold cyan]plane[/cyan] - 2D image/sensor array")
-    console.print("  • [bold cyan]video[/cyan] - RGB video stream")
+    console.print("  • [bold cyan]signal[/bold cyan] - Multi-channel time-series data")
+    console.print("  • [bold cyan]raster[/cyan] - Line-over-time raster data")
+    console.print("  • [bold cyan]field[/cyan]  - 2D scalar field/image data")
+    console.print("  • [bold cyan]video[/cyan]  - RGB/YUV video stream")
 
     payload_choice = Prompt.ask(
         "\n[cyan]Payload type[/cyan]",
-        choices=["line", "plane", "video"],
-        default="line",
+        choices=["signal", "raster", "field", "video"],
+        default="signal",
         console=console,
     )
-    payload_type: Literal["line", "plane", "video"] = payload_choice
+    payload_type: Literal["signal", "raster", "field", "video"] = payload_choice
 
     # Sample rate and chunk size
     console.print("\n[bold yellow]Step 5: Data Settings[/bold yellow]\n")
@@ -204,14 +205,16 @@ def prompt_for_config() -> PluginConfig:
     )
     channel_names = [c.strip() for c in channels_input.split(",") if c.strip()]
 
-    unit = (
-        Prompt.ask(
-            "[cyan]Unit[/cyan]",
-            default="",
-            console=console,
+    unit = None
+    if payload_type in {"signal", "raster", "field"}:
+        unit = (
+            Prompt.ask(
+                "[cyan]Unit[/cyan]",
+                default="",
+                console=console,
+            )
+            or None
         )
-        or None
-    )
 
     # Dependencies
     console.print("\n[bold yellow]Step 7: Dependencies[/bold yellow]\n")
@@ -301,8 +304,10 @@ def generate_driver_py(config: PluginConfig) -> str:
         raise NotImplementedError(f"{type(self).__name__} must implement stop_streaming")
 """
 
-    unit_line = (
-        f'        unit="{config.unit}",' if config.unit else "        unit=None,"
+    metadata_line = (
+        f'                metadata={{"unit": "{config.unit}"}},'
+        if config.unit
+        else ""
     )
 
     return f'''"""{config.display_name} driver implementation."""
@@ -346,8 +351,8 @@ class {config.class_name}Driver({config.driver_base_class}):
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
                 chunk_size=DEFAULT_CHUNK_SIZE,
                 channel_names=DEFAULT_CHANNEL_NAMES,
-{unit_line}
                 display_name="{config.display_name} Stream",
+{metadata_line}
             )
         ]
 
