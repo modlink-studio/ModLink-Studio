@@ -173,20 +173,8 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
 
-        self.auto_downsample_label = BodyLabel("自动降采样", self)
-        self.auto_downsample_switch = SwitchButton(self)
-        self.auto_downsample_switch.setOffText("关闭")
-        self.auto_downsample_switch.setOnText("启用")
-        self.settings_grid.addWidget(self.auto_downsample_label, 9, 0)
-        self.settings_grid.addWidget(
-            self.auto_downsample_switch,
-            9,
-            1,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-        )
-
         self.hint_label = CaptionLabel(
-            "当前支持时间长度、滤波器、陷波器，以及折线显示质量选项。",
+            "当前支持时间长度、滤波器、陷波器，以及折线抗锯齿选项。",
             self,
         )
         self.hint_label.setWordWrap(True)
@@ -210,7 +198,6 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         self.notch_enabled_switch.checkedChanged.connect(self._emit_state_changed)
         self.notch_frequencies_edit.sig_tokens_changed.connect(self._emit_state_changed)
         self.antialias_switch.checkedChanged.connect(self._emit_state_changed)
-        self.auto_downsample_switch.checkedChanged.connect(self._emit_state_changed)
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())
@@ -219,7 +206,6 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         return {
             "window_seconds": int(self.duration_combo.currentData() or 8),
             "antialias_enabled": bool(self.antialias_switch.isChecked()),
-            "auto_downsample_enabled": bool(self.auto_downsample_switch.isChecked()),
             "filter": {
                 "mode": self.filter_mode_combo.currentData(),
                 "family": self.filter_family_combo.currentData(),
@@ -245,7 +231,6 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             QSignalBlocker(self.notch_enabled_switch),
             QSignalBlocker(self.notch_frequencies_edit),
             QSignalBlocker(self.antialias_switch),
-            QSignalBlocker(self.auto_downsample_switch),
         ):
             self._set_combo_to_data(
                 self.duration_combo,
@@ -264,9 +249,6 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             if isinstance(tokens, list):
                 self.notch_frequencies_edit.set_tokens([str(v) for v in tokens])
             self.antialias_switch.setChecked(bool(data.get("antialias_enabled", True)))
-            self.auto_downsample_switch.setChecked(
-                bool(data.get("auto_downsample_enabled", False))
-            )
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())

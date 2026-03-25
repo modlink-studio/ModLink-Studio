@@ -203,7 +203,7 @@ class SignalStreamView(BaseStreamView):
         self._buffers: list[deque[float]] = []
         self._curves: list[object] = []
         self._antialias_enabled = True
-        self._auto_downsample_enabled = False
+        self._auto_downsample_enabled = True
         self._filter_spec = _SignalFilterSpec()
         self._pipeline = _SignalFilterPipeline(sample_rate_hz=self._sample_rate_hz)
         self._pipeline.configure(self._filter_spec)
@@ -231,13 +231,7 @@ class SignalStreamView(BaseStreamView):
         self._antialias_enabled = bool(
             getattr(settings, "antialias_enabled", self._antialias_enabled)
         )
-        self._auto_downsample_enabled = bool(
-            getattr(
-                settings,
-                "auto_downsample_enabled",
-                self._auto_downsample_enabled,
-            )
-        )
+        self._auto_downsample_enabled = True
         self._apply_render_quality()
 
         next_spec = self._extract_filter_spec(settings)
