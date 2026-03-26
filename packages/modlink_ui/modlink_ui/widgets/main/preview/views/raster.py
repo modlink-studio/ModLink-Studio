@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import deque
 
 import numpy as np
-from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
@@ -37,9 +36,7 @@ class RasterStreamView(BaseStreamView):
         self._interpolation = "nearest"
 
         self._graphics_widget = pg.GraphicsLayoutWidget(self)
-        self._graphics_widget.setBackground(
-            self.palette().color(QPalette.ColorRole.Window).name()
-        )
+        self._graphics_widget.setBackground("#FFFFFF")
         self._view_box = self._graphics_widget.addViewBox()
         self._view_box.setAspectLocked(False)
         self._view_box.setMenuEnabled(False)
