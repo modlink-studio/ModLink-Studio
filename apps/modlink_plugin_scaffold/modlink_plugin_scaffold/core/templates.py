@@ -135,10 +135,14 @@ name = "{spec.project_name}"
 version = "0.1.0"
 description = "{spec.display_name} driver plugin for ModLink Studio"
 readme = "README.md"
+license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
 dependencies = [
 {deps}
 ]
+
+[project.urls]
+Documentation = "https://modlink-studio.github.io/sdk"
 
 [project.entry-points."modlink.drivers"]
 {spec.entry_point_name} = "{spec.plugin_name}.factory:create_driver"
@@ -190,7 +194,8 @@ def _generate_readme_en(spec: DriverSpec, commands: NextStepCommands) -> str:
 - Keep one driver project per directory.
 - If you have multiple drivers, keep them as sibling directories and install each one separately.
 - After several driver projects are installed into the same Python environment, ModLink Studio can discover all of their `modlink.drivers` entry points.
-- ModLink Studio itself is assumed to already be installed in that environment.
+- This driver package only depends on `modlink-sdk` plus its transport dependencies.
+- The host environment is assumed to already have `modlink-studio` installed separately.
 - The examples below use `python -m pip` because it is portable, but any environment manager is acceptable.
 
 ## Install
@@ -236,6 +241,7 @@ Or, if your environment exposes console scripts:
 - `driver.py` already includes `emit_frame()` and `next_seq()` helpers.
 - Keep each stream's `modality`, `payload_type`, and expected frame shape stable across the driver lifetime.
 - The canonical module launch form is `python -m modlink_studio`.
+- Before publishing the driver, add your own `LICENSE`, README details, and project URLs.
 """
 
 
@@ -268,7 +274,8 @@ def _generate_readme_zh(spec: DriverSpec, commands: NextStepCommands) -> str:
 - 建议一个 driver 项目对应一个目录。
 - 如果你有多个 drivers，建议把它们放成同级目录，再分别安装到同一个 Python 环境。
 - 当多个 driver 项目都安装到同一个 Python 环境后，ModLink Studio 就能通过 `modlink.drivers` entry points 发现它们。
-- 这里默认 ModLink Studio 已经安装在同一个环境中。
+- 这个 driver 包本身只依赖 `modlink-sdk` 和它自己的传输层依赖。
+- 这里默认宿主环境已经另外安装好了 `modlink-studio`。
 - 下面使用 `python -m pip` 只是为了示例最通用，并不限制你使用其他环境管理工具。
 
 ## 安装
@@ -314,6 +321,7 @@ python -m pip install -e ../another_driver
 - `driver.py` 已经提供了 `emit_frame()` 和 `next_seq()` 两个辅助方法。
 - 每个 stream 的 `modality`、`payload_type` 和期望 shape 在 driver 生命周期内应该保持稳定。
 - 推荐的模块启动形式是 `python -m modlink_studio`。
+- 公开分发这个 driver 之前，建议补齐自己的 `LICENSE`、README 细节和项目链接。
 """
 
 

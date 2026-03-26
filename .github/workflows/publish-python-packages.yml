@@ -1,0 +1,63 @@
+name: Publish Python Packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDSMITH_PUBLISH_URL: https://python.cloudsmith.io/xylt-space/modlink-studio/
+      UV_PUBLISH_USERNAME: token
+      UV_PUBLISH_PASSWORD: ${{ secrets.CLOUDSMITH_API_KEY }}
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      - name: Validate Cloudsmith configuration
+        run: |
+          test -n "$UV_PUBLISH_PASSWORD"
+
+      - name: Build distributions
+        run: |
+          rm -rf dist
+          mkdir -p dist/modlink-sdk
+          mkdir -p dist/modlink-core
+          mkdir -p dist/modlink-ui
+          mkdir -p dist/modlink-plugin-scaffold
+          mkdir -p dist/modlink-studio
+          mkdir -p dist/modlink-plugin-host-camera
+          mkdir -p dist/modlink-plugin-host-microphone
+          mkdir -p dist/modlink-plugin-openbci-ganglion
+
+          uv build packages/modlink_sdk -o dist/modlink-sdk
+          uv build packages/modlink_core -o dist/modlink-core
+          uv build packages/modlink_ui -o dist/modlink-ui
+          uv build apps/modlink_plugin_scaffold -o dist/modlink-plugin-scaffold
+          uv build apps/modlink_studio -o dist/modlink-studio
+          uv build plugins/host-camera -o dist/modlink-plugin-host-camera
+          uv build plugins/host-microphone -o dist/modlink-plugin-host-microphone
+          uv build plugins/openbci-ganglion -o dist/modlink-plugin-openbci-ganglion
+
+      - name: Publish distributions to Cloudsmith
+        run: |
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-sdk/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-core/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-ui/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-scaffold/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-studio/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-host-camera/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-host-microphone/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-openbci-ganglion/*

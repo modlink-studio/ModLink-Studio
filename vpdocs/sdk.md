@@ -2,133 +2,232 @@
 
 这一页记录的是把设备接入 `ModLink Studio` 时最常用的约定。
 
-目前的 SDK 重点是把 driver 开发收敛成一组足够小、但又能覆盖常见设备形态的接口。对大多数设备来说，判断通常先从这里开始：
+第一版的核心原则只有两条：
 
-- 常见轮询设备优先考虑 `LoopDriver`
-- callback 型设备直接继承 `Driver`
+- 外部 driver 项目优先依赖 `modlink-sdk`
+- 安装后通过 `modlink.drivers` entry point 被宿主发现
+
+开发前，请先完成宿主环境安装，见 [安装与发布](/install)。
 
 ## 快速定位
 
-这一页主要分成下面几部分：
-
 - [先选哪一个基类](#先选哪一个基类)
+- [用脚手架起步](#用脚手架起步)
 - [最小接入流程](#最小接入流程)
 - [三个核心数据模型](#三个核心数据模型)
 - [driver 生命周期](#driver-生命周期)
 - [插件项目怎么组织](#插件项目怎么组织)
+- [零参数工厂](#零参数工厂)
 - [命名建议](#命名建议)
 
 ## 先选哪一个基类
 
 ### `Driver`
 
-`Driver` 是最通用的基础契约。
+`Driver` 是所有 driver 的根基类。宿主真正理解的是这套基类契约，而不是某个具体设备自己的接入方式。
+
+一个 `Driver` 实例通常代表“宿主管理下的一个设备端点”，它需要对外提供：
+
+- `descriptors()`：这个 driver 会发哪些流
+- `search()`：当前能找到哪些候选设备
+- `connect_device()` / `disconnect_device()`：连接生命周期
+- `start_streaming()` / `stop_streaming()`：数据流生命周期
+- `sig_frame`：实时发出 `FrameEnvelope`
 
 适合这类设备：
 
 - callback 型 SDK
-- 比较特殊的第三方库
-- 一个固定 `loop()` 很难表达清楚的设备
+- 第三方库回调驱动的数据源
+- 很难用固定 `loop()` 表达清楚的设备
 
-常见实现点包括：
-
-- `search()`
-- `connect_device()`
-- `disconnect_device()`
-- `start_streaming()`
-- `stop_streaming()`
-- `descriptors()`
+如果你还不确定设备是不是标准轮询模式，优先先用 `Driver`。它是最直接的抽象，也更适合在早期先把设备协议跑通。
 
 ### `LoopDriver`
 
-`LoopDriver` 是给常见轮询型设备准备的轻量 helper。
+`LoopDriver` 的基类也是 `Driver`。它不是另一套平行体系，而是在 `Driver` 之上，为轮询型设备提供的一个已经封装好的 helper。
+
+它主要适用于这类场景：driver 不需要等待外部 callback，而是要在自己的线程里反复执行一段短操作，例如“读串口缓冲区”“检查 SDK 是否有新样本”“取一批可用数据并发出去”。
+
+`LoopDriver` 默认已经帮你接好了：
+
+- 基于 `QTimer` 的循环调度
+- `start_streaming()` / `stop_streaming()` 的默认实现
+- `on_loop_started()` / `on_loop_stopped()` 这两个可选钩子
+
+通常你只需要补：
+
+- `descriptors()`
+- `search()`
+- `connect_device()` / `disconnect_device()`
+- `loop()`
+- 必要时调整 `loop_interval_ms`
 
 适合这类设备：
 
 - 串口轮询
-- BrainFlow 这类“先看有没有数据，再取数据”的设备
-- 协议本身天然就是一个短循环的设备
+- BrainFlow 风格设备
+- 一次短循环就能表达的数据获取逻辑
 
-常见实现点包括：
+不适合这类设备：
+
+- callback 型 SDK
+- 单次读取会长时间阻塞的设备
+- 采集逻辑本身依赖复杂异步状态机的设备
+
+如果判断不清楚，回到 `Driver`。`LoopDriver` 的目的在于减少轮询样板代码，而不是让所有 driver 都采用轮询模型。
+
+## 用脚手架起步
+
+安装 `modlink-studio` 后，`modlink-plugin-scaffold` 会一起进入同一个 Python 环境。
+
+```bash
+modlink-plugin-scaffold --zh
+```
+
+这个脚手架适合“新建一个独立 driver 项目”的场景。它会交互式生成：
+
+- 基础包结构
+- `pyproject.toml`
+- `driver.py`
+- `factory.py`
+- `modlink.drivers` entry point
+- 一份可继续完善的 README
+
+脚手架只负责把项目骨架和 SDK 契约接好，不会替代真实设备协议实现。生成项目后，通常还需要你继续补完：
 
 - `search()`
-- `connect_device()`
-- `disconnect_device()`
-- `descriptors()`
-- `loop()`
-
-可选实现：
-
-- `on_loop_started()`
-- `on_loop_stopped()`
-- `loop_interval_ms`
-
-`LoopDriver` 已经满足普通 `Driver` 契约，所以当前 runtime 不需要额外适配它。
+- `connect_device()` / `disconnect_device()`
+- 真实数据流提供与 `FrameEnvelope` 发射逻辑
 
 ## 最小接入流程
-
-不管最终选哪一个基类，最小接入流程都差不多：
 
 1. 定义一个 driver 类
 2. 实现 `device_id`
 3. 实现 `descriptors()`
 4. 实现 `search()`
-5. 实现连接和采集逻辑
+5. 实现连接和数据提供逻辑
 6. 通过 `sig_frame` 发出 `FrameEnvelope`
 
-如果目的是先把链路跑通，最值得先定住的是这两件事：
+优先先定住两件事：
 
 - `StreamDescriptor`
 - `FrameEnvelope.data` 的 shape
-
-一旦这两件事稳定下来，UI、录制和调试路径通常也会稳定很多。
 
 ## 三个核心数据模型
 
 ### `SearchResult`
 
-`search()` 返回的是一组 `SearchResult`。
+`SearchResult` 是 `search()` 的返回值。宿主拿它做两件事：
 
-它的职责很简单：
+- 用 `title` / `subtitle` 展示给用户
+- 在用户选择后，把整个对象回传给 `connect_device()`
 
-- `title` / `subtitle` 给界面展示
-- `extra` 给 driver 自己使用
+最常用字段：
 
-宿主不会解析 `extra`，只是把它原样传回 `connect_device()`。
+- `title`：列表主标题
+- `subtitle`：列表副标题
+- `extra`：driver 自己保存的连接参数
+
+可选补充字段：
+
+- `device_id`：driver 提供的稳定设备标识
+
+宿主不会解析 `extra`。端口号、地址、序列号、驱动私有参数等信息，都可以放在这里。`device_id` 也不是宿主当前会消费的字段；它不是必填项，只有在 driver 希望额外提供一个规范化设备标识时才需要填写。
 
 ### `StreamDescriptor`
 
-`StreamDescriptor` 描述的是“这个 driver 会发哪些流”。
+`StreamDescriptor` 描述“这个 driver 会发哪些流”，它是静态契约，不是实时数据。
 
-最常用的字段是：
+宿主会在连接前就调用 `descriptors()`，因此这里返回的信息应该在 driver 生命周期内保持稳定。
 
-- `stream_id`
+先明确一件事：`stream_id` 不是手写字段，而是由 `device_id + modality` 自动派生出来的。  
+因此真正需要你决定的是下面这些字段。
+
+#### 强约束字段
+
+这些字段不只是补充描述，而是会直接影响宿主如何路由、预览和录制数据。
+
+- `device_id`
+  这是这个流所属的设备实例标识，必须满足 `name.XX` 形式，例如 `host_camera.01`。
+  它会直接参与 `stream_id` 的生成。如果这个值变了，系统会把它视为另一个流。
 - `modality`
+  这是流的高层模态标签，例如 `eeg`、`audio`、`video`、`accel`。
+  它同样会参与 `stream_id` 的生成，因此应该使用稳定、可复用的名字，而不是临时描述。
 - `payload_type`
+  这个字段不能任意写，当前只能从这四个值里选：
+  - `signal`
+  - `raster`
+  - `field`
+  - `video`
+  它决定了宿主选用哪一类预览视图、哪一类录制 writer，以及 `FrameEnvelope.data` 应该满足什么维度约定：
+  - `signal`：`data.shape == [channel_count, chunk_size]`
+  - `raster`：`data.shape == [channel_count, chunk_size, line_length]`
+  - `field`：`data.shape == [channel_count, chunk_size, height, width]`
+  - `video`：`data.shape == [channel_count, chunk_size, height, width]`
+  如果值超出这四个范围，当前预览和录制链路都会直接报错。
 - `nominal_sample_rate_hz`
+  这是正数，表示该流的名义采样率。
+  它会影响预览中的时间轴、部分默认设置和录制时的名义采样周期计算。当前 Core 会要求它是正数，非正值会直接报错。
 - `chunk_size`
+  这是正整数，表示每个 `FrameEnvelope` 通常打包多少个样本或多少帧。
+  它不是提示性字段。录制链路会校验运行时收到的实际 `chunk_size` 是否和 descriptor 一致；如果 descriptor 写的是 32，而实际 frame 发的是 64，当前 writer 会直接报错。
+  从实践上看，采样率越高、发帧越频繁的设备，通常越适合把 `chunk_size` 设得更高一些，以减少过于频繁的 frame 派发和处理开销。
+
+#### 描述性字段
+
+这些字段更偏向“告诉宿主如何展示和解释这个流”，不是路由主键，但仍然建议保持稳定。
+
 - `channel_names`
+  这是通道标签列表，本质上可以自由命名，例如 `("Fp1", "Fp2")`、`("x", "y", "z")`、`("red", "green", "blue")`。
+  对 `signal` 类型尤其重要：如果数量和实际 `channel_count` 一致，预览图和录制文件会使用这些名字；如果数量不一致，系统会退回到自动生成的通道名。
+- `display_name`
+  这是面向用户的可读名称，例如 `Ganglion EEG`、`Host Microphone Waveform`。
+  它主要影响界面显示；如果不提供，UI 通常会退回到 `stream_id`。
+
+#### `metadata` 应该怎么用
+
+`metadata` 是补充说明信息，适合放那些“有助于解释流，但又不适合作为主字段”的内容。  
+它应该保持 JSON 友好，并且在 driver 生命周期内尽量稳定。
+
+当前最常见、最推荐使用的键是：
+
 - `unit`
+  表示工程单位，例如 `uV`、`degC`、`kPa`、`m/s^2`、`a.u.`。
+  它并不和 `signal` 绑定。只要这个流本身有明确量纲，就可以填写 `unit`；例如信号流、场图流和栅格流都可以使用。
+  当前系统里，`unit` 主要有两个作用：
+  - 会进入录制时保存下来的 descriptor 元数据
+  - 会显示在预览卡片摘要里
+  目前它不会自动驱动数值缩放、坐标轴换算或滤波参数，因此它更像“明确数据语义”的说明字段，而不是控制行为的配置字段。
 
-这里有一个当前实现上的边界：
+其他 payload 相关信息也可以放进 `metadata`，例如：
 
-- host 可能会在设备连接前就读取 descriptor
-- 所以 `descriptors()` 最好不要依赖“必须先连上设备才能知道”的动态状态
+- `length`
+- `height`
+- `width`
+
+但要注意：当前运行时并不会依赖这些键来决定预览或录制 shape；系统主要还是根据 `payload_type` 和实际 `FrameEnvelope.data.shape` 工作。  
+因此这些键如果提供，应该作为补充说明，并且与真实数据 shape 保持一致，而不是把它们当成唯一真值来源。
 
 ### `FrameEnvelope`
 
-`FrameEnvelope` 是 driver 在运行时真正发出的数据块。
+`FrameEnvelope` 是运行时真正发出的数据块。它和 `StreamDescriptor` 的关系必须是一一可解释的：宿主先通过 `StreamDescriptor` 知道“这个流是什么”，再通过 `FrameEnvelope` 收到“这个流的实时数据”。
 
-可以把它理解成：
+最重要字段：
 
-- `stream_id`：这块数据属于哪个流
-- `timestamp_ns`：这块数据对应的时间戳
+- `stream_id`：属于哪个流
+- `timestamp_ns`：时间戳
 - `data`：数据本体
 - `seq`：可选顺序号
 
+实际接入时最重要的约束有三条：
+
+- `device_id + modality` 会派生出 `stream_id`，它必须能对应到某个 `StreamDescriptor`
+- `data` 的 shape 必须和该流的约定一致
+- `timestamp_ns` 需要有真实时间语义，不能只是随手填值
+
 ## driver 生命周期
 
-宿主对 driver 的典型调用顺序是：
+宿主对 driver 的典型调用顺序：
 
 1. 创建 driver
 2. 读取 `device_id` / `display_name`
@@ -139,71 +238,113 @@
 7. 调 `start_streaming()`
 8. 后续调 `stop_streaming()` / `disconnect_device()` / `shutdown()`
 
-从 driver 侧看，最重要的边界是：
-
-- `search()` 负责一次性发现
-- `connect_device()` 负责建立连接，但不开始实时采集
-- `start_streaming()` 负责开始发 `FrameEnvelope`
-- `stop_streaming()` 负责停止发流
-
-继承 `LoopDriver` 时，第 7 步里的 `start_streaming()` 已经由基类实现，driver 只需要写 `loop()` 即可。
-
-## `FrameEnvelope.data` 的常见 shape
-
-这个项目当前最常见的是 `line` 类型流。
-
-建议约定：
-
-- `line`: `[channel_count, chunk_size]`
-
-常见例子：
-
-- EEG 多通道数据
-- PPG / ECG 多通道数据
-- 加速度计 `x/y/z`
-
-同一个设备、同一种模态下的多个 channel，通常更适合放在**同一个 stream**里，而不是拆成多个 stream。
-
 ## 插件项目怎么组织
 
-当前推荐把具体设备插件放在 `plugins/` 下，每个插件是一个独立项目。
-
-最小结构可以是：
+推荐一个 driver 项目一个目录：
 
 ```text
-plugins/
-└─ your_device/
-   ├─ pyproject.toml
-   └─ your_device/
-      ├─ __init__.py
-      ├─ factory.py
-      └─ driver.py
+my_driver/
+├─ pyproject.toml
+└─ my_driver/
+   ├─ __init__.py
+   ├─ factory.py
+   └─ driver.py
 ```
 
-其中：
+最小 `pyproject.toml` 示例：
 
-- `factory.py` 提供零参数 `create_driver()`
-- `pyproject.toml` 里通过 `modlink.drivers` 注册 entry point
+```toml
+[project]
+name = "my-driver"
+version = "0.1.0"
+dependencies = [
+  "modlink-sdk",
+  "numpy>=2.3.3",
+]
 
-当前推荐启动方式不是把插件装进根 workspace，而是运行时临时附加：
+[project.entry-points."modlink.drivers"]
+my-driver = "my_driver.factory:create_driver"
+```
+
+这里的边界很重要：
+
+- driver 项目不要直接依赖 `modlink-studio`
+- 如无必要，不要依赖 `modlink-core`
+- 宿主只关心 `modlink.drivers` 和 SDK 契约
+
+`factory.py` 的职责也应该保持简单：它负责暴露给宿主加载的工厂函数，而不是在这里实现设备协议逻辑。
+
+安装方式：
 
 ```bash
-uv sync
-uv run --with ./plugins/openbciganglion modlink-studio
+python -m pip install -e .
 ```
 
-开发插件时则用：
+安装到与宿主相同的环境后，启动宿主：
 
 ```bash
-uv sync
-uv run --with-editable ./plugins/openbciganglion modlink-studio
+python -m modlink_studio
 ```
+
+## 零参数工厂
+
+每个 driver 包都应该通过 `modlink.drivers` entry point 暴露一个零参数工厂。
+
+最常见的形式就是：
+
+```python
+from .driver import MyDriver
+
+
+def create_driver() -> MyDriver:
+    return MyDriver()
+```
+
+这里“零参数”不是风格建议，而是当前宿主的实际契约：
+
+- 宿主启动时会扫描 `modlink.drivers`
+- entry point 加载出来的对象必须是可调用的
+- 宿主会直接以无参数形式调用它
+- 返回值必须是一个 `Driver` 实例
+
+因此当前推荐把 entry point 固定写成：
+
+```toml
+[project.entry-points."modlink.drivers"]
+my-driver = "my_driver.factory:create_driver"
+```
+
+这个约束背后的原因很直接：宿主在发现插件时只知道“这里有一个 driver factory”，并不知道你的设备需要什么端口、地址、序列号或认证参数。  
+这些运行时信息应该放到后续流程里处理：
+
+- 设备候选在 `search()` 里发现
+- 连接参数通过 `SearchResult.extra` 回传
+- 真实连接在 `connect_device()` 里建立
+
+因此不建议把这类运行时参数塞进 `Driver` 构造函数。  
+构造函数更适合做的是：
+
+- 初始化内部状态
+- 创建还不依赖设备连接的对象
+- 准备稳定的 descriptor 定义
+
+而不适合在构造阶段就：
+
+- 打开设备
+- 启动数据流
+- 依赖必须由用户选择后才能确定的连接参数
+
+当前宿主还会继续校验工厂返回值：
+
+- 返回对象必须是 `Driver`
+- 返回的 `Driver` 不能预先挂上 `QObject` parent
+- `driver.device_id` 不能为空
+
+所以如果 entry point 不是零参数工厂，或者工厂没有返回一个合法 `Driver`，宿主会在启动加载阶段直接报错。
 
 ## 命名建议
 
 ### `device_id`
-
-建议表达“这是哪个 driver 的第几个设备实例”，并保持稳定。
 
 推荐格式：
 
@@ -211,19 +352,15 @@ uv run --with-editable ./plugins/openbciganglion modlink-studio
 name.XX
 ```
 
-其中：
-
-- `name` 用 driver 名字的规范化 token，例如 `openbciganglion`
-- `XX` 用两位及以上数字表示实例序号，例如 `01`、`02`
-
 例如：
 
-- `openbciganglion.01`
-- `microphone_demo.01`
+- `my_driver.01`
+- `host_camera.01`
+- `openbci_ganglion.01`
 
 ### `stream_id`
 
-`stream_id` 不建议手写，当前约定是由 `device_id + modality` 自动派生：
+当前约定由 `device_id + modality` 自动派生：
 
 ```text
 {device_id}:{modality}
@@ -231,21 +368,19 @@ name.XX
 
 例如：
 
-- `openbciganglion.01:eeg`
-- `microphone_demo.01:audio`
+- `host_camera.01:video`
+- `openbci_ganglion.01:eeg`
 
-## 什么时候不要急着抽新基类
+## 官方插件命名
 
-对于 callback 型设备，直接继承 `Driver` 往往会更干净。
+第一版官方插件使用下面这组正式名：
 
-原因很简单：
+- `modlink-plugin-host-camera`
+- `modlink-plugin-host-microphone`
+- `modlink-plugin-openbci-ganglion`
 
-- `LoopDriver` 的公共模式非常稳定
-- callback 型设备的启动、注册和停止方式差异更大
+它们对应的 entry point 分别是：
 
-所以当前 SDK 的策略是：
-
-- 对最常见的轮询设备，先提供 `LoopDriver`
-- 对 callback 型设备，先保留基础 `Driver`
-
-等真的出现了稳定的 callback 共性，再考虑要不要抽新的 helper。
+- `host-camera`
+- `host-microphone`
+- `openbci-ganglion`

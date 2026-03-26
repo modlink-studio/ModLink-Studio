@@ -176,7 +176,7 @@ class DriverSpec:
         self.plugin_name = plugin_identifier
         self.project_name = self.plugin_name.replace("_", "-")
         self.class_name = to_pascal_case(self.plugin_name)
-        self.entry_point_name = self.plugin_name.replace("_", "")
+        self.entry_point_name = self.project_name
 
         self.display_name = str(self.display_name).strip() or self.class_name
         self.device_id = normalize_device_id(self.device_id)

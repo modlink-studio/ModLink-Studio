@@ -22,7 +22,7 @@ class Driver(QObject):
     - ``device_id`` must be stable, non-empty, and use ``name.XX`` form.
     - ``descriptors()`` must describe every stream the driver may emit.
     - control methods are synchronous and run on the driver worker thread.
-    - ``start_streaming()`` should return quickly after acquisition starts.
+    - ``start_streaming()`` should return quickly after streaming begins.
     - one driver instance manages at most one active device connection.
     """
 
@@ -53,7 +53,7 @@ class Driver(QObject):
 
         The value must be non-empty, stable for the lifetime of the instance,
         independent of connection state, and use ``name.XX`` form such as
-        ``openbciganglion.01``.
+        ``my_driver.01``.
         """
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
@@ -112,7 +112,7 @@ class Driver(QObject):
 
         ``config`` is normally one ``SearchResult`` returned by ``search()``.
         The method should establish communication and prepare runtime
-        resources, but it must not start live acquisition yet.
+        resources, but it must not start live streaming yet.
         """
         raise NotImplementedError(
             f"{type(self).__name__} must implement connect_device if it supports connecting"
@@ -129,7 +129,7 @@ class Driver(QObject):
         )
 
     def start_streaming(self) -> None:
-        """Start live acquisition.
+        """Start live streaming.
 
         The method should return quickly and begin producing ``sig_frame``
         emissions through callbacks, timers, or another non-blocking mechanism.
@@ -139,7 +139,7 @@ class Driver(QObject):
         )
 
     def stop_streaming(self) -> None:
-        """Stop live acquisition and release stream-specific resources."""
+        """Stop live streaming and release stream-specific resources."""
         raise NotImplementedError(
             f"{type(self).__name__} must implement stop_streaming"
         )

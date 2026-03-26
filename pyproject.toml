@@ -2,20 +2,23 @@
 name = "modlink-workspace"
 version = "0.1.0"
 description = "Workspace root for ModLink Studio"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = ["modlink-studio"]
 
+[project.urls]
+Homepage = "https://github.com/modlink-studio/ModLink-Studio"
+Repository = "https://github.com/modlink-studio/ModLink-Studio"
+Documentation = "https://modlink-studio.github.io"
+Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
+Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
+
 [project.optional-dependencies]
-openbciganglion = ["openbciganglion"]
-microphone-demo = ["microphone-demo"]
-plane-demo = ["plane-demo"]
-webcam = ["webcam"]
-drivers-all = [
-    "openbciganglion",
-    "microphone-demo",
-    "plane-demo",
-    "webcam",
-]
+official-host-camera = ["modlink-plugin-host-camera"]
+official-host-microphone = ["modlink-plugin-host-microphone"]
+official-openbci-ganglion = ["modlink-plugin-openbci-ganglion"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -26,10 +29,9 @@ modlink-plugin-scaffold = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
 modlink-ui = { workspace = true }
-openbciganglion = { path = "plugins/openbciganglion", editable = true }
-microphone-demo = { path = "plugins/microphone_demo", editable = true }
-plane-demo = { path = "plugins/plane_demo", editable = true }
-webcam = { path = "plugins/webcam", editable = true }
+modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
+modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
+modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
 
 [tool.uv.workspace]
 members = [
@@ -48,3 +50,10 @@ dev = [
     "pyinstaller>=6.16.0",
     "rich>=14.3.3",
 ]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []

@@ -2,12 +2,21 @@
 name = "modlink-core"
 version = "0.1.0"
 description = "Runtime services and engine for ModLink"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-sdk",
     "numpy>=2.3.3",
     "pyqt6>=6.10.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/modlink-studio/ModLink-Studio"
+Repository = "https://github.com/modlink-studio/ModLink-Studio"
+Documentation = "https://modlink-studio.github.io"
+Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
+Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
 
 [tool.uv.sources]
 modlink-sdk = { workspace = true }
