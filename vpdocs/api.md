@@ -10,16 +10,14 @@
 
 从源码 docstring 自动生成的 API 文档入口如下：
 
-- [打开 pdoc 总览](./pdoc/index.html)
+- <a href="/pdoc/index.html" target="_self">打开 pdoc 总览</a>
 
 各个主要包的入口如下：
 
-- [modlink_sdk](./pdoc/modlink_sdk.html)
-- [modlink_core](./pdoc/modlink_core.html)
-- [modlink_ui](./pdoc/modlink_ui.html)
-- [modlink_studio](./pdoc/modlink_studio.html)
-
-如果这些链接出现 404，通常说明文档站或 pdoc 产物还没有重新构建。
+- <a href="/pdoc/modlink_sdk.html" target="_self">modlink_sdk</a>
+- <a href="/pdoc/modlink_core.html" target="_self">modlink_core</a>
+- <a href="/pdoc/modlink_ui.html" target="_self">modlink_ui</a>
+- <a href="/pdoc/modlink_studio.html" target="_self">modlink_studio</a>
 
 ## 先建立一条最小接入链路
 
