@@ -122,13 +122,15 @@ class WebcamDriver(Driver):
         while self._running and self._cap is not None:
             ret, frame = self._cap.read()
             if not ret:
-                self.sig_connection_lost.emit(
+                self.emit_connection_lost(
                     {
                         "code": "WEBCAM_READ_FAILED",
                         "message": "Failed to read frame from host camera",
                         "detail": "Camera connection lost or disconnected",
                     }
                 )
+                break
+            if not self._running:
                 break
 
             # Convert BGR to RGB (HWC format)
@@ -144,7 +146,7 @@ class WebcamDriver(Driver):
                 dtype=np.float32,
             )
 
-            self.sig_frame.emit(
+            emitted = self.emit_frame(
                 FrameEnvelope(
                     device_id=self.device_id,
                     modality="video",
@@ -153,6 +155,7 @@ class WebcamDriver(Driver):
                     seq=self._seq,
                 )
             )
-            self._seq += 1
+            if emitted:
+                self._seq += 1
 
         self._running = False

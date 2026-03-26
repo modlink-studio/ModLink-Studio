@@ -19,6 +19,7 @@ class MicrophoneDemoDriver(Driver):
         super().__init__()
         self._device_index: int | None = None
         self._stream: sd.InputStream | None = None
+        self._callbacks_enabled = False
         self._seq = 0
 
     @property
@@ -71,22 +72,31 @@ class MicrophoneDemoDriver(Driver):
         if self._stream is not None:
             return
 
-        self._stream = sd.InputStream(
+        stream = sd.InputStream(
             device=self._device_index,
             channels=1,
             samplerate=DEFAULT_SAMPLE_RATE_HZ,
             blocksize=DEFAULT_CHUNK_SIZE,
             callback=self._on_audio,
         )
-        self._stream.start()
+        try:
+            stream.start()
+        except Exception:
+            stream.close()
+            raise
+
+        self._stream = stream
+        self._callbacks_enabled = True
 
     def stop_streaming(self) -> None:
-        if self._stream is None:
+        stream = self._stream
+        self._callbacks_enabled = False
+        if stream is None:
             return
         try:
-            self._stream.stop()
+            stream.stop()
         finally:
-            self._stream.close()
+            stream.close()
             self._stream = None
 
     def _on_audio(
@@ -96,10 +106,12 @@ class MicrophoneDemoDriver(Driver):
         timestamp: object,
         status: sd.CallbackFlags,
     ) -> None:
+        if not self._callbacks_enabled:
+            return
         if status:
             print(status)
 
-        self.sig_frame.emit(
+        emitted = self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
                 modality="audio",
@@ -110,4 +122,5 @@ class MicrophoneDemoDriver(Driver):
                 seq=self._seq,
             )
         )
-        self._seq += 1
+        if emitted:
+            self._seq += 1
