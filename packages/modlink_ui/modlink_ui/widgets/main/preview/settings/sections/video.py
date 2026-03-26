@@ -53,7 +53,6 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
         self.scale_mode_combo.setFixedWidth(180)
         self.scale_mode_combo.addItem("适应窗口", userData="fit")
         self.scale_mode_combo.addItem("填满窗口", userData="fill")
-        self.scale_mode_combo.addItem("1:1 原始大小", userData="original")
         self.settings_grid.addWidget(self.scale_mode_label, 1, 0)
         self.settings_grid.addWidget(self.scale_mode_combo, 1, 1)
 

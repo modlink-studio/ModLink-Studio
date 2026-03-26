@@ -101,14 +101,6 @@ class VideoStreamView(ImageStreamView):
             return
 
         self._view_box.disableAutoRange()
-        if self._scale_mode == "original":
-            self._view_box.setRange(
-                xRange=(0.0, width),
-                yRange=(0.0, height),
-                padding=0.0,
-            )
-            return
-
         if self._scale_mode == "fit" or not keep_aspect:
             self._view_box.setRange(
                 xRange=(0.0, width),
