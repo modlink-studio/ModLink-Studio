@@ -1,0 +1,33 @@
+.VPHomeHero.VPHero {
+    padding-bottom: 24px;
+}
+
+@media (min-width: 640px) {
+    .VPHomeHero.VPHero {
+        padding-bottom: 32px;
+    }
+}
+
+@media (min-width: 960px) {
+    .VPHomeHero.VPHero {
+        padding-bottom: 28px;
+    }
+}
+
+.VPHomeHero .image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.VPHomeHero .image-container {
+    width: 100%;
+    height: clamp(320px, 33vw, 430px);
+}
+
+@media (max-width: 959px) {
+    .VPHomeHero .image-container {
+        height: 300px;
+        transform: none;
+    }
+}

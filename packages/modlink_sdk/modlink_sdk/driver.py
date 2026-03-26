@@ -57,6 +57,11 @@ class Driver(QObject):
         """
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._emissions_enabled = True
+        self.destroyed.connect(self._on_destroyed)
+
     @property
     def display_name(self) -> str:
         """Return the human-readable driver label.
@@ -89,6 +94,7 @@ class Driver(QObject):
         device. ``NotImplementedError`` from either operation is ignored so the
         method remains safe for partial driver implementations.
         """
+        self._emissions_enabled = False
         try:
             self.stop_streaming()
         except NotImplementedError:
@@ -97,6 +103,37 @@ class Driver(QObject):
             self.disconnect_device()
         except NotImplementedError:
             pass
+
+    def emit_frame(self, frame: FrameEnvelope) -> bool:
+        """Emit a frame unless the driver is already shutting down.
+
+        Drivers may receive late callbacks from transport threads after the
+        host has started teardown. In that window the underlying QObject may be
+        gone already, so direct ``sig_frame.emit(...)`` calls can raise
+        ``RuntimeError``. This helper turns that race into a dropped frame.
+        """
+        if not self._emissions_enabled:
+            return False
+        try:
+            self.sig_frame.emit(frame)
+        except RuntimeError:
+            self._emissions_enabled = False
+            return False
+        return True
+
+    def emit_connection_lost(self, payload: object) -> bool:
+        """Emit a connection-lost event unless teardown already started."""
+        if not self._emissions_enabled:
+            return False
+        try:
+            self.sig_connection_lost.emit(payload)
+        except RuntimeError:
+            self._emissions_enabled = False
+            return False
+        return True
+
+    def _on_destroyed(self, *_args: object) -> None:
+        self._emissions_enabled = False
 
     def search(self, provider: str) -> list[SearchResult]:
         """Return discovery candidates for ``provider``.
