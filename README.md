@@ -1,50 +1,144 @@
 # ModLink Studio
 
-面向多设备接入、多模态采集与展示的数据平台。
+[![Packages on Cloudsmith](https://img.shields.io/badge/packages-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/)
+[![OSS hosting by Cloudsmith](https://img.shields.io/badge/OSS%20hosting-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://cloudsmith.com/)
 
-这个仓库从 `openbciganglionui` 迁移而来，但目标已经不再是单一设备的专用工具，而是一个能够承载多种设备、多种数据流和多种采集界面的 `monorepo`。设备开发者可以通过实现自己的 driver plugin，把各自设备接入这套平台，用统一的方式完成展示、预览、标注和采集。
+面向设备接入、多模态采集与展示的桌面宿主应用。
 
-![OpenBCI Ganglion UI screenshot](assets/ui-demo.png)
+ModLink Studio 把设备搜索、连接、实时流消费、预览和采集流程统一到同一套运行时里。设备接入者只需要实现 driver 和流描述；宿主应用、录制链路和大部分展示逻辑可以复用同一套平台能力。
 
-## 项目定位
+![ModLink Studio screenshot](assets/ui-demo.png)
 
-`ModLink Studio` 的目标不是做一个只服务某一块板卡的 demo，而是做一套可复用的采集基础设施。
+## 项目入口
 
-这套基础设施希望解决的问题包括：
+- 源码仓库：[github.com/modlink-studio/ModLink-Studio](https://github.com/modlink-studio/ModLink-Studio)
+- 文档站点：[modlink-studio.github.io](https://modlink-studio.github.io)
+- 官方包源：[dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/](https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/)
 
-- 不同设备用不同驱动接入，但上层展示和采集流程尽量统一
-- 不同模态的数据都能用一致的数据结构在系统内流转
-- 设备开发者只需要关注自己的驱动实现，不需要重复搭一整套 UI 和录制流程
-- 采集任务可以共享统一的设置、总线、标注和录制逻辑
+ModLink Studio 的公开包托管由 Cloudsmith OSS 提供支持。安装命令、官方插件分发和发布说明都以 Cloudsmith 仓库 `xylt-space/modlink-studio` 为准。
 
-## 迁移背景
+## 安装
 
-这个仓库的起点是 `openbciganglionui`。
+第一版公共包源没有配置 PyPI upstream proxy。  
+在这种条件下，如果把 Cloudsmith 直接写成 `--index-url`，解析器只会从 Cloudsmith 查找依赖，找不到的公开依赖也不会回退到 PyPI。当前推荐使用 `--extra-index-url`，让 `modlink-studio` 来自 Cloudsmith，公开依赖继续从 PyPI 解析。
 
-原项目已经实现了面向 `OpenBCI Ganglion` 的连接、预览、标注和录制流程，说明整条采集链路是可行的。现在我们把它作为迁移起点，把其中有价值的运行时模型、采集逻辑和 UI 经验逐步抽到新的 `ModLink Studio` 结构里。
+公共安装源：
 
-因此当前仓库里会同时看到两条线：
+```text
+https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
+```
 
-- `deprecated/src/openbciganglionui/`
-  现有的旧应用实现，也是当前最完整、最可运行的参考
-- `packages/`
-  正在建设中的新 monorepo 基础层，后续新的通用能力主要会沉淀在这里
+安装主应用：
 
-## 面向谁
+```bash
+python -m pip install \
+  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
+  modlink-studio
+```
 
-这个项目主要面向两类角色：
+## 官方插件
 
-- 平台维护者：维护共享数据模型、总线、录制、设置、公共 UI 和应用组装逻辑
-- 设备接入者：为自己的设备实现 plugin/driver，把设备数据接到平台里
+主应用不会默认安装所有官方插件。第一版官方插件按需通过 extras 安装：
 
-理想情况下，设备接入者只需要完成“设备如何连接、如何发流、每个流长什么样”这部分，平台本身负责把这些流交给显示、标注和录制模块。
+- `official-host-camera`
+- `official-host-microphone`
+- `official-openbci-ganglion`
 
-## 当前 monorepo 结构
+正式分发名：
+
+- `modlink-plugin-host-camera`
+- `modlink-plugin-host-microphone`
+- `modlink-plugin-openbci-ganglion`
+
+对应 entry point：
+
+- `host-camera`
+- `host-microphone`
+- `openbci-ganglion`
+
+按需安装示例：
+
+```bash
+python -m pip install \
+  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
+  "modlink-studio[official-host-camera]"
+```
+
+```bash
+python -m pip install \
+  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
+  "modlink-studio[official-host-camera,official-host-microphone]"
+```
+
+```bash
+python -m pip install \
+  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
+  "modlink-studio[official-openbci-ganglion]"
+```
+
+## 运行方式
+
+正式用户入口是 GUI script：
+
+```bash
+modlink-studio
+```
+
+调试和排查时可以使用模块入口：
+
+```bash
+python -m modlink_studio
+```
+
+## Driver 开发模型
+
+外部独立 driver 项目应当依赖最小公共接口，而不是依赖宿主应用本身。当前推荐的依赖模型是：
+
+- `modlink-sdk`
+- 设备自身的传输层依赖
+
+只有在确实需要运行时服务时，才额外依赖 `modlink-core`。driver 安装到与宿主相同的 Python 环境后，会通过 `modlink.drivers` entry point 被宿主发现。
+
+如果是新建 driver 项目，可以直接使用随 `modlink-studio` 一起安装的脚手架工具：
+
+```bash
+modlink-plugin-scaffold --zh
+```
+
+这个工具会交互式生成一个可启动的 driver 项目骨架，通常会包括：
+
+- `pyproject.toml`
+- `driver.py`
+- `factory.py`
+- `__init__.py`
+- README 草稿
+
+脚手架的作用不是替你实现设备协议，而是先把项目结构、entry point、基础类选择和 stream 描述骨架搭出来，让你从“补真实搜索、连接和发帧逻辑”开始，而不是从零写包结构。
+
+一个最小 `pyproject.toml` 示例：
+
+```toml
+[project]
+name = "my-driver"
+version = "0.1.0"
+dependencies = [
+  "modlink-sdk",
+  "numpy>=2.3.3",
+]
+
+[project.entry-points."modlink.drivers"]
+my-driver = "my_driver.factory:create_driver"
+```
+
+宿主对 driver 保持 fail-fast 策略。坏掉的 entry point、损坏的 driver 或未知 payload 类型都会直接暴露错误，避免把协议错误隐藏成不确定的运行时行为。
+
+## 仓库结构
 
 ```text
 modlink-studio/
 ├─ apps/
-│  └─ modlink_studio/
+│  ├─ modlink_studio/
+│  └─ modlink_plugin_scaffold/
 ├─ packages/
 │  ├─ modlink_sdk/
 │  ├─ modlink_core/
@@ -54,100 +148,36 @@ modlink-studio/
 └─ deprecated/
 ```
 
-当前各目录的职责可以理解为：
+- `apps/modlink_studio/`: 主应用入口
+- `apps/modlink_plugin_scaffold/`: driver 脚手架工具
+- `packages/modlink_sdk/`: 对外稳定的最小 SDK 契约
+- `packages/modlink_core/`: 运行时、流总线和采集基础设施
+- `packages/modlink_ui/`: Qt UI 组件和页面
+- `plugins/`: 官方插件源目录
+- `vpdocs/`: VitePress 文档站源码
 
-- `apps/`
-  面向具体场景的应用组装层，未来不同设备组合或实验场景可以在这里落应用入口
-- `packages/modlink_sdk/`
-  面向 driver/plugin 开发者的最小 SDK，提供共享数据模型和 driver 契约
-- `packages/modlink_core/`
-  平台核心能力，例如流总线、录制任务、设置服务、driver portal 和运行时组装
-- `packages/modlink_ui/`
-  未来可复用的 UI 组件和 UI 基础设施
-- `plugins/`
-  具体设备插件所在的位置，后续官方维护和实验性 driver 都放这里
-- `deprecated/src/openbciganglionui/`
-  迁移参考来源，保留现有 Ganglion 专用实现，供抽取和对照
+## 面向仓库贡献者
 
-## 驱动接入思路
-
-后续接入设备时，推荐遵循下面这条思路：
-
-1. 基于 `modlink_sdk` 实现自己的 driver/plugin
-2. 为设备定义它会产生哪些 stream，以及每个 stream 的 `StreamDescriptor`
-3. 驱动通过 signal 持续发出 `FrameEnvelope`
-4. `modlink_core` 的总线、录制和其他上层模块消费这些流
-5. UI 或具体 app 再根据这些统一流去做展示和采集交互
-
-也就是说，平台希望把“设备怎么接”和“数据怎么被展示/录制”拆开。
-
-## 当前状态
-
-目前仓库已经以 `ModLink Studio` 为默认入口，核心方向也已经切到新的分层结构：
-
-- `apps/` 负责应用入口和最终组装
-- `packages/` 负责 SDK、Core 和 UI 基础层
-- `plugins/` 负责按需挂载的设备 driver
-- `deprecated/src/openbciganglionui/` 保留为迁移参考
-
-也就是说，这个仓库的重点已经不是继续扩大单设备专用应用，而是稳定一套可复用的设备接入和采集平台。
-
-## 开发目标
-
-接下来这个仓库的重点不是继续把 `Ganglion UI` 做成更大的单设备应用，而是逐步完成下面这些事情：
-
-- 稳定共享数据模型和核心运行时边界
-- 明确 driver 接入方式，让不同设备都能复用平台能力
-- 把现有 `openbciganglionui` 中通用的部分抽到 `packages/`
-- 为未来的多模态展示和采集界面预留统一的应用组织方式
-
-## 当前开发方式
-
-当前本地开发优先使用新的 `modlink-studio` 入口：
+仓库内开发使用 `uv`：
 
 ```bash
 uv sync
 uv run modlink-studio
 ```
 
-或者：
+从 monorepo 根目录按需附加官方插件：
 
 ```bash
-uv run python -m modlink_studio
+uv run --extra official-host-camera modlink-studio
 ```
-
-如果你还在排查旧入口，也可以继续用 `openbciganglionui` 兼容命令，但新项目身份和默认入口已经切到 `ModLink Studio`。
-
-如果你需要某个可选 driver plugin，推荐通过 extras 启动。例如启用
-`openbciganglion`：
 
 ```bash
-uv sync
-uv run --extra openbciganglion modlink-studio
+uv run --extra official-host-camera --extra official-host-microphone modlink-studio
 ```
-
-如果你还想同时启用多个插件，可以重复传多个 `--extra`：
-
-```bash
-uv run --extra openbciganglion --extra microphone-demo modlink-studio
-```
-
-如果你想一次性启用当前仓库里所有内置插件，也可以直接：
-
-```bash
-uv run --extra drivers-all modlink-studio
-```
-
-默认的 `uv sync` 不会安装这些插件，只有显式通过 `--extra` 附加时才会参与本次运行。
 
 ## 文档
 
-项目文档目前使用 `VitePress` 维护，源码位于 `vpdocs/`。
-
-文档源码和 GitHub Pages 发布仓库现在分开维护：
-
-- 当前代码仓负责保存文档源码
-- `modlink-studio.github.io` 仓库负责承载最终静态站点
+项目文档使用 VitePress，源码位于 `vpdocs/`，站点发布到 `https://modlink-studio.github.io`。
 
 本地预览：
 
@@ -156,7 +186,7 @@ npm ci
 npm run docs:vp:dev
 ```
 
-本地构建：
+构建文档：
 
 ```bash
 npm ci
@@ -164,37 +194,8 @@ npm run docs:pdoc:build
 npm run docs:vp:build
 ```
 
-推荐发布方式是自动发布：当前代码仓已经提供了
-`.github/workflows/publish-docs.yml`，会在 `main` 分支更新后自动构建文档并同步到
-`modlink-studio.github.io`。
+## 许可证与托管
 
-要启用这条自动发布链，需要先在 `ModLink-Studio` 仓库里配置一个 GitHub Actions secret：
+当前仓库整体按 `GPL-3.0-or-later` 路线发布。详细条款见根目录 [LICENSE](LICENSE)。
 
-- `DOCS_DEPLOY_TOKEN`
-  建议使用 fine-grained personal access token，并只授予 `modlink-studio/modlink-studio.github.io` 这个仓库的 `Contents: Read and write` 权限
-
-本地兜底方式仍然保留。如果你本地已经把 `modlink-studio.github.io` 仓库克隆到当前仓库旁边，可以直接用：
-
-```bash
-powershell -ExecutionPolicy Bypass -File .\scripts\export-docs.ps1
-```
-
-这个脚本会构建文档，并把 `vpdocs/.vitepress/dist/` 的内容同步到
-`..\modlink-studio.github.io\`。
-
-## 给设备开发者的说明
-
-如果你后续要把自己的设备接进来，建议先关注三件事：
-
-- 设备有哪些稳定的数据流需要暴露
-- 每个流的 payload 应该如何描述
-- 驱动层和上层采集/展示层之间应该通过什么最小接口解耦
-
-你不需要从零写一整套采集软件；这个仓库要做的，正是把那些重复工作沉淀成共享平台能力。
-
-## 说明
-
-这个 README 现在描述的是项目目标和当前迁移方向，而不是最终完成态。随着 `packages/`、`apps/` 和新的应用入口逐步成形，这份文档也会继续更新。
-
-
-
+ModLink Studio 的公开包由 Cloudsmith OSS 托管。文档站用于说明源码和使用方式；真正的 Python 包安装入口以 Cloudsmith 仓库 `xylt-space/modlink-studio` 为准。

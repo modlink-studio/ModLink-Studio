@@ -7,7 +7,7 @@ import sounddevice as sd
 
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
-DEFAULT_DEVICE_ID = "microphone_demo.01"
+DEFAULT_DEVICE_ID = "host_microphone.01"
 DEFAULT_SAMPLE_RATE_HZ = 16_000.0
 DEFAULT_CHUNK_SIZE = 1024
 
@@ -27,7 +27,7 @@ class MicrophoneDemoDriver(Driver):
 
     @property
     def display_name(self) -> str:
-        return "Microphone Demo"
+        return "Host Microphone"
 
     def descriptors(self) -> list[StreamDescriptor]:
         return [
@@ -38,13 +38,13 @@ class MicrophoneDemoDriver(Driver):
                 nominal_sample_rate_hz=DEFAULT_SAMPLE_RATE_HZ,
                 chunk_size=DEFAULT_CHUNK_SIZE,
                 channel_names=("mic",),
-                display_name="Microphone Waveform",
+                display_name="Host Microphone Waveform",
             )
         ]
 
     def search(self, provider: str) -> list[SearchResult]:
         if provider != "audio":
-            raise ValueError("Microphone demo provider must be 'audio'")
+            raise ValueError("Host microphone provider must be 'audio'")
 
         return [
             SearchResult(

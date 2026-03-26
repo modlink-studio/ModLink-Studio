@@ -3,7 +3,14 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import (
+    QObject,
+    QStandardPaths,
+    QThread,
+    Qt,
+    pyqtSignal,
+    pyqtSlot,
+)
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
@@ -341,8 +348,14 @@ class AcquisitionBackend(QObject):
         self._state = state
         self.sig_state_changed.emit(state)
 
+
 def _default_root_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "data"
+    documents_dir = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.DocumentsLocation
+    )
+    if documents_dir:
+        return Path(documents_dir) / "ModLink Studio" / "data"
+    return Path.home() / "ModLink Studio" / "data"
 
 
 def _resolve_root_dir(settings: SettingsService) -> Path:

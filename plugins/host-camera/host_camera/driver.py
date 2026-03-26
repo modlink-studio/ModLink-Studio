@@ -8,7 +8,7 @@ import numpy as np
 
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
-DEFAULT_DEVICE_ID = "webcam.01"
+DEFAULT_DEVICE_ID = "host_camera.01"
 DEFAULT_FRAME_RATE_FPS = 30.0
 DEFAULT_WIDTH = 640
 DEFAULT_HEIGHT = 480
@@ -31,7 +31,7 @@ class WebcamDriver(Driver):
 
     @property
     def display_name(self) -> str:
-        return "Webcam"
+        return "Host Camera"
 
     def descriptors(self) -> list[StreamDescriptor]:
         return [
@@ -42,14 +42,14 @@ class WebcamDriver(Driver):
                 nominal_sample_rate_hz=DEFAULT_FRAME_RATE_FPS,
                 chunk_size=1,
                 channel_names=("red", "green", "blue"),
-                display_name="Webcam RGB Stream",
+                display_name="Host Camera RGB Stream",
                 metadata={"width": DEFAULT_WIDTH, "height": DEFAULT_HEIGHT},
             )
         ]
 
     def search(self, provider: str) -> list[SearchResult]:
         if provider != "video":
-            raise ValueError("Webcam driver provider must be 'video'")
+            raise ValueError("Host camera driver provider must be 'video'")
 
         results: list[SearchResult] = []
         for index in range(10):
@@ -125,7 +125,7 @@ class WebcamDriver(Driver):
                 self.sig_connection_lost.emit(
                     {
                         "code": "WEBCAM_READ_FAILED",
-                        "message": "Failed to read frame from webcam",
+                        "message": "Failed to read frame from host camera",
                         "detail": "Camera connection lost or disconnected",
                     }
                 )

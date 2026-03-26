@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Sequence
+from importlib.resources import files
 from pathlib import Path
 
 import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QApplication
 from qfluentwidgets import Theme, setTheme
 
@@ -16,9 +18,31 @@ from modlink_ui import MainWindow
 
 
 def _load_app_icon() -> QIcon:
+    icon = _load_packaged_app_icon()
+    if not icon.isNull():
+        return icon
+
+    # Keep a repo-local fallback so editable/dev runs still pick up the asset.
     assets_dir = Path(__file__).resolve().parents[3] / "assets"
-    icon_path = assets_dir / "app_icon.ico"
-    return QIcon(str(icon_path))
+    icon_path = assets_dir / "app_icon.png"
+    if icon_path.is_file():
+        return QIcon(str(icon_path))
+    return QIcon()
+
+
+def _load_packaged_app_icon() -> QIcon:
+    try:
+        icon_bytes = files("modlink_studio").joinpath("app_icon.png").read_bytes()
+    except (FileNotFoundError, ModuleNotFoundError, OSError):
+        return QIcon()
+
+    pixmap = QPixmap()
+    if not pixmap.loadFromData(icon_bytes):
+        return QIcon()
+
+    icon = QIcon()
+    icon.addPixmap(pixmap)
+    return icon
 
 
 def _create_application(argv: Sequence[str] | None = None) -> QApplication:

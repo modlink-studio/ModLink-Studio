@@ -12,7 +12,7 @@ from serial.tools import list_ports
 from modlink_sdk import FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
-DEFAULT_GANGLION_DEVICE_ID = "openbciganglion.01"
+DEFAULT_GANGLION_DEVICE_ID = "openbci_ganglion.01"
 DEFAULT_GANGLION_DISPLAY_NAME = "OpenBCI Ganglion"
 DEFAULT_SAMPLE_RATE_HZ = 200.0
 DEFAULT_CHUNK_SIZE = 10

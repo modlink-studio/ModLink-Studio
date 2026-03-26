@@ -15,6 +15,7 @@ export default defineConfig({
         },
         nav: [
             { text: '首页', link: '/' },
+            { text: '安装', link: '/install' },
             { text: 'SDK', link: '/sdk' },
             { text: 'Core', link: '/core' },
             { text: 'UI', link: '/ui' },
@@ -27,6 +28,7 @@ export default defineConfig({
                     text: '快速开始',
                     items: [
                         { text: '首页', link: '/' },
+                        { text: '安装与发布', link: '/install' },
                         { text: 'SDK 开发者指南', link: '/sdk' },
                         { text: 'Core 模块架构', link: '/core' },
                         { text: 'UI 模块架构', link: '/ui' },
@@ -37,7 +39,7 @@ export default defineConfig({
             ],
         },
         footer: {
-            message: 'ModLink Studio 文档',
+            message: 'Packages for ModLink Studio are hosted on Cloudsmith OSS.',
             copyright: 'Copyright © 2026',
         },
         socialLinks: [
