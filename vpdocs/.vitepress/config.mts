@@ -4,6 +4,9 @@ export default defineConfig({
     lang: 'zh-CN',
     title: 'ModLink Studio',
     description: '面向设备接入、多模态采集与展示的平台文档',
+    head: [
+        ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ],
     base: '/',
     cleanUrls: true,
     lastUpdated: true,
