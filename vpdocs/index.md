@@ -28,12 +28,16 @@ features:
     details: SDK 负责接入契约，Core 负责运行时，UI 负责页面，App 负责最终装配和启动。
 ---
 
-[![Packages on Cloudsmith](https://img.shields.io/badge/packages-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/)
-[![OSS hosting by Cloudsmith](https://img.shields.io/badge/OSS%20hosting-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://cloudsmith.com/)
+<div style="height: 1rem;"></div>
 
 # ModLink Studio 文档总览
 
 ModLink Studio 的公开包源位于 Cloudsmith 仓库 `xylt-space/modlink-studio`。文档站说明安装方式、官方插件和 driver 开发模型；源码仓库则负责维护实现本身。
+
+
+[![Packages on Cloudsmith](https://img.shields.io/badge/packages-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/)
+
+[![OSS hosting by Cloudsmith](https://img.shields.io/badge/OSS%20hosting-Cloudsmith-2A6DF4?logo=cloudsmith&logoColor=white)](https://cloudsmith.com/)
 
 ## 从哪里开始
 
