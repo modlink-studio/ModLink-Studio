@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
@@ -351,9 +350,7 @@ class SignalStreamView(BaseStreamView):
 
     def _configure_plot(self) -> None:
         assert self._plot_widget is not None
-        self._plot_widget.setBackground(
-            self.palette().color(QPalette.ColorRole.Window).name()
-        )
+        self._plot_widget.setBackground("#FFFFFF")
         self._plot_widget.showGrid(x=True, y=True, alpha=0.16)
         self._plot_widget.setMenuEnabled(False)
         self._plot_widget.setMouseEnabled(x=False, y=False)
