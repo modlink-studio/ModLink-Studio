@@ -26,7 +26,7 @@ TransformMode: TypeAlias = Literal[
     "rotate_270",
 ]
 VideoColorFormat: TypeAlias = Literal["rgb", "bgr", "gray", "yuv"]
-VideoScaleMode: TypeAlias = Literal["fit", "fill", "original"]
+VideoScaleMode: TypeAlias = Literal["fit", "fill"]
 VideoAspectMode: TypeAlias = Literal["keep", "stretch"]
 
 
@@ -227,7 +227,7 @@ def deserialize_preview_settings(
             ),
             scale_mode=_coerce_literal(
                 payload.get("scale_mode"),
-                ("fit", "fill", "original"),
+                ("fit", "fill"),
                 "fit",
             ),
             aspect_mode=_coerce_literal(
@@ -417,7 +417,7 @@ def _normalize_video_settings(settings: VideoPreviewSettings) -> VideoPreviewSet
         ),
         scale_mode=_coerce_literal(
             settings.scale_mode,
-            ("fit", "fill", "original"),
+            ("fit", "fill"),
             "fit",
         ),
         aspect_mode=_coerce_literal(
