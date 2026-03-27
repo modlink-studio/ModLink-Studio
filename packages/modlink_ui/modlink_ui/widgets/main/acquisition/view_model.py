@@ -9,8 +9,7 @@ from typing import Literal
 from PyQt6.QtCore import QObject, pyqtSignal
 from qfluentwidgets import FluentIcon as FIF
 
-from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 
 ActionKind = Literal["primary", "secondary"]
 LayoutMode = Literal["detailed", "compact"]
@@ -84,7 +83,7 @@ class AcquisitionViewModel(QObject):
 
     def __init__(
         self,
-        engine: ModLinkEngine,
+        engine: QtModLinkBridge,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -97,7 +96,7 @@ class AcquisitionViewModel(QObject):
             segment_label=self._state.fields[3].value,
         )
         self._pending_segment_start_ns: int | None = None
-        self._settings = SettingsService.instance()
+        self._settings = self.engine.settings
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
             self._settings.get(
                 UI_ACQUISITION_LAYOUT_MODE_KEY,

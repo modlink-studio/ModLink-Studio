@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from modlink_sdk import DriverFactory
-from modlink_sdk.signals import Signal
 
+from ..events import (
+    AcquisitionSnapshot,
+    BackendEvent,
+    BackendEventQueue,
+    DriverSnapshot,
+)
 from ..acquisition import AcquisitionBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
+from ..settings import SettingsService
 
 
 class ModLinkEngine:
@@ -18,14 +25,16 @@ class ModLinkEngine:
         driver_factories: Sequence[DriverFactory] = (),
         parent: object | None = None,
     ) -> None:
-        self.sig_error = Signal()
         self._parent = parent
-        self.bus = StreamBus(parent=self)
-        self._acquisition = AcquisitionBackend(self.bus, parent=self)
+        self._events = BackendEventQueue()
+        self.bus = StreamBus(event_queue=self._events, parent=self)
+        SettingsService.instance().attach_event_queue(self._events)
+        self._acquisition = AcquisitionBackend(
+            self.bus,
+            event_queue=self._events,
+            parent=self,
+        )
         self._driver_portals: dict[str, DriverPortal] = {}
-
-        self.bus.sig_error.connect(self.sig_error.emit)
-        self._acquisition.sig_error.connect(self.sig_error.emit)
 
         self._acquisition.start()
 
@@ -36,20 +45,34 @@ class ModLinkEngine:
     def acquisition(self) -> AcquisitionBackend:
         return self._acquisition
 
+    def acquisition_snapshot(self) -> AcquisitionSnapshot:
+        return self._acquisition.snapshot()
+
     def driver_portals(self) -> tuple[DriverPortal, ...]:
         return tuple(self._driver_portals.values())
+
+    def driver_snapshots(self) -> tuple[DriverSnapshot, ...]:
+        return tuple(portal.snapshot() for portal in self._driver_portals.values())
 
     def driver_portal(self, driver_id: str) -> DriverPortal | None:
         return self._driver_portals.get(driver_id)
 
+    def settings_snapshot(self) -> dict[str, Any]:
+        return SettingsService.instance().snapshot()
+
+    def drain_events(self, *, max_items: int | None = None) -> list[BackendEvent]:
+        return self._events.drain(max_items=max_items)
+
     def _attach_driver(self, driver_factory: DriverFactory) -> DriverPortal:
-        portal = DriverPortal(driver_factory, parent=self)
+        portal = DriverPortal(
+            driver_factory,
+            event_queue=self._events,
+            frame_sink=self.bus.ingest_frame,
+            parent=self,
+        )
         driver_id = portal.driver_id.strip()
         if driver_id in self._driver_portals:
             raise ValueError(f"driver_id '{driver_id}' is already installed")
-
-        portal.sig_error.connect(self.sig_error.emit)
-        portal.sig_frame.connect(self.bus.ingest_frame)
 
         self.bus.add_descriptors(portal.descriptors())
 

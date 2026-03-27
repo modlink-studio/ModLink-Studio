@@ -10,6 +10,7 @@ from qfluentwidgets import (
     TransparentToolButton,
 )
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from ..settings import PreviewSettingsRuntime
@@ -20,6 +21,7 @@ class StreamPreviewCard(SimpleCardWidget):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
@@ -30,9 +32,10 @@ class StreamPreviewCard(SimpleCardWidget):
         title = descriptor.display_name or descriptor.stream_id
 
         self.title_label = StrongBodyLabel(title, self)
-        self.stream_view = create_stream_view(descriptor, self)
+        self.stream_view = create_stream_view(descriptor, settings, self)
         self.settings_runtime = PreviewSettingsRuntime(
             descriptor=descriptor,
+            settings=settings,
             stream_view=self.stream_view,
             parent=self,
         )

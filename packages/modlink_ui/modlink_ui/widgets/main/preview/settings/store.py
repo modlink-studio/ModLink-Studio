@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, cast
 
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 
 from .models import (
@@ -19,8 +19,8 @@ UI_PREVIEW_STREAMS_KEY = "ui.preview.streams"
 
 
 class PreviewStreamSettingsStore:
-    def __init__(self, settings: SettingsService | None = None) -> None:
-        self._settings = settings or SettingsService.instance()
+    def __init__(self, settings: QtSettingsBridge) -> None:
+        self._settings = settings
 
     def load(self, descriptor: StreamDescriptor) -> PreviewSettings:
         payload_type = self._payload_type(descriptor)

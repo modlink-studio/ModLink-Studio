@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from PyQt6.QtWidgets import QWidget
 
-from modlink_core.drivers import DriverPortal
+from modlink_qt_bridge import QtDriverPortal
 
 from .panels import BaseDeviceControlPanel
 
@@ -29,7 +29,7 @@ def register_device_control_panel(
 
 
 def create_device_control_panel(
-    portal: DriverPortal,
+    portal: QtDriverPortal,
     parent: QWidget | None = None,
 ) -> BaseDeviceControlPanel:
     panel_cls = _DEVICE_PANEL_REGISTRY.get(portal.driver_id, GenericDeviceControlPanel)

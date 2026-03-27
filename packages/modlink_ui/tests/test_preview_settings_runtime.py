@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
-import tempfile
 import unittest
+from uuid import uuid4
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -14,6 +15,7 @@ for path in (
     PACKAGE_ROOT,
     WORKSPACE_ROOT / "packages" / "modlink_sdk",
     WORKSPACE_ROOT / "packages" / "modlink_core",
+    WORKSPACE_ROOT / "packages" / "modlink_qt_bridge",
 ):
     path_str = str(path)
     if path_str not in sys.path:
@@ -22,6 +24,7 @@ for path in (
 from PyQt6.QtWidgets import QApplication
 
 from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 from modlink_ui.widgets.main.preview.settings import PreviewSettingsRuntime
 from modlink_ui.widgets.main.preview.settings.models import (
@@ -54,15 +57,19 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         cls._app = QApplication.instance() or QApplication([])
 
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()
+        test_tmp_root = WORKSPACE_ROOT / ".tmp-tests"
+        test_tmp_root.mkdir(exist_ok=True)
+        self._temp_dir = test_tmp_root / f"preview-settings-{uuid4().hex}"
+        self._temp_dir.mkdir()
         SettingsService._instance = None
         self._settings = SettingsService(
-            Path(self._temp_dir.name) / "preview-settings.json"
+            self._temp_dir / "preview-settings.json"
         )
+        self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:
         SettingsService._instance = None
-        self._temp_dir.cleanup()
+        shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     @staticmethod
     def _descriptor(modality: str, payload_type: str) -> StreamDescriptor:
@@ -97,7 +104,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         )
 
         view = _DummyPreviewView()
-        runtime = PreviewSettingsRuntime(descriptor, view)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         expected = RasterPreviewSettings(
             window_seconds=12,
@@ -114,7 +121,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
     def test_runtime_persists_changes_and_reapplies_to_view(self) -> None:
         descriptor = self._descriptor("video", "video")
         view = _DummyPreviewView()
-        runtime = PreviewSettingsRuntime(descriptor, view)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         updated = VideoPreviewSettings(
             color_format="bgr",
@@ -125,7 +132,10 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         runtime.payload_section_widget.sig_state_changed.emit(updated)
 
         self.assertEqual(view.applied_settings[-1], updated)
-        self.assertEqual(PreviewStreamSettingsStore().load(descriptor), updated)
+        self.assertEqual(
+            PreviewStreamSettingsStore(self._settings_bridge).load(descriptor),
+            updated,
+        )
 
     def test_runtime_falls_back_to_default_on_payload_type_mismatch(self) -> None:
         descriptor = self._descriptor("video", "video")
@@ -143,7 +153,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         )
 
         view = _DummyPreviewView()
-        runtime = PreviewSettingsRuntime(descriptor, view)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         self.assertEqual(view.applied_settings[-1], VideoPreviewSettings())
         self.assertEqual(runtime.payload_section_widget.state(), VideoPreviewSettings())

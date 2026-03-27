@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import ComboBox, FluentIcon as FIF, SettingCard
 
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 
 UI_PREVIEW_REFRESH_RATE_HZ_KEY = "ui.preview.refresh_rate_hz"
 PREVIEW_REFRESH_RATE_OPTIONS = (15, 24, 30, 60)
@@ -23,8 +23,12 @@ def normalize_preview_refresh_rate_hz(value: object) -> int:
 
 
 class PreviewRefreshRateCard(SettingCard):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        self._settings = SettingsService.instance()
+    def __init__(
+        self,
+        settings: QtSettingsBridge,
+        parent: QWidget | None = None,
+    ) -> None:
+        self._settings = settings
         self._refresh_rate_hz = self._load_refresh_rate_hz()
 
         super().__init__(

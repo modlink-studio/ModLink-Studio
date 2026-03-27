@@ -29,9 +29,9 @@ modlink-studio-qml = { workspace = true }
 modlink-plugin-scaffold = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
+modlink-qt-bridge = { workspace = true }
 modlink-ui = { workspace = true }
 modlink-new-ui = { workspace = true }
-modlink-qt = { workspace = true }
 modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
 modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
 modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
@@ -43,9 +43,9 @@ members = [
     "apps/modlink_plugin_scaffold",
     "packages/modlink_sdk",
     "packages/modlink_core",
+    "packages/modlink_qt_bridge",
     "packages/modlink_ui",
     "packages/modlink_new_ui",
-    "packages/modlink_qt",
 ]
 
 [dependency-groups]

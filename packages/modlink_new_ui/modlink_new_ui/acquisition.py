@@ -5,8 +5,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import DEFAULT_LABELS, UI_LABELS_KEY, normalize_labels
 
@@ -24,10 +23,10 @@ class AcquisitionController(QObject):
     toggleSegmentTextChanged = pyqtSignal()
     messageRaised = pyqtSignal(str)
 
-    def __init__(self, engine: ModLinkEngine, parent: QObject | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._engine = engine
-        self._settings = SettingsService.instance()
+        self._settings = engine.settings
         self._session_name = ""
         self._recording_label = ""
         self._marker_label = ""

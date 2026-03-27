@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import queue
 import threading
 from uuid import uuid4
@@ -13,7 +14,6 @@ from modlink_sdk import (
     SearchResult,
     StreamDescriptor,
 )
-from modlink_sdk.signals import Signal
 
 from .task import DriverTask
 
@@ -25,14 +25,18 @@ class DriverRuntime:
         self,
         driver_factory: DriverFactory,
         *,
+        on_error: Callable[[str], None] | None = None,
+        on_frame: Callable[[FrameEnvelope], None] | None = None,
+        on_connection_lost: Callable[[object], None] | None = None,
+        on_status_changed: Callable[[str, object | None], None] | None = None,
         thread_name: str | None = None,
         parent: object | None = None,
     ) -> None:
-        self.sig_error = Signal()
-        self.sig_frame = Signal()
-        self.sig_connection_lost = Signal()
-        self.sig_status_changed = Signal()
         self._parent = parent
+        self._on_error = on_error
+        self._on_frame = on_frame
+        self._on_connection_lost = on_connection_lost
+        self._on_status_changed = on_status_changed
         self._driver = self._create_driver(driver_factory)
         self._driver.bind(
             DriverContext(
@@ -103,7 +107,7 @@ class DriverRuntime:
         self._command_queue.put((self._STOP, None, None))
         thread.join(max(0, timeout_ms) / 1000)
         if thread.is_alive():
-            self.sig_error.emit(
+            self._emit_error(
                 f"DRIVER_STOP_TIMEOUT: driver_id={self.driver_id}: timeout_ms={timeout_ms}"
             )
 
@@ -123,7 +127,13 @@ class DriverRuntime:
         return self._dispatch_task("stop_streaming")
 
     def _dispatch_task(self, action: str, request: object | None = None) -> DriverTask:
-        task = DriverTask(request=request, parent=self._parent)
+        task_id = uuid4().hex
+        task = DriverTask(
+            task_id=task_id,
+            action=action,
+            request=request,
+            parent=self._parent,
+        )
         if not self.is_running:
             task._fail(
                 RuntimeError(
@@ -132,7 +142,6 @@ class DriverRuntime:
             )
             return task
 
-        task_id = uuid4().hex
         with self._lock:
             self._pending_tasks[task_id] = task
         self._command_queue.put((action, task_id, request))
@@ -156,7 +165,7 @@ class DriverRuntime:
                 self._execute_task(action, task_id, request)
         except Exception as exc:
             stop_reason = exc
-            self.sig_error.emit(
+            self._emit_error(
                 f"DRIVER_THREAD_FAILED: driver_id={self.driver_id}: "
                 f"{type(exc).__name__}: {exc}"
             )
@@ -164,7 +173,7 @@ class DriverRuntime:
             try:
                 self._driver.shutdown()
             except Exception as exc:
-                self.sig_error.emit(
+                self._emit_error(
                     f"DRIVER_SHUTDOWN_FAILED: driver_id={self.driver_id}: "
                     f"{type(exc).__name__}: {exc}"
                 )
@@ -212,7 +221,7 @@ class DriverRuntime:
             self._pending_tasks.pop(task_id, None)
         if error is not None:
             task._fail(error)
-            self.sig_error.emit(
+            self._emit_error(
                 f"DRIVER_CALL_FAILED: driver_id={self.driver_id}: "
                 f"action={action}: {type(error).__name__}: {error}"
             )
@@ -239,7 +248,7 @@ class DriverRuntime:
                 self._driver.stop_streaming()
             except Exception:
                 pass
-            self.sig_error.emit(
+            self._emit_error(
                 f"DRIVER_LOOP_FAILED: driver_id={self.driver_id}: "
                 f"{type(exc).__name__}: {exc}"
             )
@@ -258,21 +267,28 @@ class DriverRuntime:
             task._fail(RuntimeError(str(error)))
 
     def _on_driver_frame(self, frame: FrameEnvelope) -> None:
-        self.sig_frame.emit(frame)
+        if self._on_frame is not None:
+            self._on_frame(frame)
 
     def _on_driver_connection_lost(self, detail: object) -> None:
-        self.sig_connection_lost.emit(detail)
+        if self._on_connection_lost is not None:
+            self._on_connection_lost(detail)
 
     def _on_driver_error(self, message: str) -> None:
         normalized = str(message or "").strip()
         if not normalized:
             normalized = "driver reported an unspecified error"
-        self.sig_error.emit(
+        self._emit_error(
             f"DRIVER_REPORTED_ERROR: driver_id={self.driver_id}: {normalized}"
         )
 
     def _on_driver_status(self, status: str, detail: object | None) -> None:
-        self.sig_status_changed.emit(status, detail)
+        if self._on_status_changed is not None:
+            self._on_status_changed(status, detail)
+
+    def _emit_error(self, message: str) -> None:
+        if self._on_error is not None:
+            self._on_error(message)
 
     @staticmethod
     def _create_driver(driver_factory: DriverFactory) -> Driver:

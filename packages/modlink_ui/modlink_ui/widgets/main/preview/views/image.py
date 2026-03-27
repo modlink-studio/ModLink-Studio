@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .base import BaseStreamView
@@ -14,9 +15,10 @@ class ImageStreamView(BaseStreamView):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         parent=None,
     ) -> None:
-        super().__init__(descriptor, parent=parent)
+        super().__init__(descriptor, settings, parent=parent)
         self._latest_image: np.ndarray | None = None
         self._transform_mode = "none"
         self._colormap = "gray"

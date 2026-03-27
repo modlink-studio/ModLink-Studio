@@ -6,6 +6,7 @@ from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import FluentIcon as FIF, TransparentToolButton
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .stream import StreamPreviewCard
@@ -39,6 +40,7 @@ class DetachableStreamPreviewCard(QWidget):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         parent: QWidget | None = None,
     ) -> None:
         title = descriptor.display_name or descriptor.stream_id
@@ -67,7 +69,7 @@ class DetachableStreamPreviewCard(QWidget):
         layout.addWidget(self._embedded_container)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.card = StreamPreviewCard(descriptor)
+        self.card = StreamPreviewCard(descriptor, settings)
         self.popout_button = TransparentToolButton(FIF.FULL_SCREEN, self.card)
         self.popout_button.clicked.connect(
             lambda: self._set_detached(not self._is_detached)

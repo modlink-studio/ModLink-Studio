@@ -14,6 +14,7 @@ from qfluentwidgets import Theme, setTheme
 from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
 from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui import MainWindow
 
 
@@ -67,9 +68,10 @@ def main() -> None:
     setTheme(Theme.AUTO)
     SettingsService(parent=app)
     driver_factories = discover_driver_factories()
-    engine = ModLinkEngine(driver_factories=driver_factories, parent=app)
-    app.aboutToQuit.connect(engine.shutdown)
-    window = MainWindow(engine=engine)
+    runtime = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    bridge = QtModLinkBridge(runtime, parent=app)
+    app.aboutToQuit.connect(bridge.shutdown)
+    window = MainWindow(engine=bridge)
     window.setWindowIcon(_load_app_icon())
     window.show()
     raise SystemExit(app.exec())

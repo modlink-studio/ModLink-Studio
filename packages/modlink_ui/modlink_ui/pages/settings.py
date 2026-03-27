@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import SettingCardGroup
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui.widgets.settings.cards import (
     LabelManagerCard,
     PreviewRefreshRateCard,
@@ -17,7 +17,7 @@ class SettingsPage(BasePage):
 
     def __init__(
         self,
-        engine: ModLinkEngine,
+        engine: QtModLinkBridge,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(
@@ -30,14 +30,20 @@ class SettingsPage(BasePage):
 
         storage_group = SettingCardGroup("数据保存", self.scroll_widget)
         storage_group.addSettingCard(
-            SaveDirectoryCard(self.engine.acquisition.root_dir, storage_group)
+            SaveDirectoryCard(
+                self.engine.settings,
+                self.engine.acquisition.root_dir,
+                storage_group,
+            )
         )
 
         preview_group = SettingCardGroup("实时展示", self.scroll_widget)
-        preview_group.addSettingCard(PreviewRefreshRateCard(preview_group))
+        preview_group.addSettingCard(
+            PreviewRefreshRateCard(self.engine.settings, preview_group)
+        )
 
         labels_group = SettingCardGroup("标签管理", self.scroll_widget)
-        labels_group.addSettingCard(LabelManagerCard(labels_group))
+        labels_group.addSettingCard(LabelManagerCard(self.engine.settings, labels_group))
 
         self.content_layout.addWidget(storage_group)
         self.content_layout.addWidget(preview_group)

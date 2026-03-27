@@ -4,6 +4,7 @@ from typing import cast
 
 from PyQt6.QtWidgets import QWidget
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 
 from .dialog import StreamPreviewSettingsDialog
@@ -21,13 +22,14 @@ class PreviewSettingsRuntime:
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         stream_view: QWidget,
         parent: QWidget | None = None,
     ) -> None:
         self.descriptor = descriptor
         self.stream_view = stream_view
         self.parent = parent
-        self.store = PreviewStreamSettingsStore()
+        self.store = PreviewStreamSettingsStore(settings)
         self.payload_type = self._payload_type(descriptor)
         self.payload_section_widget = create_payload_settings_section(descriptor, None)
         self.dialog: StreamPreviewSettingsDialog | None = None

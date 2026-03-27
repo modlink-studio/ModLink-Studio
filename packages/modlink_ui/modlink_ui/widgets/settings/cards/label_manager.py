@@ -25,7 +25,7 @@ from qfluentwidgets import (
     isDarkTheme,
 )
 
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 
 UI_LABELS_KEY = "ui.labels.items"
 DEFAULT_LABELS = ("default",)
@@ -122,9 +122,13 @@ class LabelCloud(QWidget):
 
 
 class LabelManagerDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        settings: QtSettingsBridge,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent=parent)
-        self._settings = SettingsService.instance()
+        self._settings = settings
         self._labels = normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
         self.setWindowTitle("标签管理")
@@ -208,8 +212,12 @@ class LabelManagerDialog(QDialog):
 
 
 class LabelManagerCard(PushSettingCard):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        self._settings = SettingsService.instance()
+    def __init__(
+        self,
+        settings: QtSettingsBridge,
+        parent: QWidget | None = None,
+    ) -> None:
+        self._settings = settings
         labels = self._load_labels()
 
         super().__init__(
@@ -228,7 +236,7 @@ class LabelManagerCard(PushSettingCard):
 
     def _open_dialog(self) -> None:
         if self._dialog is None:
-            self._dialog = LabelManagerDialog(self.window())
+            self._dialog = LabelManagerDialog(self._settings, self.window())
             self._dialog.finished.connect(self._on_dialog_finished)
 
         self._dialog.show()

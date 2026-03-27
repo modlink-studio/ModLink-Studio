@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Any
 
 from .models import FrameEnvelope, SearchResult, StreamDescriptor
-from .signals import Signal
 
 
 class DriverContext:
@@ -66,8 +65,6 @@ class Driver:
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
     def __init__(self) -> None:
-        self.sig_frame = Signal()
-        self.sig_connection_lost = Signal()
         self._emissions_enabled = True
         self._context: DriverContext | None = None
 
@@ -101,7 +98,6 @@ class Driver:
             return False
         context = self._require_context()
         context.emit_frame(frame)
-        self.sig_frame.emit(frame)
         return True
 
     def emit_connection_lost(self, payload: object) -> bool:
@@ -109,7 +105,6 @@ class Driver:
             return False
         context = self._require_context()
         context.emit_connection_lost(payload)
-        self.sig_connection_lost.emit(payload)
         return True
 
     def report_error(self, message: str) -> None:

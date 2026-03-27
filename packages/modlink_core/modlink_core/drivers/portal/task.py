@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from threading import Event
-
-from modlink_sdk.signals import Signal
+from threading import RLock
 
 
 class DriverTask:
@@ -12,16 +11,29 @@ class DriverTask:
     def __init__(
         self,
         *,
+        task_id: str,
+        action: str,
         request: object | None = None,
         parent: object | None = None,
     ) -> None:
+        self._task_id = task_id
+        self._action = action
         self._request = request
         self._state = "running"
         self._result: object | None = None
         self._error: Exception | None = None
         self._done_event = Event()
+        self._callbacks: list[Callable[[DriverTask], None]] = []
+        self._lock = RLock()
         self._parent = parent
-        self.sig_done = Signal()
+
+    @property
+    def task_id(self) -> str:
+        return self._task_id
+
+    @property
+    def action(self) -> str:
+        return self._action
 
     @property
     def request(self) -> object | None:
@@ -54,10 +66,11 @@ class DriverTask:
     def add_done_callback(self, callback: Callable[[DriverTask], None]) -> None:
         if not callable(callback):
             raise TypeError("task callback must be callable")
-        if self._done_event.is_set():
-            callback(self)
-            return
-        self.sig_done.connect(lambda: callback(self))
+        with self._lock:
+            if not self._done_event.is_set():
+                self._callbacks.append(callback)
+                return
+        callback(self)
 
     def wait(self, timeout: float | None = None) -> bool:
         return self._done_event.wait(timeout)
@@ -71,7 +84,7 @@ class DriverTask:
         self._result = result
         self._state = "finished"
         self._done_event.set()
-        self.sig_done.emit()
+        self._notify_callbacks()
 
     def _fail(self, error: Exception) -> None:
         if self._state != "running":
@@ -79,4 +92,11 @@ class DriverTask:
         self._error = error
         self._state = "failed"
         self._done_event.set()
-        self.sig_done.emit()
+        self._notify_callbacks()
+
+    def _notify_callbacks(self) -> None:
+        with self._lock:
+            callbacks = tuple(self._callbacks)
+            self._callbacks.clear()
+        for callback in callbacks:
+            callback(self)

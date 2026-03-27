@@ -30,7 +30,7 @@ from qfluentwidgets import (
     isDarkTheme,
 )
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 
 from .view_model import AcquisitionFieldState, AcquisitionViewModel
 
@@ -570,7 +570,7 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
 
 
 class AcquisitionControlPanel(SimpleCardWidget):
-    def __init__(self, engine: ModLinkEngine, parent: QWidget | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self.view_model = AcquisitionViewModel(engine, parent=self)
 

@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QVBoxLayout
 import pyqtgraph as pg
 from scipy import signal as sp_signal
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .base import BaseStreamView
@@ -275,9 +276,10 @@ class SignalStreamView(BaseStreamView):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         parent=None,
     ) -> None:
-        super().__init__(descriptor, parent=parent)
+        super().__init__(descriptor, settings, parent=parent)
 
         self._sample_rate_hz = max(1.0, float(descriptor.nominal_sample_rate_hz or 1.0))
         self._window_seconds = DEFAULT_SIGNAL_WINDOW_SECONDS

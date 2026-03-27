@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import numpy as np
 
+from modlink_qt_bridge import QtSettingsBridge
+
 from .image import ImageStreamView
 
 
 class VideoStreamView(ImageStreamView):
-    def __init__(self, descriptor, parent=None) -> None:
-        super().__init__(descriptor, parent=parent)
+    def __init__(
+        self,
+        descriptor,
+        settings: QtSettingsBridge,
+        parent=None,
+    ) -> None:
+        super().__init__(descriptor, settings, parent=parent)
         self._color_format = "rgb"
         self._scale_mode = "fit"
         self._aspect_mode = "keep"
