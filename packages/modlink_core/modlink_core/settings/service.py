@@ -2,39 +2,35 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from platformdirs import user_data_path
 
-from ..events import BackendEventQueue, SettingChangedEvent
+from ..events import BackendEvent, SettingChangedEvent
 
 
 class SettingsService:
-    """Global settings service shared across runtime modules."""
+    """Settings service shared by one engine or host instance."""
 
-    _instance: SettingsService | None = None
-
-    @classmethod
-    def instance(cls) -> SettingsService:
-        if cls._instance is None:
-            return cls()
-        return cls._instance
-
-    def __init__(self, path: Path | None = None, parent: object | None = None) -> None:
-        existing = type(self)._instance
-        if existing is not None and existing is not self:
-            raise RuntimeError(
-                "SettingsService already exists; use SettingsService.instance()"
-            )
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        publish_event: Callable[[BackendEvent], None] | None = None,
+        parent: object | None = None,
+    ) -> None:
         self._parent = parent
         self._path = path or self._resolve_path()
         self._settings = self._read_payload()
-        self._event_queue: BackendEventQueue | None = None
-        type(self)._instance = self
+        self._publish_event = publish_event
 
-    def attach_event_queue(self, event_queue: BackendEventQueue) -> None:
-        self._event_queue = event_queue
+    def bind_event_publisher(
+        self,
+        publish_event: Callable[[BackendEvent], None] | None,
+    ) -> None:
+        self._publish_event = publish_event
 
     def get(self, key: str, default: Any = None) -> Any:
         current = self._settings
@@ -84,11 +80,9 @@ class SettingsService:
         )
 
     def _publish_setting_changed(self, *, key: str, value: Any) -> None:
-        if self._event_queue is None:
+        if self._publish_event is None:
             return
-        self._event_queue.publish(
-            SettingChangedEvent(key=key, value=value, ts=time.time())
-        )
+        self._publish_event(SettingChangedEvent(key=key, value=value, ts=time.time()))
 
     def _read_payload(self) -> dict[str, Any]:
         try:

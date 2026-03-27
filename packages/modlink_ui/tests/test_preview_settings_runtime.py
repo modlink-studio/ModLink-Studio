@@ -61,14 +61,12 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"preview-settings-{uuid4().hex}"
         self._temp_dir.mkdir()
-        SettingsService._instance = None
         self._settings = SettingsService(
             self._temp_dir / "preview-settings.json"
         )
         self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:
-        SettingsService._instance = None
         shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     @staticmethod

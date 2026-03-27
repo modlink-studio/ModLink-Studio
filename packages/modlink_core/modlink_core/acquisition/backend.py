@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import queue
 import threading
 import time
@@ -9,18 +10,20 @@ from platformdirs import user_documents_path
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ..bus import FrameSubscription, StreamBus
+from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
 from ..events import (
     AcquisitionErrorEvent,
     AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
-    BackendEventQueue,
+    BackendEvent,
+    StreamClosedError,
 )
 from ..settings.service import SettingsService
 from .storage import RecordingStorage
 
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
+ACQUISITION_CONSUMER_NAME = "acquisition"
 
 
 class AcquisitionBackend:
@@ -30,16 +33,17 @@ class AcquisitionBackend:
         self,
         bus: StreamBus,
         *,
-        event_queue: BackendEventQueue,
+        settings: SettingsService,
+        publish_event: Callable[[BackendEvent], None],
         parent: object | None = None,
     ) -> None:
         self._bus = bus
-        self._event_queue = event_queue
+        self._settings = settings
+        self._publish_event = publish_event
         self._parent = parent
-        self._settings = SettingsService.instance()
         self._command_queue: queue.Queue[tuple[str, object | None]] = queue.Queue()
         self._thread: threading.Thread | None = None
-        self._frame_subscription: FrameSubscription | None = None
+        self._frame_stream: FrameStream | None = None
         self._state = "idle"
         self._started = False
         self._storage: RecordingStorage | None = None
@@ -74,7 +78,8 @@ class AcquisitionBackend:
         if self.is_started:
             self._started = True
             return
-        self._frame_subscription = self._bus.subscribe_frames(self._on_frame)
+        if self._frame_stream is None or self._frame_stream.closed:
+            self._frame_stream = self._open_frame_stream()
         thread = threading.Thread(
             target=self._run,
             name="modlink.acquisition",
@@ -96,7 +101,7 @@ class AcquisitionBackend:
             (
                 "start_recording",
                 (
-                    str(_resolve_root_dir(self._settings)),
+                    str(self.root_dir),
                     session_name,
                     recording_label,
                     self._bus.descriptors(),
@@ -128,14 +133,13 @@ class AcquisitionBackend:
         self._command_queue.put(("add_segment", (start_ns, end_ns, label)))
 
     def shutdown(self, *, timeout_ms: int = 3000) -> None:
-        if self._frame_subscription is not None:
-            self._frame_subscription.close()
-            self._frame_subscription = None
-
         thread = self._thread
         if thread is None or not thread.is_alive():
             self._set_state("idle")
             self._started = False
+            if self._frame_stream is not None:
+                self._frame_stream.close()
+                self._frame_stream = None
             return
 
         self._command_queue.put(("shutdown", None))
@@ -146,16 +150,47 @@ class AcquisitionBackend:
         self._set_state("idle")
         self._started = False
         self._thread = None
+        if self._frame_stream is not None:
+            self._frame_stream.close()
+            self._frame_stream = None
 
     def _run(self) -> None:
         while True:
-            action, payload = self._command_queue.get()
+            if self._drain_commands():
+                return
+
+            frame_stream = self._frame_stream
+            if frame_stream is None:
+                time.sleep(0.01)
+                continue
+
+            try:
+                frame = frame_stream.read(timeout=0.05)
+            except queue.Empty:
+                continue
+            except StreamClosedError:
+                if not self._started:
+                    return
+                self._frame_stream = self._open_frame_stream()
+                continue
+            except FrameStreamOverflowError as exc:
+                self._handle_frame_stream_overflow(exc.consumer_name)
+                continue
+
+            if not self.is_recording:
+                continue
+            self._on_frame_worker(frame)
+
+    def _drain_commands(self) -> bool:
+        while True:
+            try:
+                action, payload = self._command_queue.get_nowait()
+            except queue.Empty:
+                return False
+
             if action == "shutdown":
                 self._shutdown_worker()
-                return
-            if action == "frame":
-                self._on_frame_worker(payload)
-                continue
+                return True
             if action == "start_recording":
                 root_dir, session_name, recording_label, recording_descriptors = payload
                 self._start_recording_worker(
@@ -174,11 +209,6 @@ class AcquisitionBackend:
             if action == "add_segment":
                 start_ns, end_ns, label = payload
                 self._add_segment_worker(start_ns, end_ns, label)
-
-    def _on_frame(self, frame: FrameEnvelope) -> None:
-        if not self.is_started:
-            return
-        self._command_queue.put(("frame", frame))
 
     def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
@@ -233,7 +263,7 @@ class AcquisitionBackend:
             return
 
         self._set_state("recording")
-        self._event_queue.publish(
+        self._publish_event(
             AcquisitionLifecycleEvent(
                 name="recording_started",
                 payload={
@@ -262,7 +292,7 @@ class AcquisitionBackend:
         finally:
             self._set_state("idle")
 
-        self._event_queue.publish(
+        self._publish_event(
             AcquisitionLifecycleEvent(
                 name="recording_stopped",
                 payload={
@@ -288,7 +318,7 @@ class AcquisitionBackend:
             self._publish_error(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}")
             return
 
-        self._event_queue.publish(
+        self._publish_event(
             AcquisitionLifecycleEvent(
                 name="marker_added",
                 payload={
@@ -332,7 +362,7 @@ class AcquisitionBackend:
             self._publish_error(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}")
             return
 
-        self._event_queue.publish(
+        self._publish_event(
             AcquisitionLifecycleEvent(
                 name="segment_added",
                 payload={
@@ -345,6 +375,25 @@ class AcquisitionBackend:
             )
         )
 
+    def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
+        self._publish_error(f"ACQ_FRAME_STREAM_OVERFLOW: {consumer_name}")
+        if self._storage is not None:
+            self._stop_recording_worker()
+        self._replace_frame_stream()
+
+    def _replace_frame_stream(self) -> None:
+        previous_stream = self._frame_stream
+        self._frame_stream = self._open_frame_stream()
+        if previous_stream is not None:
+            previous_stream.close()
+
+    def _open_frame_stream(self) -> FrameStream:
+        return self._bus.open_frame_stream(
+            maxsize=256,
+            drop_policy="error",
+            consumer_name=ACQUISITION_CONSUMER_NAME,
+        )
+
     def _shutdown_worker(self) -> None:
         if self._storage is not None:
             self._stop_recording_worker()
@@ -354,12 +403,10 @@ class AcquisitionBackend:
             if state == self._state:
                 return
             self._state = state
-        self._event_queue.publish(
-            AcquisitionStateChangedEvent(snapshot=self.snapshot())
-        )
+        self._publish_event(AcquisitionStateChangedEvent(snapshot=self.snapshot()))
 
     def _publish_error(self, message: str) -> None:
-        self._event_queue.publish(AcquisitionErrorEvent(message=message))
+        self._publish_event(AcquisitionErrorEvent(message=message))
 
 
 def _default_root_dir() -> Path:

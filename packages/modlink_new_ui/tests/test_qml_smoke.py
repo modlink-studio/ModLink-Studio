@@ -13,9 +13,8 @@ from modlink_new_ui import create_application, load_window
 class QmlSmokeTest(unittest.TestCase):
     def test_qml_window_loads(self) -> None:
         app = create_application([])
-        if SettingsService._instance is None:
-            SettingsService(parent=app)
-        runtime = ModLinkEngine(parent=app)
+        settings = SettingsService(parent=app)
+        runtime = ModLinkEngine(settings=settings, parent=app)
         bridge = QtModLinkBridge(runtime, parent=app)
         qml_engine, controller = load_window(bridge, parent=app)
         app.processEvents()

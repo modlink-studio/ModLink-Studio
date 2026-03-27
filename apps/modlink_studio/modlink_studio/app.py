@@ -66,9 +66,13 @@ def main() -> None:
     app = _create_application()
     pg.setConfigOptions(useOpenGL=True)
     setTheme(Theme.AUTO)
-    SettingsService(parent=app)
+    settings = SettingsService(parent=app)
     driver_factories = discover_driver_factories()
-    runtime = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    runtime = ModLinkEngine(
+        driver_factories=driver_factories,
+        settings=settings,
+        parent=app,
+    )
     bridge = QtModLinkBridge(runtime, parent=app)
     app.aboutToQuit.connect(bridge.shutdown)
     window = MainWindow(engine=bridge)

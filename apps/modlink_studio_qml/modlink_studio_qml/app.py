@@ -9,9 +9,13 @@ from modlink_new_ui import create_application, load_window
 
 def main() -> None:
     app = create_application()
-    SettingsService(parent=app)
+    settings = SettingsService(parent=app)
     driver_factories = discover_driver_factories()
-    runtime = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    runtime = ModLinkEngine(
+        driver_factories=driver_factories,
+        settings=settings,
+        parent=app,
+    )
     bridge = QtModLinkBridge(runtime, parent=app)
     app.aboutToQuit.connect(bridge.shutdown)
     qml_engine, controller = load_window(bridge, parent=app)
