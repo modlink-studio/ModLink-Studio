@@ -7,6 +7,12 @@
 
 ModLink Studio 把设备搜索、连接、实时流消费、预览和采集流程统一到同一套运行时里。设备接入者只需要实现 driver 和流描述；宿主应用、录制链路和大部分展示逻辑可以复用同一套平台能力。
 
+当前仓库主线版本是 `0.2.0`。这是一次明确的 breaking change：
+
+- `modlink_sdk` / `modlink_core` 已经切成纯 Python runtime
+- `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
+- UI 仍在适配期；backend 已脱 Qt，但 UI 主线程 bridge 仍是后续工作项
+
 ![ModLink Studio screenshot](assets/ui-demo.png)
 
 <details>
@@ -123,7 +129,7 @@ modlink-plugin-scaffold --zh
 ```toml
 [project]
 name = "my-driver"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
   "modlink-sdk",
   "numpy>=2.3.3",
@@ -141,21 +147,27 @@ my-driver = "my_driver.factory:create_driver"
 modlink-studio/
 ├─ apps/
 │  ├─ modlink_studio/
+│  ├─ modlink_studio_qml/
 │  └─ modlink_plugin_scaffold/
 ├─ packages/
 │  ├─ modlink_sdk/
 │  ├─ modlink_core/
-│  └─ modlink_ui/
+│  ├─ modlink_ui/
+│  ├─ modlink_new_ui/
+│  └─ modlink_qt/
 ├─ plugins/
 ├─ vpdocs/
 └─ deprecated/
 ```
 
 - `apps/modlink_studio/`: 主应用入口
+- `apps/modlink_studio_qml/`: QML 应用入口
 - `apps/modlink_plugin_scaffold/`: driver 脚手架工具
 - `packages/modlink_sdk/`: 对外稳定的最小 SDK 契约
-- `packages/modlink_core/`: 运行时、流总线和采集基础设施
+- `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: Qt UI 组件和页面
+- `packages/modlink_new_ui/`: QML UI
+- `packages/modlink_qt/`: 仅供 UI/适配层使用的 Qt 兼容包
 - `plugins/`: 官方插件源目录
 - `vpdocs/`: VitePress 文档站源码
 
@@ -178,7 +190,7 @@ uv run --extra official-host-camera modlink-studio
 uv run --extra official-host-camera --extra official-host-microphone modlink-studio
 ```
 
-## 文档
+## 文档与版本
 
 项目文档使用 VitePress，源码位于 `vpdocs/`，站点发布到 `https://modlink-studio.github.io`。
 

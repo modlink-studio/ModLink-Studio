@@ -6,6 +6,8 @@
 
 如果目标已经比较明确，可以直接从这里跳到对应类型或对应包的 API 页面；如果只是想先看“接一个 driver 到底要碰哪些对象”，建议先读下面这部分。
 
+当前 API 说明以 `0.2.0` 为准：`modlink_sdk` / `modlink_core` 已是纯 Python runtime，`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API。
+
 ## 完整 API 参考
 
 从源码 docstring 自动生成的 API 文档入口如下：
@@ -24,11 +26,12 @@
 从 SDK 视角看，一个 driver 的最小工作链路通常是：
 
 1. 宿主创建一个 `Driver` 或 `LoopDriver` 实例
-2. 宿主调用 `descriptors()`，读取这个 driver 会暴露哪些 `StreamDescriptor`
-3. 宿主调用 `search()`，拿到一组 `SearchResult`
-4. 宿主把选中的 `SearchResult` 传回 `connect_device()`
-5. driver 开始流并提供实时数据后，通过 `sig_frame` 发出 `FrameEnvelope`
-6. 每个 `FrameEnvelope` 都必须能够对应到前面声明过的某个 `StreamDescriptor`
+2. 宿主调用 `bind(context)`，注入 `DriverContext`
+3. 宿主调用 `descriptors()`，读取这个 driver 会暴露哪些 `StreamDescriptor`
+4. 宿主调用 `search()`，拿到一组 `SearchResult`
+5. 宿主把选中的 `SearchResult` 传回 `connect_device()`
+6. driver 开始流并提供实时数据后，通过 `emit_frame()` 发出 `FrameEnvelope`
+7. 每个 `FrameEnvelope` 都必须能够对应到前面声明过的某个 `StreamDescriptor`
 
 如果这条链路里有一环没有定义清楚，宿主、录制和 UI 就很难稳定工作。因此更需要优先明确的不是“页面长什么样”，而是：
 
@@ -48,7 +51,8 @@
 - `search()`：发现可连接的候选设备
 - `connect_device()` / `disconnect_device()`：建立和释放连接
 - `start_streaming()` / `stop_streaming()`：开始和停止实时数据流
-- `sig_frame`：把 `FrameEnvelope` 发给宿主
+- `bind(context)`：接入宿主提供的 `DriverContext`
+- `emit_frame()`：把 `FrameEnvelope` 发给宿主
 
 适合直接继承 `Driver` 的情况：
 
@@ -65,7 +69,7 @@
 
 它主要帮你做了两件事：
 
-- 把 `start_streaming()` / `stop_streaming()` 包装成基于 `QTimer` 的循环
+- 把 `start_streaming()` / `stop_streaming()` 包装成由 runtime 周期调度的循环
 - 给你一个 `loop()` 钩子，让你只需要写“一次短轮询里做什么”
 
 通常子类只需要：
