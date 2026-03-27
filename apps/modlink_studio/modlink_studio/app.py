@@ -68,6 +68,7 @@ def main() -> None:
     SettingsService(parent=app)
     driver_factories = discover_driver_factories()
     engine = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    app.aboutToQuit.connect(engine.shutdown)
     window = MainWindow(engine=engine)
     window.setWindowIcon(_load_app_icon())
     window.show()

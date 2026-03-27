@@ -1,14 +1,14 @@
 [project]
 name = "modlink-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Runtime services and engine for ModLink"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-sdk",
-    "modlink-qt",
     "numpy>=2.3.3",
+    "platformdirs>=4.9.4",
 ]
 
 [project.urls]
@@ -20,7 +20,6 @@ Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/sim
 
 [tool.uv.sources]
 modlink-sdk = { workspace = true }
-modlink-qt = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

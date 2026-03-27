@@ -1,18 +1,14 @@
 from __future__ import annotations
 
+import queue
+import threading
 import time
 from pathlib import Path
 
-from modlink_qt import (
-    QObject,
-    QStandardPaths,
-    QThread,
-    Qt,
-    pyqtSignal,
-    pyqtSlot,
-)
+from platformdirs import user_documents_path
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
+from modlink_sdk.signals import Signal
 
 from ..bus import FrameSubscription, StreamBus
 from ..settings.service import SettingsService
@@ -21,18 +17,157 @@ from .storage import RecordingStorage
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
 
 
-class AcquisitionWorker(QObject):
-    sig_error = pyqtSignal(str)
-    sig_event = pyqtSignal(object)
-    sig_state_changed = pyqtSignal(str)
+class AcquisitionBackend:
+    """Threaded acquisition backend that records bus frames to disk."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        bus: StreamBus,
+        *,
+        parent: object | None = None,
+    ) -> None:
+        self.sig_error = Signal()
+        self.sig_event = Signal()
+        self.sig_state_changed = Signal()
+        self._bus = bus
+        self._parent = parent
+        self._settings = SettingsService.instance()
+        self._command_queue: queue.Queue[tuple[str, object | None]] = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._frame_subscription: FrameSubscription | None = None
         self._state = "idle"
+        self._started = False
         self._storage: RecordingStorage | None = None
+        self._lock = threading.RLock()
 
-    @pyqtSlot(object)
-    def on_frame(self, frame: object) -> None:
+    @property
+    def root_dir(self) -> Path:
+        return _resolve_root_dir(self._settings)
+
+    @property
+    def is_started(self) -> bool:
+        thread = self._thread
+        return self._started and thread is not None and thread.is_alive()
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @property
+    def is_recording(self) -> bool:
+        return self._state == "recording"
+
+    def start(self) -> None:
+        if self.is_started:
+            self._started = True
+            return
+        self._frame_subscription = self._bus.subscribe(self._on_frame)
+        thread = threading.Thread(
+            target=self._run,
+            name="modlink.acquisition",
+            daemon=True,
+        )
+        self._thread = thread
+        self._started = True
+        thread.start()
+
+    def start_recording(
+        self,
+        session_name: str,
+        recording_label: str | None = None,
+    ) -> None:
+        if not self.is_started:
+            self.sig_error.emit("ACQ_NOT_STARTED")
+            return
+        self._command_queue.put(
+            (
+                "start_recording",
+                (
+                    str(_resolve_root_dir(self._settings)),
+                    session_name,
+                    recording_label,
+                    self._bus.descriptors(),
+                ),
+            )
+        )
+
+    def stop_recording(self) -> None:
+        if not self.is_started:
+            self.sig_error.emit("ACQ_NOT_STARTED")
+            return
+        self._command_queue.put(("stop_recording", None))
+
+    def add_marker(self, label: str | None = None) -> None:
+        if not self.is_started:
+            self.sig_error.emit("ACQ_NOT_STARTED")
+            return
+        self._command_queue.put(("add_marker", label))
+
+    def add_segment(
+        self,
+        start_ns: int,
+        end_ns: int,
+        label: str | None = None,
+    ) -> None:
+        if not self.is_started:
+            self.sig_error.emit("ACQ_NOT_STARTED")
+            return
+        self._command_queue.put(("add_segment", (start_ns, end_ns, label)))
+
+    def shutdown(self, *, timeout_ms: int = 3000) -> None:
+        if self._frame_subscription is not None:
+            self._frame_subscription.close()
+            self._frame_subscription = None
+
+        thread = self._thread
+        if thread is None or not thread.is_alive():
+            self._state = "idle"
+            self._started = False
+            return
+
+        self._command_queue.put(("shutdown", None))
+        thread.join(max(0, timeout_ms) / 1000)
+        if thread.is_alive():
+            self.sig_error.emit(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
+
+        self._state = "idle"
+        self._started = False
+        self._thread = None
+
+    def _run(self) -> None:
+        while True:
+            action, payload = self._command_queue.get()
+            if action == "shutdown":
+                self._shutdown_worker()
+                return
+            if action == "frame":
+                self._on_frame_worker(payload)
+                continue
+            if action == "start_recording":
+                root_dir, session_name, recording_label, recording_descriptors = payload
+                self._start_recording_worker(
+                    str(root_dir),
+                    str(session_name),
+                    recording_label,
+                    recording_descriptors,
+                )
+                continue
+            if action == "stop_recording":
+                self._stop_recording_worker()
+                continue
+            if action == "add_marker":
+                self._add_marker_worker(payload)
+                continue
+            if action == "add_segment":
+                start_ns, end_ns, label = payload
+                self._add_segment_worker(start_ns, end_ns, label)
+
+    def _on_frame(self, frame: FrameEnvelope) -> None:
+        if not self.is_started:
+            return
+        self._command_queue.put(("frame", frame))
+
+    def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
             self.sig_error.emit(
                 f"ACQ_INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
@@ -47,10 +182,8 @@ class AcquisitionWorker(QObject):
             self.sig_error.emit(
                 f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
             )
-            return
 
-    @pyqtSlot(str, str, object, object)
-    def start_recording(
+    def _start_recording_worker(
         self,
         root_dir: str,
         session_name: str,
@@ -98,8 +231,7 @@ class AcquisitionWorker(QObject):
             }
         )
 
-    @pyqtSlot()
-    def stop_recording(self) -> None:
+    def _stop_recording_worker(self) -> None:
         if self._storage is None:
             self.sig_error.emit("ACQ_STOP_IGNORED: not recording")
             return
@@ -126,8 +258,7 @@ class AcquisitionWorker(QObject):
             }
         )
 
-    @pyqtSlot(object)
-    def add_marker(self, label: object) -> None:
+    def _add_marker_worker(self, label: object) -> None:
         if self._storage is None:
             self.sig_error.emit("ACQ_MARKER_REJECTED: not recording")
             return
@@ -150,8 +281,12 @@ class AcquisitionWorker(QObject):
             }
         )
 
-    @pyqtSlot(object, object, object)
-    def add_segment(self, start_ns: object, end_ns: object, label: object) -> None:
+    def _add_segment_worker(
+        self,
+        start_ns: object,
+        end_ns: object,
+        label: object,
+    ) -> None:
         if self._storage is None:
             self.sig_error.emit("ACQ_SEGMENT_REJECTED: not recording")
             return
@@ -189,170 +324,20 @@ class AcquisitionWorker(QObject):
             }
         )
 
-    @pyqtSlot()
-    def shutdown(self) -> None:
+    def _shutdown_worker(self) -> None:
         if self._storage is not None:
-            self.stop_recording()
+            self._stop_recording_worker()
 
     def _set_state(self, state: str) -> None:
-        if state == self._state:
-            return
-        self._state = state
-        self.sig_state_changed.emit(state)
-
-
-class AcquisitionBackend(QObject):
-    """Threaded acquisition backend that records bus frames to disk."""
-
-    sig_error = pyqtSignal(str)
-    sig_event = pyqtSignal(object)
-    sig_state_changed = pyqtSignal(str)
-
-    _request_start_recording = pyqtSignal(str, str, object, object)
-    _request_stop_recording = pyqtSignal()
-    _request_add_marker = pyqtSignal(object)
-    _request_add_segment = pyqtSignal(object, object, object)
-    _request_shutdown = pyqtSignal()
-
-    def __init__(
-        self,
-        bus: StreamBus,
-        *,
-        parent: QObject | None = None,
-    ) -> None:
-        super().__init__(parent=parent)
-        self._bus = bus
-        self._settings = SettingsService.instance()
-        self._thread = QThread(self)
-        self._thread.setObjectName("modlink.acquisition")
-        self._worker = AcquisitionWorker()
-        self._frame_subscription: FrameSubscription | None = None
-        self._state = "idle"
-        self._started = False
-
-        self._worker.moveToThread(self._thread)
-
-        self._request_start_recording.connect(
-            self._worker.start_recording,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_stop_recording.connect(
-            self._worker.stop_recording,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_add_marker.connect(
-            self._worker.add_marker,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_add_segment.connect(
-            self._worker.add_segment,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_shutdown.connect(
-            self._worker.shutdown,
-            Qt.ConnectionType.QueuedConnection,
-        )
-
-        self._worker.sig_error.connect(self.sig_error.emit)
-        self._worker.sig_event.connect(self.sig_event.emit)
-        self._worker.sig_state_changed.connect(self._on_state_changed)
-        self._thread.finished.connect(self._worker.deleteLater)
-
-    @property
-    def root_dir(self) -> Path:
-        return _resolve_root_dir(self._settings)
-
-    @property
-    def is_started(self) -> bool:
-        return self._started and self._thread.isRunning()
-
-    def start(self) -> None:
-        if self._thread.isRunning():
-            self._started = True
-            return
-        self._frame_subscription = self._bus.subscribe(
-            self._worker.on_frame,
-            connection_type=Qt.ConnectionType.QueuedConnection,
-        )
-        self._thread.start()
-        self._started = True
-
-    @property
-    def state(self) -> str:
-        return self._state
-
-    @property
-    def is_recording(self) -> bool:
-        return self._state == "recording"
-
-    def start_recording(
-        self,
-        session_name: str,
-        recording_label: str | None = None,
-    ) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        recording_descriptors = self._bus.descriptors()
-        root_dir = _resolve_root_dir(self._settings)
-        self._request_start_recording.emit(
-            str(root_dir),
-            session_name,
-            recording_label,
-            recording_descriptors,
-        )
-
-    def stop_recording(self) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_stop_recording.emit()
-
-    def add_marker(self, label: str | None = None) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_add_marker.emit(label)
-
-    def add_segment(
-        self,
-        start_ns: int,
-        end_ns: int,
-        label: str | None = None,
-    ) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_add_segment.emit(start_ns, end_ns, label)
-
-    def shutdown(self, *, timeout_ms: int = 3000) -> None:
-        if self._frame_subscription is not None:
-            self._frame_subscription.close()
-            self._frame_subscription = None
-
-        if not self._thread.isRunning():
-            self._state = "idle"
-            self._started = False
-            return
-
-        self._request_shutdown.emit()
-        self._thread.quit()
-        if not self._thread.wait(timeout_ms):
-            self.sig_error.emit(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
-
-        self._state = "idle"
-        self._started = False
-
-    @pyqtSlot(str)
-    def _on_state_changed(self, state: str) -> None:
-        self._state = state
+        with self._lock:
+            if state == self._state:
+                return
+            self._state = state
         self.sig_state_changed.emit(state)
 
 
 def _default_root_dir() -> Path:
-    documents_dir = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.DocumentsLocation
-    )
+    documents_dir = user_documents_path()
     if documents_dir:
         return Path(documents_dir) / "ModLink Studio" / "data"
     return Path.home() / "ModLink Studio" / "data"

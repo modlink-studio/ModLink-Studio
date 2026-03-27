@@ -11,6 +11,7 @@ def main() -> None:
     SettingsService(parent=app)
     driver_factories = discover_driver_factories()
     runtime = ModLinkEngine(driver_factories=driver_factories, parent=app)
+    app.aboutToQuit.connect(runtime.shutdown)
     qml_engine, controller = load_window(runtime, parent=app)
     qml_engine.setObjectName("modlink-qml-engine")
     controller.setObjectName("modlink-qml-controller")

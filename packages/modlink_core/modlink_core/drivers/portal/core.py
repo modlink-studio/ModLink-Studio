@@ -1,46 +1,43 @@
 from __future__ import annotations
 
-from modlink_qt import QObject, pyqtSignal
-
-from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
+from modlink_sdk import DriverFactory, SearchResult, StreamDescriptor
+from modlink_sdk.signals import Signal
 
 from .runtime import DriverRuntime
 from .state import DeviceState
 from .task import DriverTask
 
 
-class DriverPortal(QObject):
+class DriverPortal:
     """Public driver-facing gateway used by the rest of the system."""
-
-    sig_error = pyqtSignal(str)
-    sig_frame = pyqtSignal(FrameEnvelope)
-    sig_state_changed = pyqtSignal(object)
-    sig_connection_lost = pyqtSignal(object)
 
     def __init__(
         self,
         driver_factory: DriverFactory,
         *,
         thread_name: str | None = None,
-        parent: QObject | None = None,
+        parent: object | None = None,
     ) -> None:
-        super().__init__(parent=parent)
+        self.sig_error = Signal()
+        self.sig_frame = Signal()
+        self.sig_state_changed = Signal()
+        self.sig_connection_lost = Signal()
+        self._parent = parent
         self._runtime = DriverRuntime(
             driver_factory,
             thread_name=thread_name,
-            parent=self,
+            parent=parent,
         )
         self._state = DeviceState(
             device_id=self._runtime.driver_id,
             display_name=self._runtime.display_name,
-            parent=self,
+            parent=parent,
         )
 
         self._runtime.sig_error.connect(self.sig_error.emit)
         self._runtime.sig_frame.connect(self.sig_frame.emit)
-        self._runtime.sig_connection_lost.connect(
-            self._state._mark_connection_lost
-        )
+        self._runtime.sig_connection_lost.connect(self._state._mark_connection_lost)
+        self._runtime.sig_status_changed.connect(self._state._mark_status)
 
         self._state.sig_state_changed.connect(self.sig_state_changed.emit)
         self._state.sig_connection_lost.connect(self.sig_connection_lost.emit)

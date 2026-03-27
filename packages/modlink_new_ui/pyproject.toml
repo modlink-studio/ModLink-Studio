@@ -1,6 +1,6 @@
 [project]
 name = "modlink-new-ui"
-version = "0.1.0"
+version = "0.2.0"
 description = "QML-based next-generation UI for ModLink Studio"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
