@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from modlink_qt import QObject, pyqtSignal, pyqtSlot
 
 from modlink_sdk import Driver
 

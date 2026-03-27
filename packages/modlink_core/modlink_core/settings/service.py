@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QObject, QStandardPaths, pyqtSignal
+from modlink_qt import QObject, QStandardPaths, pyqtSignal
 
 
 @dataclass(slots=True)

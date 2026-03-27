@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeAlias
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+from modlink_qt import QObject, Qt, pyqtSignal, pyqtSlot
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
