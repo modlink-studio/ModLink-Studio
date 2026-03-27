@@ -68,10 +68,6 @@ class DetachableStreamPreviewCard(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.card = StreamPreviewCard(descriptor)
-        self.settings_button = TransparentToolButton(FIF.SETTING, self.card)
-        self.settings_button.setToolTip("预览设置")
-        self.settings_button.clicked.connect(self.card.open_settings_dialog)
-        self.card.add_header_action(self.settings_button)
         self.popout_button = TransparentToolButton(FIF.FULL_SCREEN, self.card)
         self.popout_button.clicked.connect(
             lambda: self._set_detached(not self._is_detached)

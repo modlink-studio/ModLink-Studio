@@ -17,6 +17,7 @@ class StreamPreviewPanel(QWidget):
         super().__init__(parent=parent)
         self.engine = engine
         self._cards: dict[str, DetachableStreamPreviewCard] = {}
+        self._descriptor_snapshot = self.engine.bus.descriptors()
 
         self.cards_container = QWidget(self)
         self.cards_layout = QVBoxLayout(self.cards_container)
@@ -28,11 +29,8 @@ class StreamPreviewPanel(QWidget):
         layout.setSpacing(0)
         layout.addWidget(self.cards_container)
 
-        for descriptor in self.engine.bus.descriptors().values():
-            card = DetachableStreamPreviewCard(descriptor, self.cards_container)
-            card.sig_detached_changed.connect(self._on_card_detached_changed)
-            self._cards[descriptor.stream_id] = card
-            self.cards_layout.addWidget(card)
+        for descriptor in self._descriptor_snapshot.values():
+            self._add_card(descriptor)
 
         self.engine.bus.sig_frame.connect(self._on_frame)
         self._sync_container_visibility()
@@ -43,16 +41,33 @@ class StreamPreviewPanel(QWidget):
 
     def _on_frame(self, frame: FrameEnvelope) -> None:
         card = self._cards.get(frame.stream_id)
-        if card is None:
+        if card is not None:
+            card.push_frame(frame)
+            return
+
+        descriptor = self.engine.bus.descriptor(frame.stream_id)
+        if descriptor is not None:
             raise RuntimeError(
-                "PREVIEW_DESCRIPTOR_MISMATCH: "
+                "PREVIEW_STREAM_SNAPSHOT_VIOLATION: "
                 f"received frame for stream_id={frame.stream_id}, "
-                "but StreamPreviewPanel did not initialize a matching preview card"
+                "but StreamPreviewPanel only supports descriptors present when the page "
+                "was initialized. Rebuild the preview panel to include runtime-added streams."
             )
-        card.push_frame(frame)
+
+        raise RuntimeError(
+            "PREVIEW_UNKNOWN_STREAM: "
+            f"received frame for stream_id={frame.stream_id}, "
+            "but the stream bus does not have a matching descriptor."
+        )
 
     def _on_card_detached_changed(self, _detached: bool) -> None:
         self._sync_container_visibility()
+
+    def _add_card(self, descriptor: StreamDescriptor) -> None:
+        card = DetachableStreamPreviewCard(descriptor, self.cards_container)
+        card.sig_detached_changed.connect(self._on_card_detached_changed)
+        self._cards[descriptor.stream_id] = card
+        self.cards_layout.addWidget(card)
 
     def _sync_container_visibility(self) -> None:
         if not self.isVisible():
