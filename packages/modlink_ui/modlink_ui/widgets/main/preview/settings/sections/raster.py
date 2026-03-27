@@ -13,6 +13,8 @@ from qfluentwidgets import (
 
 from modlink_sdk import StreamDescriptor
 
+from ..models import RasterPreviewSettings
+
 RASTER_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
 
 
@@ -169,19 +171,21 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
         self.transform_combo.currentIndexChanged.connect(self._emit_state_changed)
         self._sync_manual_range_visibility()
 
-    def state(self) -> dict[str, object]:
-        return {
-            "window_seconds": int(self.duration_combo.currentData() or 8),
-            "colormap": self.colormap_combo.currentData(),
-            "value_range_mode": self.value_range_combo.currentData(),
-            "manual_min": float(self.manual_min_spinbox.value()),
-            "manual_max": float(self.manual_max_spinbox.value()),
-            "interpolation": self.interpolation_combo.currentData(),
-            "transform": self.transform_combo.currentData(),
-        }
+    def state(self) -> RasterPreviewSettings:
+        return RasterPreviewSettings(
+            window_seconds=int(self.duration_combo.currentData() or 8),
+            colormap=str(self.colormap_combo.currentData() or "gray"),
+            value_range_mode=str(self.value_range_combo.currentData() or "auto"),
+            manual_min=float(self.manual_min_spinbox.value()),
+            manual_max=float(self.manual_max_spinbox.value()),
+            interpolation=str(self.interpolation_combo.currentData() or "nearest"),
+            transform=str(self.transform_combo.currentData() or "none"),
+        )
 
     def set_state(self, state: object) -> None:
-        data = state if isinstance(state, dict) else {}
+        settings = (
+            state if isinstance(state, RasterPreviewSettings) else RasterPreviewSettings()
+        )
         with (
             QSignalBlocker(self.duration_combo),
             QSignalBlocker(self.colormap_combo),
@@ -193,20 +197,20 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
         ):
             self._set_combo_to_data(
                 self.duration_combo,
-                data.get("window_seconds", RASTER_WINDOW_SECONDS_OPTIONS[0]),
+                settings.window_seconds,
             )
-            self._set_combo_to_data(self.colormap_combo, data.get("colormap", "gray"))
+            self._set_combo_to_data(self.colormap_combo, settings.colormap)
             self._set_combo_to_data(
                 self.value_range_combo,
-                data.get("value_range_mode", "auto"),
+                settings.value_range_mode,
             )
-            self.manual_min_spinbox.setValue(int(data.get("manual_min", 0)))
-            self.manual_max_spinbox.setValue(int(data.get("manual_max", 1)))
+            self.manual_min_spinbox.setValue(int(settings.manual_min))
+            self.manual_max_spinbox.setValue(int(settings.manual_max))
             self._set_combo_to_data(
                 self.interpolation_combo,
-                data.get("interpolation", "nearest"),
+                settings.interpolation,
             )
-            self._set_combo_to_data(self.transform_combo, data.get("transform", "none"))
+            self._set_combo_to_data(self.transform_combo, settings.transform)
         self._sync_manual_range_visibility()
 
     def _sync_manual_range_visibility(self) -> None:

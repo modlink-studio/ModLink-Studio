@@ -13,6 +13,8 @@ from qfluentwidgets import (
 
 from modlink_sdk import StreamDescriptor
 
+from ..models import FieldPreviewSettings
+
 
 class FieldPayloadSettingsPanel(SimpleCardWidget):
     sig_state_changed = pyqtSignal(object)
@@ -153,18 +155,20 @@ class FieldPayloadSettingsPanel(SimpleCardWidget):
         self.transform_combo.currentIndexChanged.connect(self._emit_state_changed)
         self._sync_manual_range_visibility()
 
-    def state(self) -> dict[str, object]:
-        return {
-            "colormap": self.colormap_combo.currentData(),
-            "value_range_mode": self.value_range_combo.currentData(),
-            "manual_min": float(self.manual_min_spinbox.value()),
-            "manual_max": float(self.manual_max_spinbox.value()),
-            "interpolation": self.interpolation_combo.currentData(),
-            "transform": self.transform_combo.currentData(),
-        }
+    def state(self) -> FieldPreviewSettings:
+        return FieldPreviewSettings(
+            colormap=str(self.colormap_combo.currentData() or "gray"),
+            value_range_mode=str(self.value_range_combo.currentData() or "auto"),
+            manual_min=float(self.manual_min_spinbox.value()),
+            manual_max=float(self.manual_max_spinbox.value()),
+            interpolation=str(self.interpolation_combo.currentData() or "nearest"),
+            transform=str(self.transform_combo.currentData() or "none"),
+        )
 
     def set_state(self, state: object) -> None:
-        data = state if isinstance(state, dict) else {}
+        settings = (
+            state if isinstance(state, FieldPreviewSettings) else FieldPreviewSettings()
+        )
         with (
             QSignalBlocker(self.colormap_combo),
             QSignalBlocker(self.value_range_combo),
@@ -173,18 +177,18 @@ class FieldPayloadSettingsPanel(SimpleCardWidget):
             QSignalBlocker(self.interpolation_combo),
             QSignalBlocker(self.transform_combo),
         ):
-            self._set_combo_to_data(self.colormap_combo, data.get("colormap", "gray"))
+            self._set_combo_to_data(self.colormap_combo, settings.colormap)
             self._set_combo_to_data(
                 self.value_range_combo,
-                data.get("value_range_mode", "auto"),
+                settings.value_range_mode,
             )
-            self.manual_min_spinbox.setValue(int(data.get("manual_min", 0)))
-            self.manual_max_spinbox.setValue(int(data.get("manual_max", 1)))
+            self.manual_min_spinbox.setValue(int(settings.manual_min))
+            self.manual_max_spinbox.setValue(int(settings.manual_max))
             self._set_combo_to_data(
                 self.interpolation_combo,
-                data.get("interpolation", "nearest"),
+                settings.interpolation,
             )
-            self._set_combo_to_data(self.transform_combo, data.get("transform", "none"))
+            self._set_combo_to_data(self.transform_combo, settings.transform)
         self._sync_manual_range_visibility()
 
     def _sync_manual_range_visibility(self) -> None:

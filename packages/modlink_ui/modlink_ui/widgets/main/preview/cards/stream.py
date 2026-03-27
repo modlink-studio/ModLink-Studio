@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from qfluentwidgets import CaptionLabel, SimpleCardWidget, StrongBodyLabel
+from qfluentwidgets import (
+    CaptionLabel,
+    FluentIcon as FIF,
+    SimpleCardWidget,
+    StrongBodyLabel,
+    TransparentToolButton,
+)
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
@@ -31,6 +37,9 @@ class StreamPreviewCard(SimpleCardWidget):
             parent=self,
         )
         self.summary_label = CaptionLabel(self._summary_text(), self)
+        self.settings_button = TransparentToolButton(FIF.SETTING, self)
+        self.settings_button.setToolTip("预览设置")
+        self.settings_button.clicked.connect(self.open_settings_dialog)
         self.header_action_layout = QHBoxLayout()
         self.header_action_layout.setContentsMargins(0, 0, 0, 0)
         self.header_action_layout.setSpacing(4)
@@ -55,6 +64,8 @@ class StreamPreviewCard(SimpleCardWidget):
         layout.setSpacing(8)
         layout.addLayout(header_layout)
         layout.addWidget(self.stream_view, 1)
+
+        self.add_header_action(self.settings_button)
 
     def open_settings_dialog(self) -> None:
         self.settings_runtime.open_dialog(self.window())

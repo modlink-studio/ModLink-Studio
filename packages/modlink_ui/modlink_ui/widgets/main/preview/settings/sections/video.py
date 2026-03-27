@@ -12,6 +12,8 @@ from qfluentwidgets import (
 
 from modlink_sdk import StreamDescriptor
 
+from ..models import VideoPreviewSettings
+
 
 class VideoPayloadSettingsPanel(SimpleCardWidget):
     sig_state_changed = pyqtSignal(object)
@@ -95,16 +97,18 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
         self.aspect_ratio_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.transform_combo.currentIndexChanged.connect(self._emit_state_changed)
 
-    def state(self) -> dict[str, object]:
-        return {
-            "color_format": self.color_format_combo.currentData(),
-            "scale_mode": self.scale_mode_combo.currentData(),
-            "aspect_mode": self.aspect_ratio_combo.currentData(),
-            "transform": self.transform_combo.currentData(),
-        }
+    def state(self) -> VideoPreviewSettings:
+        return VideoPreviewSettings(
+            color_format=str(self.color_format_combo.currentData() or "rgb"),
+            scale_mode=str(self.scale_mode_combo.currentData() or "fit"),
+            aspect_mode=str(self.aspect_ratio_combo.currentData() or "keep"),
+            transform=str(self.transform_combo.currentData() or "none"),
+        )
 
     def set_state(self, state: object) -> None:
-        data = state if isinstance(state, dict) else {}
+        settings = (
+            state if isinstance(state, VideoPreviewSettings) else VideoPreviewSettings()
+        )
         with (
             QSignalBlocker(self.color_format_combo),
             QSignalBlocker(self.scale_mode_combo),
@@ -113,14 +117,14 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
         ):
             self._set_combo_to_data(
                 self.color_format_combo,
-                data.get("color_format", "rgb"),
+                settings.color_format,
             )
-            self._set_combo_to_data(self.scale_mode_combo, data.get("scale_mode", "fit"))
+            self._set_combo_to_data(self.scale_mode_combo, settings.scale_mode)
             self._set_combo_to_data(
                 self.aspect_ratio_combo,
-                data.get("aspect_mode", "keep"),
+                settings.aspect_mode,
             )
-            self._set_combo_to_data(self.transform_combo, data.get("transform", "none"))
+            self._set_combo_to_data(self.transform_combo, settings.transform)
 
     def _emit_state_changed(self, *_args: object) -> None:
         self.sig_state_changed.emit(self.state())
