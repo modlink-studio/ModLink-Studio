@@ -27,3 +27,11 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".pytest_cache",
+    ".tmp-tests",
+    "_tmp_runtime*",
+    "pytest-cache-files-*",
+]

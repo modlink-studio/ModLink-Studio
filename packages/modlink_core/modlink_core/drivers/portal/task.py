@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from threading import Event
-from threading import RLock
 
 
 class DriverTask:
-    """Observable one-shot task for driver operations."""
+    """Passive one-shot task handle for driver operations."""
 
     def __init__(
         self,
@@ -23,8 +21,6 @@ class DriverTask:
         self._result: object | None = None
         self._error: Exception | None = None
         self._done_event = Event()
-        self._callbacks: list[Callable[[DriverTask], None]] = []
-        self._lock = RLock()
         self._parent = parent
 
     @property
@@ -63,15 +59,6 @@ class DriverTask:
     def error(self) -> Exception | None:
         return self._error
 
-    def add_done_callback(self, callback: Callable[[DriverTask], None]) -> None:
-        if not callable(callback):
-            raise TypeError("task callback must be callable")
-        with self._lock:
-            if not self._done_event.is_set():
-                self._callbacks.append(callback)
-                return
-        callback(self)
-
     def wait(self, timeout: float | None = None) -> bool:
         return self._done_event.wait(timeout)
 
@@ -84,7 +71,6 @@ class DriverTask:
         self._result = result
         self._state = "finished"
         self._done_event.set()
-        self._notify_callbacks()
 
     def _fail(self, error: Exception) -> None:
         if self._state != "running":
@@ -92,11 +78,3 @@ class DriverTask:
         self._error = error
         self._state = "failed"
         self._done_event.set()
-        self._notify_callbacks()
-
-    def _notify_callbacks(self) -> None:
-        with self._lock:
-            callbacks = tuple(self._callbacks)
-            self._callbacks.clear()
-        for callback in callbacks:
-            callback(self)

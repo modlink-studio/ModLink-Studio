@@ -1,16 +1,13 @@
 from __future__ import annotations
 
+import queue
 import time
 import unittest
 
 import numpy as np
 
 from modlink_core.drivers import DriverPortal
-from modlink_core.events import (
-    BackendErrorEvent,
-    BackendEventQueue,
-    DriverStateChangedEvent,
-)
+from modlink_core.events import BackendEventBroker, DriverStateChangedEvent
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -57,7 +54,7 @@ class DemoLoopDriver(LoopDriver):
         self._seq = 0
 
     def loop(self) -> None:
-        emitted = self.emit_frame(
+        self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
                 modality="demo",
@@ -66,8 +63,7 @@ class DemoLoopDriver(LoopDriver):
                 seq=self._seq,
             )
         )
-        if emitted:
-            self._seq += 1
+        self._seq += 1
         if self._seq >= 3:
             self.stop_streaming()
 
@@ -94,12 +90,11 @@ class DemoCallbackDriver(Driver):
     def search(self, provider: str) -> list[SearchResult]:
         if provider != "demo":
             raise ValueError("unsupported provider")
-        self.report_error("search warning")
         return [SearchResult(title="Callback Device")]
 
     def connect_device(self, config: SearchResult) -> None:
         _ = config
-        self.set_status("ready", {"mode": "callback"})
+        return
 
     def disconnect_device(self) -> None:
         return
@@ -113,11 +108,12 @@ class DemoCallbackDriver(Driver):
 
 class PurePythonRuntimeTest(unittest.TestCase):
     def test_loop_driver_runs_on_pure_python_portal(self) -> None:
-        events = BackendEventQueue()
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
         frames: list[FrameEnvelope] = []
         portal = DriverPortal(
             DemoLoopDriver,
-            event_queue=events,
+            publish_event=broker.publish,
             frame_sink=frames.append,
         )
 
@@ -126,35 +122,32 @@ class PurePythonRuntimeTest(unittest.TestCase):
         connect_task = portal.connect_device(SearchResult(title="Demo Device"))
         self.assertTrue(connect_task.wait(1.0))
         self.assertIsNone(connect_task.error)
+        self.assertFalse(hasattr(connect_task, "add_done_callback"))
 
         start_task = portal.start_streaming()
         self.assertTrue(start_task.wait(1.0))
         self.assertIsNone(start_task.error)
 
         deadline = time.time() + 1.0
-        while len(frames) < 3 and time.time() < deadline:
+        while (len(frames) < 3 or portal.state.is_streaming) and time.time() < deadline:
             time.sleep(0.02)
 
         portal.stop()
+        event_stream.close()
 
         self.assertGreaterEqual(len(frames), 3)
         self.assertEqual([0, 1, 2], [frame.seq for frame in frames[:3]])
+        self.assertFalse(portal.state.is_streaming)
 
-    def test_driver_context_can_report_errors_without_qt(self) -> None:
-        events = BackendEventQueue()
-        portal = DriverPortal(DemoCallbackDriver, event_queue=events)
-        errors: list[str] = []
+    def test_driver_context_can_update_state_without_qt(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        portal = DriverPortal(DemoCallbackDriver, publish_event=broker.publish)
         portal.start()
 
         task = portal.search("demo")
         self.assertTrue(task.wait(1.0))
         self.assertIsNone(task.error)
-        errors.extend(
-            event.message
-            for event in events.drain()
-            if isinstance(event, BackendErrorEvent)
-        )
-        self.assertTrue(errors)
 
         connect_task = portal.connect_device(SearchResult(title="Callback Device"))
         self.assertTrue(connect_task.wait(1.0))
@@ -165,14 +158,36 @@ class PurePythonRuntimeTest(unittest.TestCase):
         while not states and time.time() < deadline:
             states.extend(
                 event.snapshot
-                for event in events.drain()
+                for event in _drain_events(event_stream)
                 if isinstance(event, DriverStateChangedEvent)
             )
             time.sleep(0.02)
 
-        self.assertTrue(any("DRIVER_REPORTED_ERROR" in item for item in errors))
-        self.assertEqual("connected", portal.state.status)
+        self.assertTrue(portal.state.is_connected)
+        self.assertFalse(portal.state.is_streaming)
         portal.stop()
+        event_stream.close()
+
+    def test_driver_task_fails_immediately_when_runtime_not_started(self) -> None:
+        broker = BackendEventBroker()
+        portal = DriverPortal(DemoCallbackDriver, publish_event=broker.publish)
+
+        task = portal.search("demo")
+
+        self.assertTrue(task.wait(0.1))
+        self.assertTrue(task.is_failed)
+        self.assertIsInstance(task.error, RuntimeError)
+        self.assertIn("not running", str(task.error))
+
+
+def _drain_events(stream, *, timeout: float = 0.05) -> list[object]:
+    items: list[object] = []
+    try:
+        items.append(stream.read(timeout=timeout))
+    except queue.Empty:
+        return items
+    items.extend(stream.read_many())
+    return items
 
 
 if __name__ == "__main__":

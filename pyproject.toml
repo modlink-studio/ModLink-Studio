@@ -63,3 +63,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = []
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".pytest_cache",
+    ".tmp-tests",
+    "_tmp_runtime*",
+    "pytest-cache-files-*",
+]

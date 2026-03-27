@@ -5,15 +5,15 @@ from typing import Any
 
 from modlink_sdk import DriverFactory
 
-from ..events import (
-    AcquisitionSnapshot,
-    BackendEvent,
-    BackendEventQueue,
-    DriverSnapshot,
-)
 from ..acquisition import AcquisitionBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
+from ..events import (
+    AcquisitionSnapshot,
+    BackendEventBroker,
+    DriverSnapshot,
+    EventStream,
+)
 from ..settings import SettingsService
 
 
@@ -23,15 +23,19 @@ class ModLinkEngine:
     def __init__(
         self,
         driver_factories: Sequence[DriverFactory] = (),
+        *,
+        settings: SettingsService | None = None,
         parent: object | None = None,
     ) -> None:
         self._parent = parent
-        self._events = BackendEventQueue()
-        self.bus = StreamBus(event_queue=self._events, parent=self)
-        SettingsService.instance().attach_event_queue(self._events)
+        self._event_broker = BackendEventBroker()
+        self._settings = settings or SettingsService(parent=parent)
+        self._settings.bind_event_publisher(self._event_broker.publish)
+        self.bus = StreamBus(event_broker=self._event_broker, parent=self)
         self._acquisition = AcquisitionBackend(
             self.bus,
-            event_queue=self._events,
+            settings=self._settings,
+            publish_event=self._event_broker.publish,
             parent=self,
         )
         self._driver_portals: dict[str, DriverPortal] = {}
@@ -40,6 +44,10 @@ class ModLinkEngine:
 
         for factory in driver_factories:
             self._attach_driver(factory)
+
+    @property
+    def settings(self) -> SettingsService:
+        return self._settings
 
     @property
     def acquisition(self) -> AcquisitionBackend:
@@ -58,15 +66,15 @@ class ModLinkEngine:
         return self._driver_portals.get(driver_id)
 
     def settings_snapshot(self) -> dict[str, Any]:
-        return SettingsService.instance().snapshot()
+        return self._settings.snapshot()
 
-    def drain_events(self, *, max_items: int | None = None) -> list[BackendEvent]:
-        return self._events.drain(max_items=max_items)
+    def open_event_stream(self, *, maxsize: int = 1024) -> EventStream:
+        return self._event_broker.open_stream(maxsize=maxsize)
 
     def _attach_driver(self, driver_factory: DriverFactory) -> DriverPortal:
         portal = DriverPortal(
             driver_factory,
-            event_queue=self._events,
+            publish_event=self._event_broker.publish,
             frame_sink=self.bus.ingest_frame,
             parent=self,
         )

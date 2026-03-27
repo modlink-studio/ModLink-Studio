@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from threading import Event, RLock
+from threading import Event, RLock, Thread
+import time
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, AcquisitionBackend
+from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal, DriverTask
 from modlink_core.events import (
     AcquisitionErrorEvent,
@@ -16,10 +18,9 @@ from modlink_core.events import (
     BackendErrorEvent,
     DriverSnapshot,
     DriverStateChangedEvent,
-    DriverTaskFinishedEvent,
-    FrameArrivedEvent,
+    EventStream,
     SettingChangedEvent,
-    StreamDescriptorRegisteredEvent,
+    StreamClosedError,
 )
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_core.settings.service import SettingsService
@@ -48,7 +49,8 @@ class QtDriverTask(QObject):
         self.error = backend_task.error
         self.state = backend_task.state
 
-        backend_task.add_done_callback(self._on_backend_task_done)
+        if not backend_task.is_running:
+            self.complete_from_backend()
 
     @property
     def is_running(self) -> bool:
@@ -64,15 +66,9 @@ class QtDriverTask(QObject):
                 return
             self._callbacks.append(callback)
 
-    def _on_backend_task_done(self, task: DriverTask) -> None:
+    def complete_from_backend(self) -> None:
         with self._lock:
-            self._sync_from_backend(task)
-            self._done.set()
-
-    def complete_from_event(self, event: DriverTaskFinishedEvent) -> None:
-        del event
-        with self._lock:
-            self._sync_from_backend(self._backend_task)
+            self._sync_from_backend()
             self._done.set()
             if self._signal_emitted:
                 return
@@ -84,11 +80,11 @@ class QtDriverTask(QObject):
             callback(self)
         self.sig_done.emit()
 
-    def _sync_from_backend(self, task: DriverTask) -> None:
-        self.request = task.request
-        self.result = task.result
-        self.error = task.error
-        self.state = task.state
+    def _sync_from_backend(self) -> None:
+        self.request = self._backend_task.request
+        self.result = self._backend_task.result
+        self.error = self._backend_task.error
+        self.state = self._backend_task.state
 
 
 class QtDriverPortal(QObject):
@@ -155,43 +151,57 @@ class QtDriverPortal(QObject):
     def stop_streaming(self) -> QtDriverTask:
         return self._wrap_task(self._backend_portal.stop_streaming())
 
-    def _apply_snapshot(self, event: DriverStateChangedEvent) -> None:
-        previous = self._snapshot
-        self._snapshot = event.snapshot
-        self.sig_state_changed.emit(event.snapshot)
-        if (
-            event.snapshot.status == "connection_lost"
-            and (
-                previous.status != "connection_lost"
-                or previous.status_detail != event.snapshot.status_detail
-            )
-        ):
-            self.sig_connection_lost.emit(event.snapshot.status_detail)
+    def _apply_snapshot(self, snapshot: DriverSnapshot) -> None:
+        self._snapshot = snapshot
+        self.sig_state_changed.emit(snapshot)
 
-    def _complete_task(self, event: DriverTaskFinishedEvent) -> None:
-        task = self._tasks.pop(event.task_id, None)
+    def _complete_task(self, task_id: str) -> bool:
+        task = self._tasks.pop(task_id, None)
         if task is None:
-            return
-        task.complete_from_event(event)
+            return False
+        task.complete_from_backend()
+        return True
+
+    def _resync_tasks(self) -> None:
+        completed_task_ids = [
+            task_id for task_id, task in self._tasks.items() if not task.is_running
+        ]
+        for task_id in completed_task_ids:
+            task = self._tasks.pop(task_id)
+            task.complete_from_backend()
 
     def _emit_error(self, message: str) -> None:
         self.sig_error.emit(message)
 
+    def _emit_connection_lost(self, detail: object | None) -> None:
+        self.sig_connection_lost.emit(detail)
+
     def _wrap_task(self, backend_task: DriverTask) -> QtDriverTask:
         task = QtDriverTask(backend_task, parent=self)
-        self._tasks[task.task_id] = task
+        if task.is_running:
+            self._tasks[task.task_id] = task
+            Thread(
+                target=self._wait_for_task,
+                args=(task.task_id, backend_task),
+                name=f"modlink.qt_task.{task.task_id}",
+                daemon=True,
+            ).start()
         return task
+
+    def _wait_for_task(self, task_id: str, backend_task: DriverTask) -> None:
+        backend_task.wait()
+        self._complete_task(task_id)
 
 
 class QtBusBridge(QObject):
-    sig_stream_descriptor = pyqtSignal(object)
+    sig_frames = pyqtSignal(object)
     sig_frame = pyqtSignal(object)
     sig_error = pyqtSignal(str)
 
-    def __init__(self, engine: ModLinkEngine, parent: QObject | None = None) -> None:
+    def __init__(self, bus: StreamBus, parent: QObject | None = None) -> None:
         super().__init__(parent=parent)
-        self._engine = engine
-        self._descriptors = engine.bus.descriptors()
+        self._bus = bus
+        self._descriptors = bus.descriptors()
 
     def descriptors(self) -> dict[str, StreamDescriptor]:
         return dict(self._descriptors)
@@ -199,12 +209,12 @@ class QtBusBridge(QObject):
     def descriptor(self, stream_id: str) -> StreamDescriptor | None:
         return self._descriptors.get(stream_id)
 
-    def _register_descriptor(self, event: StreamDescriptorRegisteredEvent) -> None:
-        self._descriptors[event.descriptor.stream_id] = event.descriptor
-        self.sig_stream_descriptor.emit(event.descriptor)
-
-    def _emit_frame(self, frame: FrameEnvelope) -> None:
-        self.sig_frame.emit(frame)
+    def _emit_frames(self, frames: list[FrameEnvelope]) -> None:
+        if not frames:
+            return
+        self.sig_frames.emit(frames)
+        for frame in frames:
+            self.sig_frame.emit(frame)
 
     def _emit_error(self, message: str) -> None:
         self.sig_error.emit(message)
@@ -235,6 +245,12 @@ class QtSettingsBridge(QObject):
 
     def _emit_setting_changed(self, event: SettingChangedEvent) -> None:
         self.sig_setting_changed.emit(event)
+
+    def _resync_snapshot(self, snapshot: dict[str, object]) -> None:
+        for key, value in _flatten_settings(snapshot):
+            self.sig_setting_changed.emit(
+                SettingChangedEvent(key=key, value=value, ts=time.time())
+            )
 
 
 class QtAcquisitionBridge(QObject):
@@ -295,9 +311,9 @@ class QtAcquisitionBridge(QObject):
     ) -> None:
         self._backend.add_segment(start_ns=start_ns, end_ns=end_ns, label=label)
 
-    def _apply_state(self, event: AcquisitionStateChangedEvent) -> None:
-        self._snapshot = event.snapshot
-        self.sig_state_changed.emit(event.snapshot.state)
+    def _apply_snapshot(self, snapshot: AcquisitionSnapshot) -> None:
+        self._snapshot = snapshot
+        self.sig_state_changed.emit(snapshot.state)
 
     def _emit_error(self, event: AcquisitionErrorEvent) -> None:
         self.sig_error.emit(event.message)
@@ -311,14 +327,23 @@ class QtModLinkBridge(QObject):
         self,
         engine: ModLinkEngine,
         *,
-        interval_ms: int = 16,
+        event_stream_maxsize: int = 1024,
+        frame_stream_maxsize: int = 256,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self._engine = engine
-        self._settings_service = SettingsService.instance()
-        self.settings = QtSettingsBridge(self._settings_service, parent=self)
-        self.bus = QtBusBridge(engine, parent=self)
+        self._stop_event = Event()
+        self._event_stream: EventStream = engine.open_event_stream(
+            maxsize=event_stream_maxsize
+        )
+        self._frame_stream: FrameStream = engine.bus.open_frame_stream(
+            maxsize=frame_stream_maxsize,
+            drop_policy="drop_oldest",
+            consumer_name="qt_bridge",
+        )
+        self.settings = QtSettingsBridge(engine.settings, parent=self)
+        self.bus = QtBusBridge(engine.bus, parent=self)
         self.acquisition = QtAcquisitionBridge(
             engine.acquisition,
             self.settings,
@@ -328,9 +353,18 @@ class QtModLinkBridge(QObject):
             portal.driver_id: QtDriverPortal(portal, parent=self)
             for portal in engine.driver_portals()
         }
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._drain_events)
-        self._timer.start(max(1, int(interval_ms)))
+        self._event_thread = Thread(
+            target=self._run_event_pump,
+            name="modlink.qt_bridge.events",
+            daemon=True,
+        )
+        self._frame_thread = Thread(
+            target=self._run_frame_pump,
+            name="modlink.qt_bridge.frames",
+            daemon=True,
+        )
+        self._event_thread.start()
+        self._frame_thread.start()
 
     def driver_portals(self) -> tuple[QtDriverPortal, ...]:
         return tuple(self._driver_portals.values())
@@ -339,60 +373,68 @@ class QtModLinkBridge(QObject):
         return self._driver_portals.get(driver_id)
 
     def shutdown(self) -> None:
-        if self._timer.isActive():
-            self._timer.stop()
+        self._stop_event.set()
+        self._event_stream.close()
+        self._frame_stream.close()
+        self._event_thread.join(2.0)
+        self._frame_thread.join(2.0)
         self._engine.shutdown()
 
-    def _drain_events(self) -> None:
-        events = self._engine.drain_events()
-        if not events:
+    def _run_event_pump(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                event = self._event_stream.read()
+            except StreamClosedError:
+                return
+            self._dispatch_event(event)
+
+    def _run_frame_pump(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                first_frame = self._frame_stream.read()
+            except StreamClosedError:
+                return
+
+            frames = [first_frame, *self._frame_stream.read_many()]
+            latest_by_stream = {
+                frame.stream_id: frame for frame in frames if isinstance(frame, FrameEnvelope)
+            }
+            self.bus._emit_frames(list(latest_by_stream.values()))
+
+    def _dispatch_event(self, event: object) -> None:
+        if isinstance(event, DriverStateChangedEvent):
+            portal = self._driver_portals.get(event.snapshot.driver_id)
+            if portal is not None:
+                portal._apply_snapshot(event.snapshot)
             return
 
-        frames_by_stream: dict[str, FrameEnvelope] = {}
-        for event in events:
-            if isinstance(event, FrameArrivedEvent):
-                frames_by_stream[event.frame.stream_id] = event.frame
-                continue
+        if isinstance(event, AcquisitionErrorEvent):
+            self.acquisition._emit_error(event)
+            return
 
-            if isinstance(event, StreamDescriptorRegisteredEvent):
-                self.bus._register_descriptor(event)
-                continue
+        if isinstance(event, AcquisitionLifecycleEvent):
+            self.acquisition._emit_lifecycle(event)
+            return
 
-            if isinstance(event, DriverStateChangedEvent):
-                portal = self._driver_portals.get(event.snapshot.driver_id)
-                if portal is not None:
-                    portal._apply_snapshot(event)
-                continue
+        if isinstance(event, SettingChangedEvent):
+            self.settings._emit_setting_changed(event)
+            return
 
-            if isinstance(event, DriverTaskFinishedEvent):
-                portal = self._driver_portals.get(event.driver_id)
-                if portal is not None:
-                    portal._complete_task(event)
-                continue
+        if isinstance(event, BackendErrorEvent):
+            self._dispatch_backend_error(event)
+            return
 
-            if isinstance(event, AcquisitionStateChangedEvent):
-                self.acquisition._apply_state(event)
-                continue
-
-            if isinstance(event, AcquisitionErrorEvent):
-                self.acquisition._emit_error(event)
-                continue
-
-            if isinstance(event, AcquisitionLifecycleEvent):
-                self.acquisition._emit_lifecycle(event)
-                continue
-
-            if isinstance(event, SettingChangedEvent):
-                self.settings._emit_setting_changed(event)
-                continue
-
-            if isinstance(event, BackendErrorEvent):
-                self._dispatch_backend_error(event)
-
-        for frame in frames_by_stream.values():
-            self.bus._emit_frame(frame)
+        if isinstance(event, AcquisitionStateChangedEvent):
+            self.acquisition._apply_snapshot(event.snapshot)
 
     def _dispatch_backend_error(self, event: BackendErrorEvent) -> None:
+        if (
+            event.source == "event_stream"
+            and event.message == "EVENT_STREAM_OVERFLOW"
+        ):
+            self._resync_all()
+            return
+
         if event.source == "stream_bus":
             self.bus._emit_error(event.message)
             return
@@ -401,4 +443,47 @@ class QtModLinkBridge(QObject):
             driver_id = event.source.removeprefix("driver:")
             portal = self._driver_portals.get(driver_id)
             if portal is not None:
+                if event.message.startswith("DRIVER_CONNECTION_LOST"):
+                    portal._emit_connection_lost(
+                        _extract_driver_connection_lost_detail(event.message)
+                    )
+                    return
                 portal._emit_error(event.message)
+            return
+
+        if event.source == "frame_stream":
+            self.bus._emit_error(event.message)
+
+    def _resync_all(self) -> None:
+        self.acquisition._apply_snapshot(self._engine.acquisition_snapshot())
+        self.settings._resync_snapshot(self._engine.settings_snapshot())
+        snapshots = {snapshot.driver_id: snapshot for snapshot in self._engine.driver_snapshots()}
+        for driver_id, portal in self._driver_portals.items():
+            snapshot = snapshots.get(driver_id)
+            if snapshot is None:
+                continue
+            portal._apply_snapshot(snapshot)
+            portal._resync_tasks()
+
+
+def _flatten_settings(
+    payload: dict[str, object],
+    prefix: str = "",
+) -> Iterable[tuple[str, object]]:
+    for key, value in payload.items():
+        qualified = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            yield from _flatten_settings(value, qualified)
+            continue
+        yield qualified, value
+
+
+def _extract_driver_connection_lost_detail(message: str) -> object | None:
+    prefix = "DRIVER_CONNECTION_LOST"
+    normalized = str(message).strip()
+    if normalized == prefix:
+        return None
+    if normalized.startswith(f"{prefix}:"):
+        detail = normalized.removeprefix(f"{prefix}:").strip()
+        return detail or None
+    return normalized or None

@@ -1,17 +1,16 @@
 from .acquisition import AcquisitionBackend
-from .bus import DescriptorSubscription, FrameSubscription, StreamBus
+from .bus import FrameStream, FrameStreamOverflowError, StreamBus
 from .events import (
     AcquisitionErrorEvent,
     AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
     BackendErrorEvent,
+    EventStream,
     DriverSnapshot,
     DriverStateChangedEvent,
-    DriverTaskFinishedEvent,
-    FrameArrivedEvent,
     SettingChangedEvent,
-    StreamDescriptorRegisteredEvent,
+    StreamClosedError,
 )
 from .runtime import ModLinkEngine
 from .settings import SettingsService
@@ -23,15 +22,14 @@ __all__ = [
     "AcquisitionSnapshot",
     "AcquisitionStateChangedEvent",
     "BackendErrorEvent",
-    "DescriptorSubscription",
+    "EventStream",
+    "FrameStream",
+    "FrameStreamOverflowError",
     "DriverSnapshot",
     "DriverStateChangedEvent",
-    "DriverTaskFinishedEvent",
-    "FrameArrivedEvent",
-    "FrameSubscription",
     "ModLinkEngine",
     "SettingChangedEvent",
     "SettingsService",
-    "StreamDescriptorRegisteredEvent",
+    "StreamClosedError",
     "StreamBus",
 ]

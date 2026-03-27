@@ -48,7 +48,6 @@ class MainPageController(QObject):
         self._apply_refresh_rate()
 
         self._acquisition.messageRaised.connect(self.messageRaised.emit)
-        self._engine.bus.sig_stream_descriptor.connect(self._on_stream_descriptor)
         self._engine.bus.sig_frame.connect(self._on_frame)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
@@ -90,11 +89,6 @@ class MainPageController(QObject):
         self._previews[descriptor.stream_id] = state
         self.previewsChanged.emit()
         return state
-
-    def _on_stream_descriptor(self, descriptor: object) -> None:
-        if not isinstance(descriptor, StreamDescriptor):
-            return
-        self._ensure_preview_state(descriptor)
 
     def _on_frame(self, frame: FrameEnvelope) -> None:
         descriptor = self._engine.bus.descriptor(frame.stream_id)

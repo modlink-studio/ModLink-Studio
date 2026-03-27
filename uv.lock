@@ -7,6 +7,7 @@ members = [
     "modlink-core",
     "modlink-new-ui",
     "modlink-plugin-scaffold",
+    "modlink-qt-bridge",
     "modlink-sdk",
     "modlink-studio",
     "modlink-studio-qml",
@@ -311,6 +312,7 @@ version = "0.2.0"
 source = { editable = "packages/modlink_new_ui" }
 dependencies = [
     { name = "modlink-core" },
+    { name = "modlink-qt-bridge" },
     { name = "modlink-sdk" },
     { name = "numpy" },
     { name = "pyqt6" },
@@ -319,6 +321,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "modlink-core", editable = "packages/modlink_core" },
+    { name = "modlink-qt-bridge", editable = "packages/modlink_qt_bridge" },
     { name = "modlink-sdk", editable = "packages/modlink_sdk" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "pyqt6", specifier = ">=6.10.2" },
@@ -395,6 +398,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "modlink-qt-bridge"
+version = "0.2.0"
+source = { editable = "packages/modlink_qt_bridge" }
+dependencies = [
+    { name = "modlink-core" },
+    { name = "pyqt6" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "modlink-core", editable = "packages/modlink_core" },
+    { name = "pyqt6", specifier = ">=6.10.2" },
+]
+
+[[package]]
 name = "modlink-sdk"
 version = "0.2.0"
 source = { editable = "packages/modlink_sdk" }
@@ -464,6 +482,7 @@ version = "0.2.0"
 source = { editable = "packages/modlink_ui" }
 dependencies = [
     { name = "modlink-core" },
+    { name = "modlink-qt-bridge" },
     { name = "pyqt6" },
     { name = "pyqt6-fluent-widgets" },
     { name = "pyqtgraph" },
@@ -473,6 +492,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "modlink-core", editable = "packages/modlink_core" },
+    { name = "modlink-qt-bridge", editable = "packages/modlink_qt_bridge" },
     { name = "pyqt6", specifier = ">=6.10.2" },
     { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
     { name = "pyqtgraph", specifier = ">=0.13.7" },

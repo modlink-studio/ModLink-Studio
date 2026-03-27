@@ -3,9 +3,31 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from threading import Lock
 
 from .models import FrameEnvelope, SearchResult, StreamDescriptor
+
+
+class DriverTimerHandle:
+    """Cancellable timer scheduled onto the bound runtime thread."""
+
+    def __init__(
+        self,
+        timer_id: str,
+        *,
+        cancel_sink: Callable[[str], None],
+    ) -> None:
+        self._timer_id = timer_id
+        self._cancel_sink = cancel_sink
+        self._lock = Lock()
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        with self._lock:
+            if self._cancelled:
+                return
+            self._cancelled = True
+        self._cancel_sink(self._timer_id)
 
 
 class DriverContext:
@@ -16,13 +38,11 @@ class DriverContext:
         *,
         frame_sink: Callable[[FrameEnvelope], None],
         connection_lost_sink: Callable[[object], None],
-        error_sink: Callable[[str], None],
-        status_sink: Callable[[str, object | None], None],
+        timer_sink: Callable[[float, Callable[[], None]], DriverTimerHandle],
     ) -> None:
         self._frame_sink = frame_sink
         self._connection_lost_sink = connection_lost_sink
-        self._error_sink = error_sink
-        self._status_sink = status_sink
+        self._timer_sink = timer_sink
 
     def emit_frame(self, frame: FrameEnvelope) -> None:
         self._frame_sink(frame)
@@ -30,14 +50,12 @@ class DriverContext:
     def emit_connection_lost(self, detail: object) -> None:
         self._connection_lost_sink(detail)
 
-    def report_error(self, message: str) -> None:
-        self._error_sink(str(message))
-
-    def set_status(self, status: str, detail: object | None = None) -> None:
-        normalized = str(status).strip()
-        if not normalized:
-            raise ValueError("driver status must not be empty")
-        self._status_sink(normalized, detail)
+    def call_later(
+        self,
+        delay_ms: float,
+        callback: Callable[[], None],
+    ) -> DriverTimerHandle:
+        return self._timer_sink(delay_ms, callback)
 
 
 class Driver:
@@ -65,7 +83,6 @@ class Driver:
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
     def __init__(self) -> None:
-        self._emissions_enabled = True
         self._context: DriverContext | None = None
 
     @property
@@ -82,38 +99,17 @@ class Driver:
     def descriptors(self) -> list[StreamDescriptor]:
         raise NotImplementedError(f"{type(self).__name__} must implement descriptors")
 
-    def shutdown(self) -> None:
-        self._emissions_enabled = False
-        try:
-            self.stop_streaming()
-        except NotImplementedError:
-            pass
-        try:
-            self.disconnect_device()
-        except NotImplementedError:
-            pass
+    def on_shutdown(self) -> None:
+        """Optional hook called before the driver worker thread exits.
 
-    def emit_frame(self, frame: FrameEnvelope) -> bool:
-        if not self._emissions_enabled:
-            return False
-        context = self._require_context()
-        context.emit_frame(frame)
-        return True
+        Override to release resources, close connections, etc.
+        """
 
-    def emit_connection_lost(self, payload: object) -> bool:
-        if not self._emissions_enabled:
-            return False
-        context = self._require_context()
-        context.emit_connection_lost(payload)
-        return True
+    def emit_frame(self, frame: FrameEnvelope) -> None:
+        self._require_context().emit_frame(frame)
 
-    def report_error(self, message: str) -> None:
-        context = self._require_context()
-        context.report_error(message)
-
-    def set_status(self, status: str, detail: Any | None = None) -> None:
-        context = self._require_context()
-        context.set_status(status, detail)
+    def emit_connection_lost(self, detail: object) -> None:
+        self._require_context().emit_connection_lost(detail)
 
     def _require_context(self) -> DriverContext:
         if self._context is None:
@@ -151,6 +147,7 @@ class LoopDriver(Driver):
     def __init__(self) -> None:
         super().__init__()
         self._looping = False
+        self._loop_timer: DriverTimerHandle | None = None
 
     @property
     def is_looping(self) -> bool:
@@ -161,11 +158,16 @@ class LoopDriver(Driver):
             return
         self.on_loop_started()
         self._looping = True
+        self._arm_loop_timer()
 
     def stop_streaming(self) -> None:
         if not self._looping:
             return
         self._looping = False
+        loop_timer = self._loop_timer
+        self._loop_timer = None
+        if loop_timer is not None:
+            loop_timer.cancel()
         self.on_loop_stopped()
 
     def on_loop_started(self) -> None:
@@ -176,3 +178,26 @@ class LoopDriver(Driver):
 
     def loop(self) -> None:
         raise NotImplementedError(f"{type(self).__name__} must implement loop")
+
+    def _arm_loop_timer(self) -> None:
+        self._loop_timer = self._require_context().call_later(
+            float(self.loop_interval_ms),
+            self._run_loop_once,
+        )
+
+    def _run_loop_once(self) -> None:
+        if not self._looping:
+            return
+        try:
+            self.loop()
+        except Exception as exc:
+            try:
+                self.stop_streaming()
+            finally:
+                self.emit_connection_lost(
+                    f"LOOP_FAILED: {type(exc).__name__}: {exc}"
+                )
+            return
+
+        if self._looping:
+            self._arm_loop_timer()
