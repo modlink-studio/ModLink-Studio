@@ -7,7 +7,6 @@ members = [
     "modlink-core",
     "modlink-new-ui",
     "modlink-plugin-scaffold",
-    "modlink-qt",
     "modlink-sdk",
     "modlink-studio",
     "modlink-studio-qml",
@@ -394,17 +393,6 @@ requires-dist = [
     { name = "readchar", specifier = ">=4.2.1" },
     { name = "rich", specifier = ">=14.3.3" },
 ]
-
-[[package]]
-name = "modlink-qt"
-version = "0.2.0"
-source = { editable = "packages/modlink_qt" }
-dependencies = [
-    { name = "pyqt6" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pyqt6", specifier = ">=6.10.2" }]
 
 [[package]]
 name = "modlink-sdk"

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import FluentIcon as FIF, MSFluentWindow
 from qfluentwidgets.components.navigation import NavigationItemPosition
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 
 from .pages import DevicePage, MainPage, SettingsPage
 
@@ -17,7 +17,7 @@ from .pages import DevicePage, MainPage, SettingsPage
 class MainWindow(MSFluentWindow):
     """Application shell for ModLink Studio."""
 
-    def __init__(self, engine: ModLinkEngine, parent: QWidget | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self.engine = engine
 

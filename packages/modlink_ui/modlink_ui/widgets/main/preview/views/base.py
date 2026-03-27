@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QWidget
 
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from modlink_ui.widgets.settings.cards.preview_refresh_rate import (
@@ -17,11 +17,12 @@ class BaseStreamView(QWidget):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
         self.descriptor = descriptor
-        self._settings = SettingsService.instance()
+        self._settings = settings
         self._dirty = False
         self._has_frame = False
 

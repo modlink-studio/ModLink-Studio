@@ -153,8 +153,7 @@ modlink-studio/
 │  ├─ modlink_sdk/
 │  ├─ modlink_core/
 │  ├─ modlink_ui/
-│  ├─ modlink_new_ui/
-│  └─ modlink_qt/
+│  └─ modlink_new_ui/
 ├─ plugins/
 ├─ vpdocs/
 └─ deprecated/
@@ -167,7 +166,6 @@ modlink-studio/
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: Qt UI 组件和页面
 - `packages/modlink_new_ui/`: QML UI
-- `packages/modlink_qt/`: 仅供 UI/适配层使用的 Qt 兼容包
 - `plugins/`: 官方插件源目录
 - `vpdocs/`: VitePress 文档站源码
 

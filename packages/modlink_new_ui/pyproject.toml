@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
+    "modlink-qt-bridge",
     "modlink-sdk",
     "numpy>=2.3.3",
     "pyqt6>=6.10.2",
@@ -20,6 +21,7 @@ Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/sim
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
+modlink-qt-bridge = { workspace = true }
 modlink-sdk = { workspace = true }
 
 [build-system]

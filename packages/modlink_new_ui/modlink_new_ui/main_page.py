@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal
 
-from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .acquisition import AcquisitionController
@@ -38,10 +37,10 @@ class MainPageController(QObject):
     previewsChanged = pyqtSignal()
     messageRaised = pyqtSignal(str)
 
-    def __init__(self, engine: ModLinkEngine, parent: QObject | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._engine = engine
-        self._settings = SettingsService.instance()
+        self._settings = engine.settings
         self._acquisition = AcquisitionController(engine, parent=self)
         self._previews: dict[str, _PreviewState] = {}
         self._refresh_timer = QTimer(self)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .cards import DetachableStreamPreviewCard
@@ -11,7 +11,7 @@ from .cards import DetachableStreamPreviewCard
 class StreamPreviewPanel(QWidget):
     def __init__(
         self,
-        engine: ModLinkEngine,
+        engine: QtModLinkBridge,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
@@ -64,7 +64,11 @@ class StreamPreviewPanel(QWidget):
         self._sync_container_visibility()
 
     def _add_card(self, descriptor: StreamDescriptor) -> None:
-        card = DetachableStreamPreviewCard(descriptor, self.cards_container)
+        card = DetachableStreamPreviewCard(
+            descriptor,
+            self.engine.settings,
+            self.cards_container,
+        )
         card.sig_detached_changed.connect(self._on_card_detached_changed)
         self._cards[descriptor.stream_id] = card
         self.cards_layout.addWidget(card)

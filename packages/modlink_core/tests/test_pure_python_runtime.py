@@ -6,6 +6,11 @@ import unittest
 import numpy as np
 
 from modlink_core.drivers import DriverPortal
+from modlink_core.events import (
+    BackendErrorEvent,
+    BackendEventQueue,
+    DriverStateChangedEvent,
+)
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -108,10 +113,14 @@ class DemoCallbackDriver(Driver):
 
 class PurePythonRuntimeTest(unittest.TestCase):
     def test_loop_driver_runs_on_pure_python_portal(self) -> None:
-        portal = DriverPortal(DemoLoopDriver)
+        events = BackendEventQueue()
         frames: list[FrameEnvelope] = []
+        portal = DriverPortal(
+            DemoLoopDriver,
+            event_queue=events,
+            frame_sink=frames.append,
+        )
 
-        portal.sig_frame.connect(frames.append)
         portal.start()
 
         connect_task = portal.connect_device(SearchResult(title="Demo Device"))
@@ -132,25 +141,33 @@ class PurePythonRuntimeTest(unittest.TestCase):
         self.assertEqual([0, 1, 2], [frame.seq for frame in frames[:3]])
 
     def test_driver_context_can_report_errors_without_qt(self) -> None:
-        portal = DriverPortal(DemoCallbackDriver)
+        events = BackendEventQueue()
+        portal = DriverPortal(DemoCallbackDriver, event_queue=events)
         errors: list[str] = []
-        states: list[object] = []
-
-        portal.sig_error.connect(errors.append)
-        portal.sig_state_changed.connect(states.append)
         portal.start()
 
         task = portal.search("demo")
         self.assertTrue(task.wait(1.0))
         self.assertIsNone(task.error)
+        errors.extend(
+            event.message
+            for event in events.drain()
+            if isinstance(event, BackendErrorEvent)
+        )
         self.assertTrue(errors)
 
         connect_task = portal.connect_device(SearchResult(title="Callback Device"))
         self.assertTrue(connect_task.wait(1.0))
         self.assertIsNone(connect_task.error)
 
+        states: list[object] = []
         deadline = time.time() + 1.0
         while not states and time.time() < deadline:
+            states.extend(
+                event.snapshot
+                for event in events.drain()
+                if isinstance(event, DriverStateChangedEvent)
+            )
             time.sleep(0.02)
 
         self.assertTrue(any("DRIVER_REPORTED_ERROR" in item for item in errors))

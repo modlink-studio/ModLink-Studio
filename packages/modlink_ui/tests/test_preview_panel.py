@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
-import tempfile
 import unittest
+from uuid import uuid4
 from pathlib import Path
 
 import numpy as np
@@ -16,22 +17,46 @@ for path in (
     PACKAGE_ROOT,
     WORKSPACE_ROOT / "packages" / "modlink_sdk",
     WORKSPACE_ROOT / "packages" / "modlink_core",
+    WORKSPACE_ROOT / "packages" / "modlink_qt_bridge",
 ):
     path_str = str(path)
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
+from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
-from modlink_core.bus.stream_bus import StreamBus
 from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 from modlink_ui.widgets.main.preview import StreamPreviewPanel
 
 
+class _BusStub(QObject):
+    sig_frame = pyqtSignal(object)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._descriptors: dict[str, StreamDescriptor] = {}
+
+    def add_descriptor(self, descriptor: StreamDescriptor) -> None:
+        self._descriptors[descriptor.stream_id] = descriptor
+
+    def add_descriptors(self, descriptors: tuple[StreamDescriptor, ...]) -> None:
+        for descriptor in descriptors:
+            self.add_descriptor(descriptor)
+
+    def descriptor(self, stream_id: str) -> StreamDescriptor | None:
+        return self._descriptors.get(stream_id)
+
+    def descriptors(self) -> dict[str, StreamDescriptor]:
+        return dict(self._descriptors)
+
+
 class _EngineStub:
-    def __init__(self, bus: StreamBus) -> None:
+    def __init__(self, bus: _BusStub, settings: QtSettingsBridge) -> None:
         self.bus = bus
+        self.settings = settings
 
 
 class StreamPreviewPanelTests(unittest.TestCase):
@@ -40,15 +65,19 @@ class StreamPreviewPanelTests(unittest.TestCase):
         cls._app = QApplication.instance() or QApplication([])
 
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()
+        test_tmp_root = WORKSPACE_ROOT / ".tmp-tests"
+        test_tmp_root.mkdir(exist_ok=True)
+        self._temp_dir = test_tmp_root / f"preview-panel-{uuid4().hex}"
+        self._temp_dir.mkdir()
         SettingsService._instance = None
         self._settings = SettingsService(
-            Path(self._temp_dir.name) / "preview-panel-settings.json"
+            self._temp_dir / "preview-panel-settings.json"
         )
+        self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:
         SettingsService._instance = None
-        self._temp_dir.cleanup()
+        shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     @staticmethod
     def _descriptor(modality: str, payload_type: str) -> StreamDescriptor:
@@ -63,24 +92,24 @@ class StreamPreviewPanelTests(unittest.TestCase):
         )
 
     def test_initial_snapshot_creates_cards_for_existing_descriptors(self) -> None:
-        bus = StreamBus()
+        bus = _BusStub()
         descriptors = (
             self._descriptor("video", "video"),
             self._descriptor("field", "field"),
         )
         bus.add_descriptors(descriptors)
 
-        panel = StreamPreviewPanel(_EngineStub(bus))
+        panel = StreamPreviewPanel(_EngineStub(bus, self._settings_bridge))
 
         self.assertEqual(set(panel._cards), {item.stream_id for item in descriptors})
         panel.close()
 
     def test_all_detached_cards_hide_embedded_container(self) -> None:
-        bus = StreamBus()
+        bus = _BusStub()
         descriptor = self._descriptor("video", "video")
         bus.add_descriptor(descriptor)
 
-        panel = StreamPreviewPanel(_EngineStub(bus))
+        panel = StreamPreviewPanel(_EngineStub(bus, self._settings_bridge))
         panel.show()
         self._app.processEvents()
         self.assertTrue(panel.cards_container.isVisible())
@@ -96,10 +125,10 @@ class StreamPreviewPanelTests(unittest.TestCase):
         panel.close()
 
     def test_late_stream_frame_raises_snapshot_violation(self) -> None:
-        bus = StreamBus()
+        bus = _BusStub()
         initial_descriptor = self._descriptor("video", "video")
         bus.add_descriptor(initial_descriptor)
-        panel = StreamPreviewPanel(_EngineStub(bus))
+        panel = StreamPreviewPanel(_EngineStub(bus, self._settings_bridge))
 
         late_descriptor = self._descriptor("aux_video", "video")
         bus.add_descriptor(late_descriptor)

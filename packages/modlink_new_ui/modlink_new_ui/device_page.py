@@ -4,17 +4,16 @@ from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.drivers import DriverPortal, DriverTask
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtDriverPortal, QtDriverTask, QtModLinkBridge
 from modlink_sdk import SearchResult
 
 
 @dataclass(slots=True)
 class _PortalState:
-    portal: DriverPortal
+    portal: QtDriverPortal
     selected_provider: str
     search_results: list[SearchResult] = field(default_factory=list)
-    pending_tasks: dict[str, DriverTask] = field(default_factory=dict)
+    pending_tasks: dict[str, QtDriverTask] = field(default_factory=dict)
     connected_result: SearchResult | None = None
     last_error_text: str = ""
 
@@ -29,7 +28,7 @@ class DevicePageController(QObject):
     portalsChanged = pyqtSignal()
     messageRaised = pyqtSignal(str)
 
-    def __init__(self, engine: ModLinkEngine, parent: QObject | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._states: dict[str, _PortalState] = {}
 
@@ -126,7 +125,7 @@ class DevicePageController(QObject):
         self,
         state: _PortalState,
         action: str,
-        task: DriverTask,
+        task: QtDriverTask,
         callback,
     ) -> None:
         state.pending_tasks[action] = task
@@ -141,7 +140,7 @@ class DevicePageController(QObject):
         task.sig_done.connect(_handle_done)
 
     def _on_search_done(
-        self, state: _PortalState, task: DriverTask, _action: str
+        self, state: _PortalState, task: QtDriverTask, _action: str
     ) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("search", task.error)
@@ -155,7 +154,7 @@ class DevicePageController(QObject):
         ]
 
     def _on_connect_done(
-        self, state: _PortalState, task: DriverTask, _action: str
+        self, state: _PortalState, task: QtDriverTask, _action: str
     ) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("connect", task.error)
@@ -170,7 +169,7 @@ class DevicePageController(QObject):
         )
 
     def _on_disconnect_done(
-        self, state: _PortalState, task: DriverTask, _action: str
+        self, state: _PortalState, task: QtDriverTask, _action: str
     ) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("disconnect", task.error)
@@ -182,7 +181,7 @@ class DevicePageController(QObject):
         )
 
     def _on_stream_toggle_done(
-        self, state: _PortalState, task: DriverTask, action: str
+        self, state: _PortalState, task: QtDriverTask, action: str
     ) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error(action, task.error)

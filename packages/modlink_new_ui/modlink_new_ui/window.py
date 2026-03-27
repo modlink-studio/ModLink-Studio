@@ -9,7 +9,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtWidgets import QApplication
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 
 from .app_controller import AppController
 
@@ -35,7 +35,7 @@ def create_application(argv: Sequence[str] | None = None) -> QApplication:
 
 
 def load_window(
-    engine: ModLinkEngine,
+    engine: QtModLinkBridge,
     *,
     parent: QObject | None = None,
 ) -> tuple[QQmlApplicationEngine, AppController]:

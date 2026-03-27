@@ -2,20 +2,12 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from platformdirs import user_data_path
 
-from modlink_sdk.signals import Signal
-
-
-@dataclass(slots=True)
-class SettingChangedEvent:
-    key: str
-    value: Any
-    ts: float
+from ..events import BackendEventQueue, SettingChangedEvent
 
 
 class SettingsService:
@@ -35,12 +27,14 @@ class SettingsService:
             raise RuntimeError(
                 "SettingsService already exists; use SettingsService.instance()"
             )
-        self.sig_setting_changed = Signal()
-        self.sig_settings_saved = Signal()
         self._parent = parent
         self._path = path or self._resolve_path()
         self._settings = self._read_payload()
+        self._event_queue: BackendEventQueue | None = None
         type(self)._instance = self
+
+    def attach_event_queue(self, event_queue: BackendEventQueue) -> None:
+        self._event_queue = event_queue
 
     def get(self, key: str, default: Any = None) -> Any:
         current = self._settings
@@ -60,9 +54,7 @@ class SettingsService:
                 current[part] = nested
             current = nested
         current[parts[-1]] = value
-        self.sig_setting_changed.emit(
-            SettingChangedEvent(key=key, value=value, ts=time.time())
-        )
+        self._publish_setting_changed(key=key, value=value)
         if persist:
             self.save()
 
@@ -77,9 +69,7 @@ class SettingsService:
         if parts[-1] not in current:
             return
         current.pop(parts[-1], None)
-        self.sig_setting_changed.emit(
-            SettingChangedEvent(key=key, value=None, ts=time.time())
-        )
+        self._publish_setting_changed(key=key, value=None)
         if persist:
             self.save()
 
@@ -92,7 +82,13 @@ class SettingsService:
             json.dumps(self._settings, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        self.sig_settings_saved.emit()
+
+    def _publish_setting_changed(self, *, key: str, value: Any) -> None:
+        if self._event_queue is None:
+            return
+        self._event_queue.publish(
+            SettingChangedEvent(key=key, value=value, ts=time.time())
+        )
 
     def _read_payload(self) -> dict[str, Any]:
         try:

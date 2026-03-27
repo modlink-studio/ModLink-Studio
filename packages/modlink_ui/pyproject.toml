@@ -7,6 +7,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
+    "modlink-qt-bridge",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
     "pyqtgraph>=0.13.7",
@@ -22,6 +23,7 @@ Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/sim
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
+modlink-qt-bridge = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

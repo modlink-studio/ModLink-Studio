@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel
 
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .base import BaseStreamView
@@ -13,12 +14,13 @@ class UnavailableStreamView(BaseStreamView):
     def __init__(
         self,
         descriptor: StreamDescriptor,
+        settings: QtSettingsBridge,
         *,
         reason: str,
         parent: QWidget | None = None,
     ) -> None:
         self._reason = reason
-        super().__init__(descriptor, parent=parent)
+        super().__init__(descriptor, settings, parent=parent)
         self._body = BodyLabel(reason, self)
         self._body.setWordWrap(True)
 

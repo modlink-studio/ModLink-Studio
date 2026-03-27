@@ -8,9 +8,15 @@ from pathlib import Path
 from platformdirs import user_documents_path
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
-from modlink_sdk.signals import Signal
 
 from ..bus import FrameSubscription, StreamBus
+from ..events import (
+    AcquisitionErrorEvent,
+    AcquisitionLifecycleEvent,
+    AcquisitionSnapshot,
+    AcquisitionStateChangedEvent,
+    BackendEventQueue,
+)
 from ..settings.service import SettingsService
 from .storage import RecordingStorage
 
@@ -24,12 +30,11 @@ class AcquisitionBackend:
         self,
         bus: StreamBus,
         *,
+        event_queue: BackendEventQueue,
         parent: object | None = None,
     ) -> None:
-        self.sig_error = Signal()
-        self.sig_event = Signal()
-        self.sig_state_changed = Signal()
         self._bus = bus
+        self._event_queue = event_queue
         self._parent = parent
         self._settings = SettingsService.instance()
         self._command_queue: queue.Queue[tuple[str, object | None]] = queue.Queue()
@@ -57,11 +62,19 @@ class AcquisitionBackend:
     def is_recording(self) -> bool:
         return self._state == "recording"
 
+    def snapshot(self) -> AcquisitionSnapshot:
+        return AcquisitionSnapshot(
+            state=self._state,
+            is_started=self.is_started,
+            is_recording=self.is_recording,
+            root_dir=str(self.root_dir),
+        )
+
     def start(self) -> None:
         if self.is_started:
             self._started = True
             return
-        self._frame_subscription = self._bus.subscribe(self._on_frame)
+        self._frame_subscription = self._bus.subscribe_frames(self._on_frame)
         thread = threading.Thread(
             target=self._run,
             name="modlink.acquisition",
@@ -77,7 +90,7 @@ class AcquisitionBackend:
         recording_label: str | None = None,
     ) -> None:
         if not self.is_started:
-            self.sig_error.emit("ACQ_NOT_STARTED")
+            self._publish_error("ACQ_NOT_STARTED")
             return
         self._command_queue.put(
             (
@@ -93,13 +106,13 @@ class AcquisitionBackend:
 
     def stop_recording(self) -> None:
         if not self.is_started:
-            self.sig_error.emit("ACQ_NOT_STARTED")
+            self._publish_error("ACQ_NOT_STARTED")
             return
         self._command_queue.put(("stop_recording", None))
 
     def add_marker(self, label: str | None = None) -> None:
         if not self.is_started:
-            self.sig_error.emit("ACQ_NOT_STARTED")
+            self._publish_error("ACQ_NOT_STARTED")
             return
         self._command_queue.put(("add_marker", label))
 
@@ -110,7 +123,7 @@ class AcquisitionBackend:
         label: str | None = None,
     ) -> None:
         if not self.is_started:
-            self.sig_error.emit("ACQ_NOT_STARTED")
+            self._publish_error("ACQ_NOT_STARTED")
             return
         self._command_queue.put(("add_segment", (start_ns, end_ns, label)))
 
@@ -121,16 +134,16 @@ class AcquisitionBackend:
 
         thread = self._thread
         if thread is None or not thread.is_alive():
-            self._state = "idle"
+            self._set_state("idle")
             self._started = False
             return
 
         self._command_queue.put(("shutdown", None))
         thread.join(max(0, timeout_ms) / 1000)
         if thread.is_alive():
-            self.sig_error.emit(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
+            self._publish_error(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
 
-        self._state = "idle"
+        self._set_state("idle")
         self._started = False
         self._thread = None
 
@@ -169,7 +182,7 @@ class AcquisitionBackend:
 
     def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
-            self.sig_error.emit(
+            self._publish_error(
                 f"ACQ_INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
             )
             return
@@ -179,7 +192,7 @@ class AcquisitionBackend:
         try:
             self._storage.append_frame(frame)
         except Exception as exc:
-            self.sig_error.emit(
+            self._publish_error(
                 f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
             )
 
@@ -191,18 +204,18 @@ class AcquisitionBackend:
         recording_descriptors: object,
     ) -> None:
         if self._storage is not None:
-            self.sig_error.emit("ACQ_ALREADY_RECORDING")
+            self._publish_error("ACQ_ALREADY_RECORDING")
             return
 
         if not session_name.strip():
-            self.sig_error.emit("ACQ_INVALID_SESSION_NAME")
+            self._publish_error("ACQ_INVALID_SESSION_NAME")
             return
 
         if not isinstance(recording_descriptors, dict) or not all(
             isinstance(value, StreamDescriptor)
             for value in recording_descriptors.values()
         ):
-            self.sig_error.emit("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
+            self._publish_error("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
             return
 
         started_at_ns = time.time_ns()
@@ -216,24 +229,26 @@ class AcquisitionBackend:
             )
         except Exception as exc:
             self._storage = None
-            self.sig_error.emit(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}")
+            self._publish_error(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}")
             return
 
         self._set_state("recording")
-        self.sig_event.emit(
-            {
-                "kind": "recording_started",
-                "session_name": session_name,
-                "recording_id": self._storage.recording_id,
-                "recording_path": str(self._storage.recording_dir),
-                "recording_label": recording_label or None,
-                "ts_ns": started_at_ns,
-            }
+        self._event_queue.publish(
+            AcquisitionLifecycleEvent(
+                name="recording_started",
+                payload={
+                    "session_name": session_name,
+                    "recording_id": self._storage.recording_id,
+                    "recording_path": str(self._storage.recording_dir),
+                    "recording_label": recording_label or None,
+                    "ts_ns": started_at_ns,
+                },
+            )
         )
 
     def _stop_recording_worker(self) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_STOP_IGNORED: not recording")
+            self._publish_error("ACQ_STOP_IGNORED: not recording")
             return
 
         stopped_at_ns = time.time_ns()
@@ -243,24 +258,26 @@ class AcquisitionBackend:
         try:
             storage.finalize(stopped_at_ns=stopped_at_ns)
         except Exception as exc:
-            self.sig_error.emit(f"ACQ_STOP_FAILED: {type(exc).__name__}: {exc}")
+            self._publish_error(f"ACQ_STOP_FAILED: {type(exc).__name__}: {exc}")
         finally:
             self._set_state("idle")
 
-        self.sig_event.emit(
-            {
-                "kind": "recording_stopped",
-                "session_name": storage.session_name,
-                "recording_id": storage.recording_id,
-                "recording_path": str(storage.recording_dir),
-                "frame_counts_by_stream": storage.frame_counts_by_stream,
-                "ts_ns": stopped_at_ns,
-            }
+        self._event_queue.publish(
+            AcquisitionLifecycleEvent(
+                name="recording_stopped",
+                payload={
+                    "session_name": storage.session_name,
+                    "recording_id": storage.recording_id,
+                    "recording_path": str(storage.recording_dir),
+                    "frame_counts_by_stream": storage.frame_counts_by_stream,
+                    "ts_ns": stopped_at_ns,
+                },
+            )
         )
 
     def _add_marker_worker(self, label: object) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_MARKER_REJECTED: not recording")
+            self._publish_error("ACQ_MARKER_REJECTED: not recording")
             return
 
         timestamp_ns = time.time_ns()
@@ -268,17 +285,19 @@ class AcquisitionBackend:
         try:
             self._storage.add_marker(timestamp_ns=timestamp_ns, label=normalized_label)
         except Exception as exc:
-            self.sig_error.emit(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}")
+            self._publish_error(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}")
             return
 
-        self.sig_event.emit(
-            {
-                "kind": "marker_added",
-                "session_name": self._storage.session_name,
-                "recording_id": self._storage.recording_id,
-                "timestamp_ns": timestamp_ns,
-                "label": normalized_label,
-            }
+        self._event_queue.publish(
+            AcquisitionLifecycleEvent(
+                name="marker_added",
+                payload={
+                    "session_name": self._storage.session_name,
+                    "recording_id": self._storage.recording_id,
+                    "timestamp_ns": timestamp_ns,
+                    "label": normalized_label,
+                },
+            )
         )
 
     def _add_segment_worker(
@@ -288,18 +307,18 @@ class AcquisitionBackend:
         label: object,
     ) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_SEGMENT_REJECTED: not recording")
+            self._publish_error("ACQ_SEGMENT_REJECTED: not recording")
             return
 
         try:
             start_value = int(start_ns)
             end_value = int(end_ns)
         except (TypeError, ValueError):
-            self.sig_error.emit("ACQ_INVALID_SEGMENT_RANGE")
+            self._publish_error("ACQ_INVALID_SEGMENT_RANGE")
             return
 
         if start_value > end_value:
-            self.sig_error.emit("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
+            self._publish_error("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
             return
 
         normalized_label = label or None
@@ -310,18 +329,20 @@ class AcquisitionBackend:
                 label=normalized_label,
             )
         except Exception as exc:
-            self.sig_error.emit(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}")
+            self._publish_error(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}")
             return
 
-        self.sig_event.emit(
-            {
-                "kind": "segment_added",
-                "session_name": self._storage.session_name,
-                "recording_id": self._storage.recording_id,
-                "start_ns": start_value,
-                "end_ns": end_value,
-                "label": normalized_label,
-            }
+        self._event_queue.publish(
+            AcquisitionLifecycleEvent(
+                name="segment_added",
+                payload={
+                    "session_name": self._storage.session_name,
+                    "recording_id": self._storage.recording_id,
+                    "start_ns": start_value,
+                    "end_ns": end_value,
+                    "label": normalized_label,
+                },
+            )
         )
 
     def _shutdown_worker(self) -> None:
@@ -333,7 +354,12 @@ class AcquisitionBackend:
             if state == self._state:
                 return
             self._state = state
-        self.sig_state_changed.emit(state)
+        self._event_queue.publish(
+            AcquisitionStateChangedEvent(snapshot=self.snapshot())
+        )
+
+    def _publish_error(self, message: str) -> None:
+        self._event_queue.publish(AcquisitionErrorEvent(message=message))
 
 
 def _default_root_dir() -> Path:

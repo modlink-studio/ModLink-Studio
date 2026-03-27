@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import BodyLabel, StrongBodyLabel
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui.widgets.device import create_device_control_panel
 from modlink_ui.widgets.shared import BasePage
 
@@ -13,7 +13,7 @@ class DevicePage(BasePage):
 
     def __init__(
         self,
-        engine: ModLinkEngine,
+        engine: QtModLinkBridge,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(

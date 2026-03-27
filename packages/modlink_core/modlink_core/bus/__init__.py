@@ -1,3 +1,3 @@
-from .stream_bus import FrameSubscription, StreamBus
+from .stream_bus import DescriptorSubscription, FrameSubscription, StreamBus
 
-__all__ = ["FrameSubscription", "StreamBus"]
+__all__ = ["DescriptorSubscription", "FrameSubscription", "StreamBus"]

@@ -6,6 +6,7 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from modlink_core import ModLinkEngine, SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_new_ui import create_application, load_window
 
 
@@ -15,7 +16,8 @@ class QmlSmokeTest(unittest.TestCase):
         if SettingsService._instance is None:
             SettingsService(parent=app)
         runtime = ModLinkEngine(parent=app)
-        qml_engine, controller = load_window(runtime, parent=app)
+        bridge = QtModLinkBridge(runtime, parent=app)
+        qml_engine, controller = load_window(bridge, parent=app)
         app.processEvents()
 
         self.assertTrue(qml_engine.rootObjects())
@@ -23,7 +25,7 @@ class QmlSmokeTest(unittest.TestCase):
 
         for obj in qml_engine.rootObjects():
             obj.deleteLater()
-        runtime.shutdown()
+        bridge.shutdown()
 
 
 if __name__ == "__main__":

@@ -6,16 +6,16 @@ from PyQt6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import FluentIcon as FIF, PushSettingCard
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 
 
 class SaveDirectoryCard(PushSettingCard):
     def __init__(
         self,
+        settings: QtSettingsBridge,
         default_dir: str | Path,
         parent: QWidget | None = None,
     ) -> None:
-        settings = SettingsService.instance()
         default_dir_str = str(Path(default_dir).expanduser())
         configured = settings.get(ACQUISITION_ROOT_DIR_KEY)
         initial_save_dir = str(Path(configured or default_dir_str).expanduser())

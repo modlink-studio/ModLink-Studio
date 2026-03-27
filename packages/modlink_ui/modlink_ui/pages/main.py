@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
 from PyQt6.QtWidgets import QWidget
 
-from modlink_core.runtime.engine import ModLinkEngine
+from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui.widgets.main.acquisition import AcquisitionControlPanel
 from modlink_ui.widgets.main.preview import StreamPreviewPanel
 from modlink_ui.widgets.shared import BasePage
@@ -12,7 +12,7 @@ from modlink_ui.widgets.shared import BasePage
 class MainPage(BasePage):
     """Realtime preview page for the ModLink Studio UI."""
 
-    def __init__(self, engine: ModLinkEngine, parent: QWidget | None = None) -> None:
+    def __init__(self, engine: QtModLinkBridge, parent: QWidget | None = None) -> None:
         super().__init__(
             page_key="main-page",
             title="实时展示",

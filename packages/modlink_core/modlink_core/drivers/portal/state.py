@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from modlink_sdk.signals import Signal
-
 
 class DeviceState:
     def __init__(
@@ -11,8 +9,6 @@ class DeviceState:
         display_name: str,
         parent: object | None = None,
     ) -> None:
-        self.sig_state_changed = Signal()
-        self.sig_connection_lost = Signal()
         self._parent = parent
         self._device_id = device_id
         self._display_name = display_name
@@ -78,7 +74,6 @@ class DeviceState:
             status="connection_lost",
             status_detail=detail,
         )
-        self.sig_connection_lost.emit(detail)
 
     def _mark_status(self, status: str, detail: object | None) -> None:
         self._set_state(status=status, status_detail=detail)
@@ -114,4 +109,3 @@ class DeviceState:
         self._is_streaming = next_is_streaming
         self._status = next_status
         self._status_detail = next_status_detail
-        self.sig_state_changed.emit(self)

@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from modlink_sdk import DriverFactory, SearchResult, StreamDescriptor
-from modlink_sdk.signals import Signal
+from modlink_sdk import FrameEnvelope
+
+from ...events import (
+    BackendErrorEvent,
+    BackendEventQueue,
+    DriverSnapshot,
+    DriverStateChangedEvent,
+    DriverTaskFinishedEvent,
+)
 
 from .runtime import DriverRuntime
 from .state import DeviceState
@@ -15,16 +25,20 @@ class DriverPortal:
         self,
         driver_factory: DriverFactory,
         *,
+        event_queue: BackendEventQueue,
+        frame_sink: Callable[[FrameEnvelope], None] | None = None,
         thread_name: str | None = None,
         parent: object | None = None,
     ) -> None:
-        self.sig_error = Signal()
-        self.sig_frame = Signal()
-        self.sig_state_changed = Signal()
-        self.sig_connection_lost = Signal()
         self._parent = parent
+        self._event_queue = event_queue
+        self._frame_sink = frame_sink
         self._runtime = DriverRuntime(
             driver_factory,
+            on_error=self._on_runtime_error,
+            on_frame=self._on_runtime_frame,
+            on_connection_lost=self._on_runtime_connection_lost,
+            on_status_changed=self._on_runtime_status_changed,
             thread_name=thread_name,
             parent=parent,
         )
@@ -33,14 +47,6 @@ class DriverPortal:
             display_name=self._runtime.display_name,
             parent=parent,
         )
-
-        self._runtime.sig_error.connect(self.sig_error.emit)
-        self._runtime.sig_frame.connect(self.sig_frame.emit)
-        self._runtime.sig_connection_lost.connect(self._state._mark_connection_lost)
-        self._runtime.sig_status_changed.connect(self._state._mark_status)
-
-        self._state.sig_state_changed.connect(self.sig_state_changed.emit)
-        self._state.sig_connection_lost.connect(self.sig_connection_lost.emit)
 
     @property
     def driver_id(self) -> str:
@@ -70,51 +76,109 @@ class DriverPortal:
     def state(self) -> DeviceState:
         return self._state
 
+    def snapshot(self) -> DriverSnapshot:
+        return DriverSnapshot(
+            driver_id=self.driver_id,
+            display_name=self.display_name,
+            supported_providers=self.supported_providers,
+            is_running=self.is_running,
+            is_connected=self.is_connected,
+            is_streaming=self.is_streaming,
+            status=self._state.status,
+            status_detail=self._state.status_detail,
+        )
+
     def descriptors(self) -> list[StreamDescriptor]:
         return self._runtime.descriptors()
 
     def start(self) -> None:
         self._runtime.start()
+        self._publish_state_changed()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
         self._runtime.stop(timeout_ms=timeout_ms)
         self._state._mark_disconnected()
+        self._publish_state_changed()
 
     def search(self, provider: str) -> DriverTask:
-        return self._runtime.search(provider)
+        task = self._runtime.search(provider)
+        task.add_done_callback(self._publish_task_finished)
+        return task
 
     def connect_device(self, config: SearchResult) -> DriverTask:
         task = self._runtime.connect_device(config)
-        task.sig_done.connect(lambda: self._on_connect_done(task))
+        task.add_done_callback(self._on_connect_done)
         return task
 
     def disconnect_device(self) -> DriverTask:
         task = self._runtime.disconnect_device()
-        task.sig_done.connect(lambda: self._on_disconnect_done(task))
+        task.add_done_callback(self._on_disconnect_done)
         return task
 
     def start_streaming(self) -> DriverTask:
         task = self._runtime.start_streaming()
-        task.sig_done.connect(lambda: self._on_start_streaming_done(task))
+        task.add_done_callback(self._on_start_streaming_done)
         return task
 
     def stop_streaming(self) -> DriverTask:
         task = self._runtime.stop_streaming()
-        task.sig_done.connect(lambda: self._on_stop_streaming_done(task))
+        task.add_done_callback(self._on_stop_streaming_done)
         return task
 
     def _on_connect_done(self, task: DriverTask) -> None:
         if task.error is None:
             self._state._mark_connected()
+            self._publish_state_changed()
+        self._publish_task_finished(task)
 
     def _on_disconnect_done(self, task: DriverTask) -> None:
         if task.error is None:
             self._state._mark_disconnected()
+            self._publish_state_changed()
+        self._publish_task_finished(task)
 
     def _on_start_streaming_done(self, task: DriverTask) -> None:
         if task.error is None:
             self._state._mark_streaming_started()
+            self._publish_state_changed()
+        self._publish_task_finished(task)
 
     def _on_stop_streaming_done(self, task: DriverTask) -> None:
         if task.error is None:
             self._state._mark_streaming_stopped()
+            self._publish_state_changed()
+        self._publish_task_finished(task)
+
+    def _on_runtime_frame(self, frame: FrameEnvelope) -> None:
+        if self._frame_sink is not None:
+            self._frame_sink(frame)
+
+    def _on_runtime_connection_lost(self, detail: object) -> None:
+        self._state._mark_connection_lost(detail)
+        self._publish_state_changed()
+
+    def _on_runtime_status_changed(self, status: str, detail: object | None) -> None:
+        self._state._mark_status(status, detail)
+        self._publish_state_changed()
+
+    def _on_runtime_error(self, message: str) -> None:
+        self._event_queue.publish(
+            BackendErrorEvent(source=f"driver:{self.driver_id}", message=message)
+        )
+
+    def _publish_state_changed(self) -> None:
+        self._event_queue.publish(DriverStateChangedEvent(snapshot=self.snapshot()))
+
+    def _publish_task_finished(self, task: DriverTask) -> None:
+        error_message = None if task.error is None else str(task.error)
+        self._event_queue.publish(
+            DriverTaskFinishedEvent(
+                driver_id=self.driver_id,
+                task_id=task.task_id,
+                action=task.action,
+                state=task.state,
+                request=task.request,
+                result=task.result,
+                error_message=error_message,
+            )
+        )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY
-from modlink_core.settings.service import SettingsService
+from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
     DEFAULT_LABELS,
@@ -23,9 +23,13 @@ class SettingsPageController(QObject):
     labelsChanged = pyqtSignal()
     messageRaised = pyqtSignal(str)
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        engine: QtModLinkBridge,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
-        self._settings = SettingsService.instance()
+        self._settings = engine.settings
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=saveDirectoryChanged)

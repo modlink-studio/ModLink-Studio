@@ -25,7 +25,7 @@ from qfluentwidgets import (
     qconfig,
 )
 
-from modlink_core.drivers import DriverPortal, DriverTask
+from modlink_qt_bridge import QtDriverPortal, QtDriverTask
 from modlink_sdk import SearchResult
 
 
@@ -212,14 +212,14 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
 
     def __init__(
         self,
-        portal: DriverPortal,
+        portal: QtDriverPortal,
         parent: QWidget | None = None,
     ) -> None:
         self.portal = portal
         self._providers = tuple(portal.supported_providers)
         self._selected_provider = self._providers[0] if self._providers else ""
         self._search_results: list[SearchResult] = []
-        self._pending_tasks: dict[str, DriverTask] = {}
+        self._pending_tasks: dict[str, QtDriverTask] = {}
         self._connected_result: SearchResult | None = None
         self._has_searched = False
         self._last_error_text = ""
@@ -430,8 +430,8 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
     def _bind_task(
         self,
         action: str,
-        task: DriverTask,
-        callback: Callable[[DriverTask], None],
+        task: QtDriverTask,
+        callback: Callable[[QtDriverTask], None],
     ) -> None:
         self._pending_tasks[action] = task
 
@@ -445,14 +445,14 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
 
         task.sig_done.connect(_handle_done)
 
-    def _on_search_task_done(self, task: DriverTask) -> None:
+    def _on_search_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
             self._last_error_text = self._format_task_error("search", task.error)
             self._search_results.clear()
             return
         self._search_results = self._coerce_search_results(task.result)
 
-    def _on_connect_task_done(self, task: DriverTask) -> None:
+    def _on_connect_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
             self._last_error_text = self._format_task_error("connect", task.error)
             return
@@ -460,19 +460,19 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
             self._connected_result = task.request
         self._search_results.clear()
 
-    def _on_disconnect_task_done(self, task: DriverTask) -> None:
+    def _on_disconnect_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
             self._last_error_text = self._format_task_error("disconnect", task.error)
             return
         self._connected_result = None
 
-    def _on_start_streaming_task_done(self, task: DriverTask) -> None:
+    def _on_start_streaming_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
             self._last_error_text = self._format_task_error(
                 "start_streaming", task.error
             )
 
-    def _on_stop_streaming_task_done(self, task: DriverTask) -> None:
+    def _on_stop_streaming_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
             self._last_error_text = self._format_task_error(
                 "stop_streaming", task.error
