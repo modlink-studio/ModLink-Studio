@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PyQt6.QtCore import QSize
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
@@ -44,6 +45,7 @@ class DetachableStreamPreviewCard(QWidget):
         super().__init__(parent=parent)
         self.descriptor = descriptor
         self._is_detached = False
+        self._detached_size: QSize | None = None
         self._detached_window = _DetachedPreviewWindow(title)
         self._detached_window.sig_close_requested.connect(
             lambda: self._set_detached(False)
@@ -108,8 +110,9 @@ class DetachableStreamPreviewCard(QWidget):
         if detached == self._is_detached:
             return
 
+        self._set_stream_view_embedded_mode(not detached)
         if detached:
-            size = self.card.size()
+            size = self._detached_size or self.card.size()
             if size.width() <= 0 or size.height() <= 0:
                 size = self.card.sizeHint()
             self._move_content(
@@ -124,6 +127,7 @@ class DetachableStreamPreviewCard(QWidget):
             self._detached_window.raise_()
             self._detached_window.activateWindow()
         else:
+            self._detached_size = self._detached_window.size()
             self._move_content(self._embedded_container, self._embedded_layout)
             self._detached_window.hide()
 
@@ -131,7 +135,13 @@ class DetachableStreamPreviewCard(QWidget):
         self._embedded_container.setVisible(not detached)
         self.setVisible(not detached)
         self.updateGeometry()
+        self.card.updateGeometry()
         self.popout_button.setIcon(
             FIF.BACK_TO_WINDOW if self._is_detached else FIF.FULL_SCREEN
         )
         self.sig_detached_changed.emit(detached)
+
+    def _set_stream_view_embedded_mode(self, embedded: bool) -> None:
+        setter = getattr(self.card.stream_view, "set_embedded_mode", None)
+        if callable(setter):
+            setter(embedded)

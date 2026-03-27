@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QVBoxLayout
 
 import pyqtgraph as pg
@@ -12,6 +13,12 @@ from scipy import signal as sp_signal
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .base import BaseStreamView
+from .signal_layout import (
+    EMBEDDED_SIGNAL_PLOT_HEIGHT,
+    compute_expanded_signal_ranges,
+    compute_stacked_signal_range,
+    resolve_signal_view_height,
+)
 
 DEFAULT_SIGNAL_WINDOW_SECONDS = 8
 SIGNAL_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
@@ -28,6 +35,13 @@ class _SignalFilterSpec:
     notch_frequencies_hz: tuple[float, ...] = ()
     notch_q: float = 30.0
     chebyshev1_ripple_db: float = 1.0
+
+
+@dataclass(slots=True)
+class _SignalPlotBundle:
+    plot_item: pg.PlotItem
+    curves: list[object]
+    channel_indices: tuple[int, ...]
 
 
 class _SignalFilterPipeline:
@@ -178,8 +192,8 @@ class _SignalFilterPipeline:
         return result
 
 
-class _NonInteractivePlotWidget(pg.PlotWidget):
-    def wheelEvent(self, event):
+class _NonInteractiveViewBox(pg.ViewBox):
+    def wheelEvent(self, event) -> None:
         event.ignore()
 
 
@@ -220,7 +234,8 @@ class _SignalRingBuffer:
         if not self.full:
             return self.data[:, : self.ptr]
         return np.concatenate(
-            (self.data[:, self.ptr :], self.data[:, : self.ptr]), axis=1
+            (self.data[:, self.ptr :], self.data[:, : self.ptr]),
+            axis=1,
         )
 
     def clear(self):
@@ -269,25 +284,30 @@ class SignalStreamView(BaseStreamView):
         self._max_samples = self._compute_max_samples(self._window_seconds)
         self._channel_names = tuple(descriptor.channel_names)
         self._ring_buffer: _SignalRingBuffer | None = None
-        self._curves: list[object] = []
-        self._antialias_enabled = False  # Disabled by default for better performance
+        self._plot_bundles: list[_SignalPlotBundle] = []
+        self._antialias_enabled = False
         self._auto_downsample_enabled = True
+        self._layout_mode = "expanded"
+        self._visible_channel_indices: tuple[int, ...] = ()
         self._y_range_mode = "auto"
         self._manual_y_min = -1.0
         self._manual_y_max = 1.0
+        self._embedded_mode = True
+        self._plot_signature: tuple[int, str, tuple[int, ...]] | None = None
+        self._plot_height = EMBEDDED_SIGNAL_PLOT_HEIGHT
         self._filter_spec = _SignalFilterSpec()
         self._pipeline = _SignalFilterPipeline(sample_rate_hz=self._sample_rate_hz)
         self._pipeline.configure(self._filter_spec)
 
-        self._plot_widget = _NonInteractivePlotWidget(self)
+        self._graphics_widget = pg.GraphicsLayoutWidget(self)
+        self._graphics_widget.setBackground("#FFFFFF")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._plot_widget, 1)
-        self._configure_plot()
+        layout.addWidget(self._graphics_widget, 1)
 
-        self.setMinimumHeight(260)
+        self._refresh_view_geometry()
 
     @property
     def window_seconds(self) -> int:
@@ -302,6 +322,18 @@ class SignalStreamView(BaseStreamView):
         self._antialias_enabled = bool(
             getattr(settings, "antialias_enabled", self._antialias_enabled)
         )
+
+        layout_mode = self._coerce_str(
+            getattr(settings, "layout_mode", self._layout_mode),
+            fallback=self._layout_mode,
+        )
+        self._layout_mode = (
+            layout_mode if layout_mode in {"stacked", "expanded"} else "expanded"
+        )
+        self._visible_channel_indices = self._coerce_int_tuple(
+            getattr(settings, "visible_channel_indices", self._visible_channel_indices),
+        )
+
         y_range_mode = self._coerce_str(
             getattr(settings, "y_range_mode", self._y_range_mode),
             fallback=self._y_range_mode,
@@ -317,14 +349,35 @@ class SignalStreamView(BaseStreamView):
             getattr(settings, "manual_y_max", self._manual_y_max),
             fallback=self._manual_y_max,
         )
+
         self._auto_downsample_enabled = True
+        self._plot_signature = None
         self._apply_render_quality()
+        self._refresh_view_geometry()
+
+        if self._ring_buffer is not None:
+            self._ensure_plot_layout(self._ring_buffer.channels)
 
         next_spec = self._extract_filter_spec(settings)
         if next_spec != self._filter_spec:
             self._filter_spec = next_spec
             self._pipeline.configure(self._filter_spec)
             self._reset_signal_state()
+        elif self.has_frame:
+            self._dirty = True
+
+    def set_embedded_mode(self, embedded: bool) -> None:
+        if self._embedded_mode == bool(embedded):
+            return
+        self._embedded_mode = bool(embedded)
+        self._refresh_view_geometry()
+
+    def sizeHint(self) -> QSize:
+        return QSize(640, self._preferred_height())
+
+    def minimumSizeHint(self) -> QSize:
+        minimum_height = self._preferred_height() if self._embedded_mode else self._plot_height
+        return QSize(320, minimum_height)
 
     def _compute_max_samples(self, window_seconds: int) -> int:
         return max(
@@ -348,41 +401,23 @@ class SignalStreamView(BaseStreamView):
         if self.has_frame:
             self._dirty = True
 
-    def _configure_plot(self) -> None:
-        assert self._plot_widget is not None
-        self._plot_widget.setBackground("#FFFFFF")
-        self._plot_widget.showGrid(x=True, y=True, alpha=0.16)
-        self._plot_widget.setMenuEnabled(False)
-        self._plot_widget.setMouseEnabled(x=False, y=False)
-        self._plot_widget.hideButtons()
-        self._plot_widget.setAntialiasing(self._antialias_enabled)
-
-        plot_item = self._plot_widget.getPlotItem()
-        plot_item.setClipToView(True)
-        plot_item.setDownsampling(
-            ds=1,
-            auto=self._auto_downsample_enabled,
-            mode="peak",
-        )
-        plot_item.setLabel("bottom", "时间", units="s")
-
     def _apply_render_quality(self) -> None:
-        self._plot_widget.setAntialiasing(self._antialias_enabled)
-        plot_item = self._plot_widget.getPlotItem()
-        plot_item.setDownsampling(
-            ds=1,
-            auto=self._auto_downsample_enabled,
-            mode="peak",
-        )
-        for curve in self._curves:
-            curve.opts["antialias"] = self._antialias_enabled
-            curve.setDownsampling(
+        for plot_bundle in self._plot_bundles:
+            plot_bundle.plot_item.setDownsampling(
                 ds=1,
                 auto=self._auto_downsample_enabled,
-                method="peak",
+                mode="peak",
             )
-            curve.setClipToView(self._auto_downsample_enabled)
-            curve.updateItems(styleUpdate=True)
+            plot_bundle.plot_item.setClipToView(True)
+            for curve in plot_bundle.curves:
+                curve.opts["antialias"] = self._antialias_enabled
+                curve.setDownsampling(
+                    ds=1,
+                    auto=self._auto_downsample_enabled,
+                    method="peak",
+                )
+                curve.setClipToView(self._auto_downsample_enabled)
+                curve.updateItems(styleUpdate=True)
         if self.has_frame:
             self._dirty = True
 
@@ -396,26 +431,11 @@ class SignalStreamView(BaseStreamView):
             return
 
         self._ring_buffer = _SignalRingBuffer(channel_count, self._max_samples)
-        if len(self._channel_names) != channel_count:
-            self._channel_names = tuple(
-                f"ch{index + 1}" for index in range(channel_count)
-            )
-
-        plot_item = self._plot_widget.getPlotItem()
-        for curve in self._curves:
-            plot_item.removeItem(curve)
-        self._curves.clear()
-
-        for index in range(channel_count):
-            curve = plot_item.plot(
-                pen=pg.mkPen(self._colors[index % len(self._colors)], width=1.5),
-                antialias=self._antialias_enabled,
-                autoDownsample=self._auto_downsample_enabled,
-                downsample=1,
-                downsampleMethod="peak",
-                clipToView=self._auto_downsample_enabled,
-            )
-            self._curves.append(curve)
+        self._channel_names = tuple(
+            self._channel_names[index] if index < len(self._channel_names) else f"ch{index + 1}"
+            for index in range(channel_count)
+        )
+        self._plot_signature = None
 
     def _ingest_frame(self, frame: FrameEnvelope) -> bool:
         data = np.asarray(frame.data)
@@ -446,51 +466,220 @@ class SignalStreamView(BaseStreamView):
         if sample_count <= 0:
             return
 
-        trimmed = [linear[index] for index in range(int(linear.shape[0]))]
+        visible_channel_indices = self._ensure_plot_layout(int(linear.shape[0]))
+        if not visible_channel_indices:
+            return
+
         time_axis = (
             np.arange(sample_count, dtype=np.float32) - float(sample_count - 1)
         ) / np.float32(self._sample_rate_hz)
 
-        peak = max(
-            float(np.percentile(np.abs(values), 95)) if values.size else 0.0
-            for values in trimmed
-        )
-        spacing = max(peak * 3.5, 1.0)
-        ticks: list[tuple[float, str]] = []
-        top_offset = float((len(trimmed) - 1) * spacing)
+        if self._layout_mode == "stacked":
+            self._render_stacked(linear, time_axis, visible_channel_indices)
+        else:
+            self._render_expanded(linear, time_axis, visible_channel_indices)
 
-        for index, values in enumerate(trimmed):
-            offset = top_offset - float(index) * spacing
-            self._curves[index].setData(time_axis, values + offset)
-            label = (
-                self._channel_names[index]
-                if index < len(self._channel_names)
-                else f"ch{index + 1}"
-            )
-            ticks.append((offset, label))
+    def _render_stacked(
+        self,
+        linear: np.ndarray,
+        time_axis: np.ndarray,
+        visible_channel_indices: tuple[int, ...],
+    ) -> None:
+        if not self._plot_bundles:
+            return
+        plot_bundle = self._plot_bundles[0]
+        for curve, channel_index in zip(plot_bundle.curves, visible_channel_indices):
+            curve.setData(time_axis, linear[channel_index])
 
-        plot_item = self._plot_widget.getPlotItem()
-        plot_item.getAxis("left").setTicks([ticks])
-        plot_item.setXRange(float(time_axis[0]), 0.0, padding=0.0)
+        plot_bundle.plot_item.setXRange(float(time_axis[0]), 0.0, padding=0.0)
+        lower, upper = self._resolve_stacked_y_range(linear, visible_channel_indices)
+        plot_bundle.plot_item.setYRange(lower, upper, padding=0.0)
+
+    def _render_expanded(
+        self,
+        linear: np.ndarray,
+        time_axis: np.ndarray,
+        visible_channel_indices: tuple[int, ...],
+    ) -> None:
+        if not self._plot_bundles:
+            return
+
+        channel_values = [linear[index] for index in visible_channel_indices]
         if self._y_range_mode == "manual":
-            plot_item.setYRange(
-                float(min(self._manual_y_min, self._manual_y_max)),
-                float(max(self._manual_y_min, self._manual_y_max)),
-                padding=0.0,
+            manual_range = self._manual_y_range()
+            y_ranges = [manual_range for _ in channel_values]
+        else:
+            y_ranges = compute_expanded_signal_ranges(channel_values)
+
+        for plot_bundle, channel_index, y_range in zip(
+            self._plot_bundles,
+            visible_channel_indices,
+            y_ranges,
+        ):
+            plot_bundle.curves[0].setData(time_axis, linear[channel_index])
+            plot_bundle.plot_item.setXRange(float(time_axis[0]), 0.0, padding=0.0)
+            plot_bundle.plot_item.setYRange(y_range[0], y_range[1], padding=0.0)
+
+    def _resolve_stacked_y_range(
+        self,
+        linear: np.ndarray,
+        visible_channel_indices: tuple[int, ...],
+    ) -> tuple[float, float]:
+        if self._y_range_mode == "manual":
+            return self._manual_y_range()
+        stacked_values = np.asarray([linear[index] for index in visible_channel_indices])
+        return compute_stacked_signal_range(stacked_values)
+
+    def _manual_y_range(self) -> tuple[float, float]:
+        return (
+            float(min(self._manual_y_min, self._manual_y_max)),
+            float(max(self._manual_y_min, self._manual_y_max)),
+        )
+
+    def _ensure_plot_layout(self, channel_count: int) -> tuple[int, ...]:
+        visible_channel_indices = self._effective_visible_channel_indices(channel_count)
+        signature = (channel_count, self._layout_mode, visible_channel_indices)
+        if signature == self._plot_signature:
+            return visible_channel_indices
+
+        self._graphics_widget.clear()
+        self._plot_bundles.clear()
+        self._plot_signature = signature
+
+        if channel_count <= 0 or not visible_channel_indices:
+            self._refresh_view_geometry()
+            return visible_channel_indices
+
+        if self._layout_mode == "stacked":
+            plot_item = self._create_plot_item(show_bottom_axis=True)
+            curves: list[object] = []
+            legend = plot_item.addLegend(offset=(8, 8))
+            for channel_index in visible_channel_indices:
+                curve = self._create_curve(plot_item, channel_index)
+                curves.append(curve)
+                legend.addItem(curve, self._channel_label(channel_index))
+            self._plot_bundles.append(
+                _SignalPlotBundle(
+                    plot_item=plot_item,
+                    curves=curves,
+                    channel_indices=visible_channel_indices,
+                )
             )
         else:
-            y_min = float("inf")
-            y_max = float("-inf")
-            for index, values in enumerate(trimmed):
-                offset = top_offset - float(index) * spacing
-                shifted = values + offset
-                y_min = min(y_min, float(np.min(shifted)))
-                y_max = max(y_max, float(np.max(shifted)))
-            if not np.isfinite(y_min) or not np.isfinite(y_max):
-                y_min, y_max = -spacing, top_offset + spacing
-            span = max(y_max - y_min, 1e-6)
-            padding = max(span * 0.08, spacing * 0.1, 1e-3)
-            plot_item.setYRange(y_min - padding, y_max + padding, padding=0.0)
+            first_plot: pg.PlotItem | None = None
+            for row, channel_index in enumerate(visible_channel_indices):
+                show_bottom_axis = row == len(visible_channel_indices) - 1
+                plot_item = self._create_plot_item(show_bottom_axis=show_bottom_axis)
+                plot_item.setTitle(
+                    self._channel_label(channel_index),
+                    color="#666666",
+                    size="10pt",
+                )
+                if first_plot is None:
+                    first_plot = plot_item
+                else:
+                    plot_item.setXLink(first_plot)
+                curve = self._create_curve(plot_item, channel_index)
+                self._plot_bundles.append(
+                    _SignalPlotBundle(
+                        plot_item=plot_item,
+                        curves=[curve],
+                        channel_indices=(channel_index,),
+                    )
+                )
+                if row < len(visible_channel_indices) - 1:
+                    self._graphics_widget.nextRow()
+
+        self._apply_render_quality()
+        self._refresh_view_geometry()
+        return visible_channel_indices
+
+    def _create_plot_item(self, show_bottom_axis: bool) -> pg.PlotItem:
+        plot_item = self._graphics_widget.addPlot(viewBox=_NonInteractiveViewBox())
+        plot_item.setMenuEnabled(False)
+        plot_item.showGrid(x=True, y=True, alpha=0.16)
+        plot_item.hideButtons()
+        plot_item.setClipToView(True)
+        plot_item.setDownsampling(
+            ds=1,
+            auto=self._auto_downsample_enabled,
+            mode="peak",
+        )
+
+        view_box = plot_item.getViewBox()
+        view_box.setMenuEnabled(False)
+        view_box.setMouseEnabled(x=False, y=False)
+
+        if show_bottom_axis:
+            plot_item.showAxis("bottom")
+            plot_item.setLabel("bottom", "时间", units="s")
+        else:
+            plot_item.hideAxis("bottom")
+        return plot_item
+
+    def _create_curve(self, plot_item: pg.PlotItem, channel_index: int) -> object:
+        return plot_item.plot(
+            pen=pg.mkPen(self._colors[channel_index % len(self._colors)], width=1.5),
+            antialias=self._antialias_enabled,
+            autoDownsample=self._auto_downsample_enabled,
+            downsample=1,
+            downsampleMethod="peak",
+            clipToView=self._auto_downsample_enabled,
+        )
+
+    def _effective_visible_channel_indices(self, channel_count: int) -> tuple[int, ...]:
+        if channel_count <= 0:
+            return ()
+        requested = tuple(
+            index
+            for index in self._visible_channel_indices
+            if 0 <= index < channel_count
+        )
+        if requested:
+            return requested
+        return tuple(range(channel_count))
+
+    def _channel_label(self, channel_index: int) -> str:
+        if channel_index < len(self._channel_names):
+            label = self._channel_names[channel_index]
+            if label:
+                return label
+        return f"ch{channel_index + 1}"
+
+    def _preferred_height(self) -> int:
+        if not self._embedded_mode:
+            return self._plot_height
+        return resolve_signal_view_height(
+            self._layout_mode,
+            self._geometry_visible_channel_count(),
+            self._plot_height,
+        )
+
+    def _geometry_visible_channel_count(self) -> int:
+        channel_count = (
+            self._ring_buffer.channels
+            if self._ring_buffer is not None
+            else max(1, len(self._channel_names))
+        )
+        return len(self._effective_visible_channel_indices(channel_count))
+
+    def _refresh_view_geometry(self) -> None:
+        if self._embedded_mode:
+            height = self._preferred_height()
+            self.setMinimumHeight(height)
+            self.setMaximumHeight(height)
+        else:
+            self.setMinimumHeight(self._plot_height)
+            self.setMaximumHeight(16777215)
+        self.updateGeometry()
+
+        parent = self.parentWidget()
+        while parent is not None:
+            layout = parent.layout()
+            if layout is not None:
+                layout.invalidate()
+            parent.updateGeometry()
+            parent = parent.parentWidget()
 
     def _reset_signal_state(self) -> None:
         self._pipeline.reset_states()
@@ -523,17 +712,8 @@ class SignalStreamView(BaseStreamView):
             if family in {"butterworth", "chebyshev1", "bessel"}
             else "butterworth"
         )
+        order = max(1, min(12, self._coerce_int(self._read_attr(filter_settings, "order", 4), fallback=4)))
 
-        order = max(
-            1,
-            min(
-                12,
-                self._coerce_int(
-                    self._read_attr(filter_settings, "order", 4),
-                    fallback=4,
-                ),
-            ),
-        )
         low_cutoff = self._coerce_float(
             self._read_attr(filter_settings, "low_cutoff_hz", 1.0),
             fallback=1.0,
@@ -542,43 +722,43 @@ class SignalStreamView(BaseStreamView):
             self._read_attr(filter_settings, "high_cutoff_hz", 40.0),
             fallback=40.0,
         )
-        max_cutoff = max(1e-6, nyquist - 1e-6)
-        low_cutoff = min(max(1e-6, low_cutoff), max_cutoff)
-        high_cutoff = min(max(1e-6, high_cutoff), max_cutoff)
-        if mode in {"band_pass", "band_stop"} and low_cutoff >= high_cutoff:
-            mode = "none"
+        max_cutoff = max(0.001, nyquist - 1e-6)
+        low_cutoff = max(0.001, min(low_cutoff, max_cutoff))
+        high_cutoff = max(0.001, min(high_cutoff, max_cutoff))
 
-        notch_enabled = bool(
-            self._read_attr(
-                filter_settings,
-                "notch_enabled",
-                False,
-            )
-        )
-        raw_notches = self._read_attr(
+        if low_cutoff > high_cutoff:
+            low_cutoff, high_cutoff = high_cutoff, low_cutoff
+        if mode in {"band_pass", "band_stop"} and low_cutoff >= high_cutoff:
+            low_cutoff = max(0.001, min(low_cutoff, max_cutoff * 0.5))
+            high_cutoff = min(max_cutoff, max(low_cutoff + 0.001, high_cutoff))
+
+        notch_enabled = bool(self._read_attr(filter_settings, "notch_enabled", False))
+        raw_frequencies = self._read_attr(
             filter_settings,
             "notch_frequencies_hz",
-            [],
+            (),
         )
-        if not isinstance(raw_notches, (list, tuple)):
-            raw_notches = ()
-        normalized_notches = tuple(
-            sorted(
-                {
-                    round(self._coerce_float(value, fallback=0.0), 6)
-                    for value in raw_notches
-                    if 0.0 < self._coerce_float(value, fallback=0.0) < nyquist
-                }
-            )
-        )
+        notch_frequencies: list[float] = []
+        if isinstance(raw_frequencies, (list, tuple)):
+            for value in raw_frequencies:
+                try:
+                    normalized = round(float(value), 6)
+                except (TypeError, ValueError):
+                    continue
+                if 0.0 < normalized < nyquist:
+                    notch_frequencies.append(normalized)
+        notch_frequencies = sorted(set(notch_frequencies))
 
-        notch_q = self._coerce_float(
-            self._read_attr(filter_settings, "notch_q", 30.0),
-            fallback=30.0,
+        notch_q = max(
+            0.1,
+            self._coerce_float(self._read_attr(filter_settings, "notch_q", 30.0), fallback=30.0),
         )
-        ripple = self._coerce_float(
-            self._read_attr(filter_settings, "chebyshev1_ripple_db", 1.0),
-            fallback=1.0,
+        chebyshev1_ripple_db = max(
+            0.01,
+            self._coerce_float(
+                self._read_attr(filter_settings, "chebyshev1_ripple_db", 1.0),
+                fallback=1.0,
+            ),
         )
 
         return _SignalFilterSpec(
@@ -588,16 +768,14 @@ class SignalStreamView(BaseStreamView):
             low_cutoff_hz=low_cutoff,
             high_cutoff_hz=high_cutoff,
             notch_enabled=notch_enabled,
-            notch_frequencies_hz=normalized_notches,
-            notch_q=max(0.1, notch_q),
-            chebyshev1_ripple_db=max(0.01, ripple),
+            notch_frequencies_hz=tuple(notch_frequencies),
+            notch_q=notch_q,
+            chebyshev1_ripple_db=chebyshev1_ripple_db,
         )
 
     @staticmethod
-    def _read_attr(target: object, name: str, fallback: object) -> object:
-        if target is None:
-            return fallback
-        return getattr(target, name, fallback)
+    def _read_attr(target: object, name: str, default: object) -> object:
+        return getattr(target, name, default)
 
     @staticmethod
     def _coerce_int(value: object, fallback: int) -> int:
@@ -615,6 +793,18 @@ class SignalStreamView(BaseStreamView):
 
     @staticmethod
     def _coerce_str(value: object, fallback: str) -> str:
-        if not isinstance(value, str):
-            return fallback
-        return value
+        if isinstance(value, str) and value:
+            return value
+        return fallback
+
+    @staticmethod
+    def _coerce_int_tuple(value: object) -> tuple[int, ...]:
+        if not isinstance(value, (list, tuple)):
+            return ()
+        result: list[int] = []
+        for item in value:
+            try:
+                result.append(int(item))
+            except (TypeError, ValueError):
+                continue
+        return tuple(result)

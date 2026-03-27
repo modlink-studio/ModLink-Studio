@@ -39,6 +39,7 @@ class PreviewStreamSettingsStore:
             payload_type,
             settings,
             float(descriptor.nominal_sample_rate_hz or 1.0),
+            tuple(descriptor.channel_names),
         )
 
     def save(self, descriptor: StreamDescriptor, preview_settings: PreviewSettings) -> None:
@@ -47,6 +48,7 @@ class PreviewStreamSettingsStore:
             payload_type,
             preview_settings,
             float(descriptor.nominal_sample_rate_hz or 1.0),
+            tuple(descriptor.channel_names),
         )
 
         streams = self._load_streams_map()
@@ -68,4 +70,3 @@ class PreviewStreamSettingsStore:
         if payload_type not in {"signal", "raster", "field", "video"}:
             raise ValueError(f"unsupported payload_type: {payload_type}")
         return cast(PreviewPayloadType, payload_type)
-
