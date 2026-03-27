@@ -2,6 +2,17 @@
 
 本页汇总 ModLink Studio 第一版的安装入口、官方插件安装方式和发布源信息。
 
+## 0.2.0 升级说明
+
+`0.2.0` 是一次明确的 breaking change。当前主线文档和代码都以纯 Python runtime 为准：
+
+- `modlink_sdk` / `modlink_core` 已不再依赖 Qt
+- 外部 driver 不再使用 `sig_frame` / `sig_connection_lost` 作为正式宿主契约
+- `LoopDriver` 不再基于 `QTimer`
+- 如果你手头还有 `0.1.x` 的 Qt-style driver，请按新的 SDK 页面迁移
+
+当前 UI 仍在适配期。backend 已完成去 Qt 化，但 UI 主线程 bridge 仍是后续工作项。
+
 ## 官方包源
 
 ModLink Studio 的公开 Python 包源位于 Cloudsmith OSS：

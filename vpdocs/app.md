@@ -6,9 +6,11 @@ App 层是 ModLink Studio 的最终桌面宿主入口。
 如果概括成一句话，可以理解为：
 
 - SDK 定义 driver 契约
-- Core 托管 driver、流和录制相关运行时
-- UI 提供页面和窗口
+- Core 托管纯 Python runtime、流和录制相关服务
+- UI 提供页面、窗口和主线程桥接
 - App 负责把这些东西组装成最终程序
+
+`0.2.0` 起，Qt 主要停留在 App/UI 层；`sdk/core` 已不再依赖 Qt。
 
 ## 这页主要回答什么
 
@@ -56,7 +58,8 @@ App 层是组合根。它对系统做的事情很具体：
 4. 发现当前环境里的 driver factories
 5. 创建 `ModLinkEngine`
 6. 创建主窗口 `MainWindow`
-7. 启动 Qt 事件循环
+7. 把 Qt 的 `aboutToQuit` 接到 runtime shutdown
+8. 启动 Qt 事件循环
 
 这层的核心特征是“装配”，而不是“定义新协议”。  
 也就是说，App 层负责把现成的 SDK、Core、UI 和插件接起来，而不是在这里定义设备协议、流模型或录制格式。

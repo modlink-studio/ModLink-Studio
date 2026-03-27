@@ -1,6 +1,8 @@
 # Plugin Scaffold CLI
 
-`modlink-plugin-scaffold` 是官方提供的 driver 脚手架工具，第一版会随 `modlink-studio` 一起安装。
+`modlink-plugin-scaffold` 是官方提供的 driver 脚手架工具，会随 `modlink-studio` 一起安装。
+
+当前脚手架默认生成的是 `0.2.0` 风格 driver：宿主契约以纯 Python runtime 为准，不再依赖 Qt-style `sig_frame` / `QTimer` 写法。
 
 在仓库里运行：
 
@@ -20,6 +22,8 @@ modlink-plugin-scaffold --zh
 python -m pip install -e ./my_driver
 python -m modlink_studio
 ```
+
+生成后的 `driver.py` 会直接给出 `emit_frame()` 等 helper，建议在真实设备接入时沿着这套 callback/context 模型继续补完。
 
 生成项目对外发布前，建议补齐两类项目元数据：
 

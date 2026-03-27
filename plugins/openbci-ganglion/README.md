@@ -12,8 +12,10 @@
 
 - 通过 `modlink.drivers` entry point 被宿主发现
 - `search()` 支持 `ble` 和 `serial`
-- `LoopDriver` 负责定时轮询和流生命周期
+- `LoopDriver` 负责基于 runtime 周期调度的轮询和流生命周期
 - 输出固定 chunk 的 EEG `signal` payload
+
+当前插件实现已经跟随 `0.2.0` 主线迁移到纯 Python runtime，不再依赖 Qt signal 或 `QTimer`。
 
 ## 适用场景
 
