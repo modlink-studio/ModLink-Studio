@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from modlink_qt import QObject, QStandardPaths, pyqtSignal
+from platformdirs import user_data_path
+
+from modlink_sdk.signals import Signal
 
 
 @dataclass(slots=True)
@@ -16,13 +18,10 @@ class SettingChangedEvent:
     ts: float
 
 
-class SettingsService(QObject):
+class SettingsService:
     """Global settings service shared across runtime modules."""
 
     _instance: SettingsService | None = None
-
-    sig_setting_changed = pyqtSignal(object)
-    sig_settings_saved = pyqtSignal()
 
     @classmethod
     def instance(cls) -> SettingsService:
@@ -30,13 +29,15 @@ class SettingsService(QObject):
             return cls()
         return cls._instance
 
-    def __init__(self, path: Path | None = None, parent: QObject | None = None) -> None:
-        super().__init__(parent=parent)
+    def __init__(self, path: Path | None = None, parent: object | None = None) -> None:
         existing = type(self)._instance
         if existing is not None and existing is not self:
             raise RuntimeError(
                 "SettingsService already exists; use SettingsService.instance()"
             )
+        self.sig_setting_changed = Signal()
+        self.sig_settings_saved = Signal()
+        self._parent = parent
         self._path = path or self._resolve_path()
         self._settings = self._read_payload()
         type(self)._instance = self
@@ -104,12 +105,7 @@ class SettingsService(QObject):
         return {}
 
     def _resolve_path(self) -> Path:
-        base_dir = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppDataLocation
-        )
-        if not base_dir:
-            return Path.home() / ".modlink-studio" / "settings.json"
-        return Path(base_dir) / "modlink_settings.json"
+        return user_data_path("ModLink Studio", appauthor=False) / "modlink_settings.json"
 
     def _parts(self, key: str) -> list[str]:
         normalized = [part.strip() for part in str(key).split(".") if part.strip()]

@@ -291,24 +291,24 @@ wheels = [
 
 [[package]]
 name = "modlink-core"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/modlink_core" }
 dependencies = [
-    { name = "modlink-qt" },
     { name = "modlink-sdk" },
     { name = "numpy" },
+    { name = "platformdirs" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "modlink-qt", editable = "packages/modlink_qt" },
     { name = "modlink-sdk", editable = "packages/modlink_sdk" },
     { name = "numpy", specifier = ">=2.3.3" },
+    { name = "platformdirs", specifier = ">=4.9.4" },
 ]
 
 [[package]]
 name = "modlink-new-ui"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/modlink_new_ui" }
 dependencies = [
     { name = "modlink-core" },
@@ -327,7 +327,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-plugin-host-camera"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "plugins/host-camera" }
 dependencies = [
     { name = "modlink-sdk" },
@@ -344,7 +344,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-plugin-host-microphone"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "plugins/host-microphone" }
 dependencies = [
     { name = "modlink-sdk" },
@@ -361,7 +361,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-plugin-openbci-ganglion"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "plugins/openbci-ganglion" }
 dependencies = [
     { name = "bleak" },
@@ -382,7 +382,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-plugin-scaffold"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "apps/modlink_plugin_scaffold" }
 dependencies = [
     { name = "readchar" },
@@ -397,7 +397,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-qt"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/modlink_qt" }
 dependencies = [
     { name = "pyqt6" },
@@ -408,22 +408,18 @@ requires-dist = [{ name = "pyqt6", specifier = ">=6.10.2" }]
 
 [[package]]
 name = "modlink-sdk"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/modlink_sdk" }
 dependencies = [
-    { name = "modlink-qt" },
     { name = "numpy" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "modlink-qt", editable = "packages/modlink_qt" },
-    { name = "numpy", specifier = ">=2.3.3" },
-]
+requires-dist = [{ name = "numpy", specifier = ">=2.3.3" }]
 
 [[package]]
 name = "modlink-studio"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "apps/modlink_studio" }
 dependencies = [
     { name = "modlink-core" },
@@ -459,7 +455,7 @@ provides-extras = ["official-host-camera", "official-host-microphone", "official
 
 [[package]]
 name = "modlink-studio-qml"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "apps/modlink_studio_qml" }
 dependencies = [
     { name = "modlink-core" },
@@ -476,7 +472,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-ui"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/modlink_ui" }
 dependencies = [
     { name = "modlink-core" },
@@ -497,7 +493,7 @@ requires-dist = [
 
 [[package]]
 name = "modlink-workspace"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "modlink-studio" },

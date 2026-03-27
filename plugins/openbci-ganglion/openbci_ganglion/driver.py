@@ -167,7 +167,7 @@ class OpenBCIGanglionDriver(LoopDriver):
             )
         except Exception as exc:
             self.disconnect_device()
-            self.sig_connection_lost.emit(
+            self.emit_connection_lost(
                 {
                     "code": "GANGLION_STREAM_FAILED",
                     "message": "OpenBCI Ganglion stream polling failed",
@@ -192,7 +192,7 @@ class OpenBCIGanglionDriver(LoopDriver):
                 self._buffer[:, DEFAULT_CHUNK_SIZE:],
                 dtype=np.float32,
             )
-            self.sig_frame.emit(
+            emitted = self.emit_frame(
                 FrameEnvelope(
                     device_id=self.device_id,
                     modality="eeg",
@@ -201,7 +201,8 @@ class OpenBCIGanglionDriver(LoopDriver):
                     seq=self._seq,
                 )
             )
-            self._seq += 1
+            if emitted:
+                self._seq += 1
 
 
 def _preferred_results(

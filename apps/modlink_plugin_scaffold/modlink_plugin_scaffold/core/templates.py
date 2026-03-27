@@ -83,7 +83,7 @@ class {spec.class_name}Driver({spec.driver_base_class}):
         seq: int | None = None,
         extra: dict[str, object] | None = None,
     ) -> None:
-        self.sig_frame.emit(
+        super().emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
                 modality=modality,
@@ -132,7 +132,7 @@ def generate_pyproject_toml(spec: DriverSpec) -> str:
 
     return f"""[project]
 name = "{spec.project_name}"
-version = "0.1.0"
+version = "0.2.0"
 description = "{spec.display_name} driver plugin for ModLink Studio"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -238,7 +238,7 @@ Or, if your environment exposes console scripts:
 
 ## Notes
 
-- `driver.py` already includes `emit_frame()` and `next_seq()` helpers.
+- `driver.py` already includes `emit_frame()` and `next_seq()` helpers for the 0.2.0 callback/context runtime.
 - Keep each stream's `modality`, `payload_type`, and expected frame shape stable across the driver lifetime.
 - The canonical module launch form is `python -m modlink_studio`.
 - Before publishing the driver, add your own `LICENSE`, README details, and project URLs.
@@ -318,7 +318,7 @@ python -m pip install -e ../another_driver
 
 ## 说明
 
-- `driver.py` 已经提供了 `emit_frame()` 和 `next_seq()` 两个辅助方法。
+- `driver.py` 已经为 0.2.0 的 callback/context runtime 提供了 `emit_frame()` 和 `next_seq()` 两个辅助方法。
 - 每个 stream 的 `modality`、`payload_type` 和期望 shape 在 driver 生命周期内应该保持稳定。
 - 推荐的模块启动形式是 `python -m modlink_studio`。
 - 公开分发这个 driver 之前，建议补齐自己的 `LICENSE`、README 细节和项目链接。

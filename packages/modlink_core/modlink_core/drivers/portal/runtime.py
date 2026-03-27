@@ -1,31 +1,47 @@
 from __future__ import annotations
 
+import queue
+import threading
 from uuid import uuid4
 
-from modlink_qt import QObject, QThread, Qt, pyqtSignal, pyqtSlot
+from modlink_sdk import (
+    Driver,
+    DriverContext,
+    DriverFactory,
+    FrameEnvelope,
+    LoopDriver,
+    SearchResult,
+    StreamDescriptor,
+)
+from modlink_sdk.signals import Signal
 
-from modlink_sdk import Driver, DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
-
-from .invoker import DriverInvoker
 from .task import DriverTask
 
 
-class DriverRuntime(QObject):
-    sig_error = pyqtSignal(str)
-    sig_frame = pyqtSignal(FrameEnvelope)
-    sig_connection_lost = pyqtSignal(object)
-
-    _request_call = pyqtSignal(str, object)
+class DriverRuntime:
+    _STOP = "__stop_runtime__"
 
     def __init__(
         self,
         driver_factory: DriverFactory,
         *,
         thread_name: str | None = None,
-        parent: QObject | None = None,
+        parent: object | None = None,
     ) -> None:
-        super().__init__(parent=parent)
+        self.sig_error = Signal()
+        self.sig_frame = Signal()
+        self.sig_connection_lost = Signal()
+        self.sig_status_changed = Signal()
+        self._parent = parent
         self._driver = self._create_driver(driver_factory)
+        self._driver.bind(
+            DriverContext(
+                frame_sink=self._on_driver_frame,
+                connection_lost_sink=self._on_driver_connection_lost,
+                error_sink=self._on_driver_error,
+                status_sink=self._on_driver_status,
+            )
+        )
         self._driver_id = self._driver.device_id
         self._display_name = self._driver.display_name
         self._supported_providers = tuple(
@@ -35,29 +51,15 @@ class DriverRuntime(QObject):
             )
             if provider
         )
-        self._thread = QThread(self)
-        self._thread.setObjectName(
-            thread_name or f"modlink.driver.{self._driver_id.strip()}"
-        )
+        self._descriptors = self._driver.descriptors()
+        self._thread_name = thread_name or f"modlink.driver.{self._driver_id.strip()}"
         self._running = False
         self._pending_tasks: dict[str, DriverTask] = {}
-        self._invoker = DriverInvoker(self._driver)
-
-        self._driver.moveToThread(self._thread)
-        self._driver.sig_frame.connect(self.sig_frame.emit)
-        self._driver.sig_connection_lost.connect(self.sig_connection_lost.emit)
-
-        self._invoker.moveToThread(self._thread)
-        self._request_call.connect(
-            self._invoker.handle_call,
-            Qt.ConnectionType.QueuedConnection,
+        self._command_queue: queue.Queue[tuple[str, str | None, object | None]] = (
+            queue.Queue()
         )
-        self._invoker.sig_task_done.connect(self._on_task_done)
-
-        self._thread.started.connect(self._on_thread_started)
-        self._thread.finished.connect(self._on_thread_finished)
-        self._thread.finished.connect(self._driver.deleteLater)
-        self._thread.finished.connect(self._invoker.deleteLater)
+        self._thread: threading.Thread | None = None
+        self._lock = threading.RLock()
 
     @property
     def driver_id(self) -> str:
@@ -73,24 +75,34 @@ class DriverRuntime(QObject):
 
     @property
     def is_running(self) -> bool:
-        return self._running and self._thread.isRunning()
+        thread = self._thread
+        return self._running and thread is not None and thread.is_alive()
 
     def descriptors(self) -> list[StreamDescriptor]:
-        return self._driver.descriptors()
+        return list(self._descriptors)
 
     def start(self) -> None:
-        if self._thread.isRunning():
-            return
-        self._thread.start()
+        with self._lock:
+            if self.is_running:
+                return
+            self._running = True
+            thread = threading.Thread(
+                target=self._run,
+                name=self._thread_name,
+                daemon=True,
+            )
+            self._thread = thread
+            thread.start()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
-        if not self._thread.isRunning():
+        thread = self._thread
+        if thread is None or not thread.is_alive():
             self._running = False
             return
 
-        self._request_call.emit("shutdown", None)
-        self._thread.quit()
-        if not self._thread.wait(timeout_ms):
+        self._command_queue.put((self._STOP, None, None))
+        thread.join(max(0, timeout_ms) / 1000)
+        if thread.is_alive():
             self.sig_error.emit(
                 f"DRIVER_STOP_TIMEOUT: driver_id={self.driver_id}: timeout_ms={timeout_ms}"
             )
@@ -111,55 +123,156 @@ class DriverRuntime(QObject):
         return self._dispatch_task("stop_streaming")
 
     def _dispatch_task(self, action: str, request: object | None = None) -> DriverTask:
+        task = DriverTask(request=request, parent=self._parent)
+        if not self.is_running:
+            task._fail(
+                RuntimeError(
+                    f"driver runtime is not running: driver_id={self.driver_id}"
+                )
+            )
+            return task
+
         task_id = uuid4().hex
-        task = DriverTask(request=request, parent=self)
-        self._pending_tasks[task_id] = task
-        self._request_call.emit(action, (task_id, request))
+        with self._lock:
+            self._pending_tasks[task_id] = task
+        self._command_queue.put((action, task_id, request))
         return task
 
-    @pyqtSlot()
-    def _on_thread_started(self) -> None:
-        self._running = True
-        self._request_call.emit("on_thread_started", None)
+    def _run(self) -> None:
+        stop_reason: Exception | None = None
+        try:
+            self._driver.on_runtime_started()
+            while True:
+                try:
+                    action, task_id, request = self._command_queue.get(
+                        timeout=self._loop_timeout_seconds()
+                    )
+                except queue.Empty:
+                    self._run_loop_iteration()
+                    continue
 
-    @pyqtSlot()
-    def _on_thread_finished(self) -> None:
-        self._running = False
-        self._fail_pending_tasks(
-            RuntimeError(
-                "driver thread stopped before pending tasks completed: "
-                f"driver_id={self.driver_id}"
+                if action == self._STOP:
+                    break
+                self._execute_task(action, task_id, request)
+        except Exception as exc:
+            stop_reason = exc
+            self.sig_error.emit(
+                f"DRIVER_THREAD_FAILED: driver_id={self.driver_id}: "
+                f"{type(exc).__name__}: {exc}"
             )
-        )
+        finally:
+            try:
+                self._driver.shutdown()
+            except Exception as exc:
+                self.sig_error.emit(
+                    f"DRIVER_SHUTDOWN_FAILED: driver_id={self.driver_id}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            self._running = False
+            self._thread = None
+            self._fail_pending_tasks(
+                stop_reason
+                or RuntimeError(
+                    "driver thread stopped before pending tasks completed: "
+                    f"driver_id={self.driver_id}"
+                )
+            )
 
-    @pyqtSlot(str, str, object, object)
-    def _on_task_done(
-        self, task_id: str, action: str, result: object, error: object
+    def _execute_task(
+        self,
+        action: str,
+        task_id: str | None,
+        request: object | None,
     ) -> None:
-        task = self._pending_tasks.pop(task_id, None)
+        if task_id is None:
+            return
+        with self._lock:
+            task = self._pending_tasks.get(task_id)
         if task is None:
             return
+
+        try:
+            result = self._invoke_driver(action, request)
+        except Exception as exc:
+            self._complete_task(task_id, task, action, error=exc)
+            return
+
+        self._complete_task(task_id, task, action, result=result)
+
+    def _complete_task(
+        self,
+        task_id: str,
+        task: DriverTask,
+        action: str,
+        *,
+        result: object | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        with self._lock:
+            self._pending_tasks.pop(task_id, None)
         if error is not None:
-            exception = self._coerce_exception(error)
-            task._fail(exception)
+            task._fail(error)
             self.sig_error.emit(
                 f"DRIVER_CALL_FAILED: driver_id={self.driver_id}: "
-                f"action={action}: {type(exception).__name__}: {exception}"
+                f"action={action}: {type(error).__name__}: {error}"
             )
             return
         task._finish(result)
 
+    def _invoke_driver(self, action: str, request: object | None) -> object | None:
+        method = getattr(self._driver, action, None)
+        if not callable(method):
+            raise AttributeError(
+                f"driver does not support action '{action}': driver_id={self.driver_id}"
+            )
+        if request is None:
+            return method()
+        return method(request)
+
+    def _run_loop_iteration(self) -> None:
+        if not isinstance(self._driver, LoopDriver) or not self._driver.is_looping:
+            return
+        try:
+            self._driver.loop()
+        except Exception as exc:
+            try:
+                self._driver.stop_streaming()
+            except Exception:
+                pass
+            self.sig_error.emit(
+                f"DRIVER_LOOP_FAILED: driver_id={self.driver_id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+    def _loop_timeout_seconds(self) -> float | None:
+        if not isinstance(self._driver, LoopDriver) or not self._driver.is_looping:
+            return None
+        interval_ms = max(1, int(self._driver.loop_interval_ms))
+        return interval_ms / 1000.0
+
     def _fail_pending_tasks(self, error: Exception) -> None:
-        pending = list(self._pending_tasks.values())
-        self._pending_tasks.clear()
+        with self._lock:
+            pending = list(self._pending_tasks.values())
+            self._pending_tasks.clear()
         for task in pending:
             task._fail(RuntimeError(str(error)))
 
-    @staticmethod
-    def _coerce_exception(error: object) -> Exception:
-        if isinstance(error, Exception):
-            return error
-        return RuntimeError(str(error))
+    def _on_driver_frame(self, frame: FrameEnvelope) -> None:
+        self.sig_frame.emit(frame)
+
+    def _on_driver_connection_lost(self, detail: object) -> None:
+        self.sig_connection_lost.emit(detail)
+
+    def _on_driver_error(self, message: str) -> None:
+        normalized = str(message or "").strip()
+        if not normalized:
+            normalized = "driver reported an unspecified error"
+        self.sig_error.emit(
+            f"DRIVER_REPORTED_ERROR: driver_id={self.driver_id}: {normalized}"
+        )
+
+    def _on_driver_status(self, status: str, detail: object | None) -> None:
+        self.sig_status_changed.emit(status, detail)
 
     @staticmethod
     def _create_driver(driver_factory: DriverFactory) -> Driver:
@@ -169,10 +282,6 @@ class DriverRuntime(QObject):
         driver = driver_factory()
         if not isinstance(driver, Driver):
             raise TypeError("driver_factory must return a Driver instance")
-        if driver.parent() is not None:
-            raise ValueError(
-                "driver must not have a QObject parent before attaching to a portal"
-            )
         driver_id = driver.device_id.strip()
         if not driver_id:
             raise ValueError("driver.device_id must not be empty")

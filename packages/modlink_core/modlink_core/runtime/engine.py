@@ -2,27 +2,24 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from modlink_qt import QCoreApplication, QObject, pyqtSignal
-
 from modlink_sdk import DriverFactory
+from modlink_sdk.signals import Signal
 
 from ..acquisition import AcquisitionBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
 
 
-class ModLinkEngine(QObject):
+class ModLinkEngine:
     """Application engine that owns shared services and driver threads."""
-
-    sig_error = pyqtSignal(str)
 
     def __init__(
         self,
         driver_factories: Sequence[DriverFactory] = (),
-        parent: QObject | None = None,
+        parent: object | None = None,
     ) -> None:
-        super().__init__(parent=parent)
-
+        self.sig_error = Signal()
+        self._parent = parent
         self.bus = StreamBus(parent=self)
         self._acquisition = AcquisitionBackend(self.bus, parent=self)
         self._driver_portals: dict[str, DriverPortal] = {}
@@ -35,10 +32,6 @@ class ModLinkEngine(QObject):
         for factory in driver_factories:
             self._attach_driver(factory)
 
-        app = QCoreApplication.instance()
-        if app is not None:
-            app.aboutToQuit.connect(self.shutdown)
-
     @property
     def acquisition(self) -> AcquisitionBackend:
         return self._acquisition
@@ -50,12 +43,11 @@ class ModLinkEngine(QObject):
         return self._driver_portals.get(driver_id)
 
     def _attach_driver(self, driver_factory: DriverFactory) -> DriverPortal:
-        portal = DriverPortal(driver_factory)
+        portal = DriverPortal(driver_factory, parent=self)
         driver_id = portal.driver_id.strip()
         if driver_id in self._driver_portals:
             raise ValueError(f"driver_id '{driver_id}' is already installed")
 
-        portal.setParent(self)
         portal.sig_error.connect(self.sig_error.emit)
         portal.sig_frame.connect(self.bus.ingest_frame)
 

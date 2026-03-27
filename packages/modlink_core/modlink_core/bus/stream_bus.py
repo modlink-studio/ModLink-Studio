@@ -3,9 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeAlias
 
-from modlink_qt import QObject, Qt, pyqtSignal, pyqtSlot
-
 from modlink_sdk import FrameEnvelope, StreamDescriptor
+from modlink_sdk.signals import Signal
 
 FrameSink: TypeAlias = Callable[[FrameEnvelope], None]
 
@@ -27,7 +26,7 @@ class FrameSubscription:
             return
         try:
             self._bus.sig_frame.disconnect(self._sink)
-        except (TypeError, RuntimeError):
+        except TypeError:
             pass
         self._active = False
 
@@ -35,15 +34,14 @@ class FrameSubscription:
         self.close()
 
 
-class StreamBus(QObject):
+class StreamBus:
     """Stores stream descriptors and broadcasts every accepted frame."""
 
-    sig_stream_descriptor = pyqtSignal(object)
-    sig_frame = pyqtSignal(FrameEnvelope)
-    sig_error = pyqtSignal(str)
-
-    def __init__(self, parent: QObject | None = None) -> None:
-        super().__init__(parent=parent)
+    def __init__(self, parent: object | None = None) -> None:
+        self.sig_stream_descriptor = Signal()
+        self.sig_frame = Signal()
+        self.sig_error = Signal()
+        self._parent = parent
         self._descriptors: dict[str, StreamDescriptor] = {}
 
     def add_descriptor(self, descriptor: StreamDescriptor) -> None:
@@ -66,7 +64,6 @@ class StreamBus(QObject):
         for descriptor in descriptors:
             self.add_descriptor(descriptor)
 
-    @pyqtSlot(object)
     def ingest_frame(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
             self.sig_error.emit(
@@ -86,9 +83,10 @@ class StreamBus(QObject):
         self,
         sink: FrameSink,
         *,
-        connection_type: Qt.ConnectionType = Qt.ConnectionType.AutoConnection,
+        connection_type: object | None = None,
     ) -> FrameSubscription:
-        self.sig_frame.connect(sink, connection_type)
+        _ = connection_type
+        self.sig_frame.connect(sink)
         return FrameSubscription(self, sink)
 
     def descriptor(self, stream_id: str) -> StreamDescriptor | None:

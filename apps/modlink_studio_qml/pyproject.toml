@@ -1,6 +1,6 @@
 [project]
 name = "modlink-studio-qml"
-version = "0.1.0"
+version = "0.2.0"
 description = "QML application entrypoint for ModLink Studio"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.13"

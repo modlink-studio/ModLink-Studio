@@ -41,9 +41,9 @@ class SearchResult:
 class FrameEnvelope:
     """One emitted payload chunk from a driver.
 
-    Drivers emit ``FrameEnvelope`` objects through ``Driver.sig_frame``. The
-    host forwards them to the stream bus, recording backends, and UI
-    consumers.
+    Drivers emit ``FrameEnvelope`` objects through their bound runtime
+    context. The host forwards them to the stream bus, recording backends, and
+    UI consumers.
     """
 
     device_id: str
