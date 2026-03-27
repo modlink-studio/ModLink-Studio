@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QSignalBlocker, Qt, pyqtSignal
-from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
@@ -17,6 +17,8 @@ from modlink_sdk import StreamDescriptor
 
 from modlink_ui.widgets.shared.inputs import TokenLineEdit
 
+from ..models import SignalFilterSettings, SignalPreviewSettings
+
 SIGNAL_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
 
 
@@ -30,11 +32,14 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
     ) -> None:
         super().__init__(parent=parent)
         self.descriptor = descriptor
+        self._channel_names = tuple(descriptor.channel_names)
+        self._is_multi_channel = len(self._channel_names) > 1
+        self._channel_checkboxes: list[QCheckBox] = []
         self.setBorderRadius(12)
 
         self.title_label = StrongBodyLabel("信号图设置", self)
         self.tip_label = CaptionLabel(
-            "这里先搭滤波设置的 UI，暂时不接实际滤波逻辑。",
+            "设置会立即作用到当前预览，包括滤波、布局、通道显示和 Y 轴范围。",
             self,
         )
         self.tip_label.setWordWrap(True)
@@ -216,8 +221,58 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
 
+        self.channel_section_widget = QWidget(self)
+        self.channel_section_layout = QVBoxLayout(self.channel_section_widget)
+        self.channel_section_layout.setContentsMargins(0, 0, 0, 0)
+        self.channel_section_layout.setSpacing(10)
+
+        self.channel_section_title = StrongBodyLabel("Channel 设置", self.channel_section_widget)
+        self.channel_section_description = CaptionLabel(
+            "控制多通道的布局模式，以及每个 channel 是否参与显示和自动范围计算。",
+            self.channel_section_widget,
+        )
+        self.channel_section_description.setWordWrap(True)
+
+        self.channel_settings_grid = QGridLayout()
+        self.channel_settings_grid.setContentsMargins(0, 0, 0, 0)
+        self.channel_settings_grid.setHorizontalSpacing(12)
+        self.channel_settings_grid.setVerticalSpacing(10)
+        self.channel_settings_grid.setColumnStretch(1, 1)
+
+        self.layout_mode_label = BodyLabel("布局模式", self.channel_section_widget)
+        self.layout_mode_combo = ComboBox(self.channel_section_widget)
+        self.layout_mode_combo.setFixedWidth(180)
+        self.layout_mode_combo.addItem("叠加", userData="stacked")
+        self.layout_mode_combo.addItem("分图", userData="expanded")
+        self.channel_settings_grid.addWidget(self.layout_mode_label, 0, 0)
+        self.channel_settings_grid.addWidget(
+            self.layout_mode_combo,
+            0,
+            1,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
+
+        self.channel_visibility_label = BodyLabel("显示通道", self.channel_section_widget)
+        self.channel_visibility_widget = QWidget(self.channel_section_widget)
+        self.channel_visibility_layout = QVBoxLayout(self.channel_visibility_widget)
+        self.channel_visibility_layout.setContentsMargins(0, 0, 0, 0)
+        self.channel_visibility_layout.setSpacing(6)
+        self.channel_settings_grid.addWidget(self.channel_visibility_label, 1, 0)
+        self.channel_settings_grid.addWidget(
+            self.channel_visibility_widget,
+            1,
+            1,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
+
+        self.channel_section_layout.addWidget(self.channel_section_title)
+        self.channel_section_layout.addWidget(self.channel_section_description)
+        self.channel_section_layout.addLayout(self.channel_settings_grid)
+        self._build_channel_checkboxes()
+        self.channel_section_widget.setVisible(self._is_multi_channel)
+
         self.hint_label = CaptionLabel(
-            "当前支持时间长度、滤波器、陷波器、Y 轴范围，以及折线抗锯齿选项。",
+            "当前支持时间长度、滤波器、陷波器、多通道布局、通道显隐、Y 轴范围，以及折线抗锯齿选项。",
             self,
         )
         self.hint_label.setWordWrap(True)
@@ -228,6 +283,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         layout.addWidget(self.title_label)
         layout.addWidget(self.tip_label)
         layout.addLayout(self.settings_grid)
+        layout.addWidget(self.channel_section_widget)
         layout.addWidget(self.hint_label)
 
         self.filter_mode_combo.currentIndexChanged.connect(self._sync_filter_mode_ui)
@@ -247,36 +303,45 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         self.y_range_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.manual_y_min_spinbox.valueChanged.connect(self._emit_state_changed)
         self.manual_y_max_spinbox.valueChanged.connect(self._emit_state_changed)
+        self.layout_mode_combo.currentIndexChanged.connect(self._emit_state_changed)
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())
         self._sync_manual_y_range_visibility()
 
-    def state(self) -> dict[str, object]:
-        return {
-            "window_seconds": int(self.duration_combo.currentData() or 8),
-            "antialias_enabled": bool(self.antialias_switch.isChecked()),
-            "y_range_mode": self.y_range_combo.currentData(),
-            "manual_y_min": float(self.manual_y_min_spinbox.value()),
-            "manual_y_max": float(self.manual_y_max_spinbox.value()),
-            "filter": {
-                "mode": self.filter_mode_combo.currentData(),
-                "family": self.filter_family_combo.currentData(),
-                "order": int(self.filter_order_spinbox.value()),
-                "low_cutoff_hz": float(self.low_cutoff_spinbox.value()),
-                "high_cutoff_hz": float(self.high_cutoff_spinbox.value()),
-                "notch_enabled": bool(self.notch_enabled_switch.isChecked()),
-                "notch_frequencies_hz": self._parse_notch_tokens(),
-            },
-        }
-
-    def set_state(self, state: object) -> None:
-        data = state if isinstance(state, dict) else {}
-        filter_data = (
-            data.get("filter", {}) if isinstance(data.get("filter"), dict) else {}
+    def state(self) -> SignalPreviewSettings:
+        return SignalPreviewSettings(
+            window_seconds=int(self.duration_combo.currentData() or 8),
+            antialias_enabled=bool(self.antialias_switch.isChecked()),
+            layout_mode=str(self.layout_mode_combo.currentData() or "expanded"),
+            visible_channel_indices=self._selected_channel_indices(),
+            y_range_mode=str(self.y_range_combo.currentData() or "auto"),
+            manual_y_min=float(self.manual_y_min_spinbox.value()),
+            manual_y_max=float(self.manual_y_max_spinbox.value()),
+            filter=SignalFilterSettings(
+                mode=str(self.filter_mode_combo.currentData() or "none"),
+                family=str(self.filter_family_combo.currentData() or "butterworth"),
+                order=int(self.filter_order_spinbox.value()),
+                low_cutoff_hz=float(self.low_cutoff_spinbox.value()),
+                high_cutoff_hz=float(self.high_cutoff_spinbox.value()),
+                notch_enabled=bool(self.notch_enabled_switch.isChecked()),
+                notch_frequencies_hz=tuple(self._parse_notch_tokens()),
+                notch_q=30.0,
+                chebyshev1_ripple_db=1.0,
+            ),
         )
 
-        with (
+    def set_state(self, state: object) -> None:
+        settings = state if isinstance(state, SignalPreviewSettings) else SignalPreviewSettings()
+        visible_channel_indices = settings.visible_channel_indices
+        if self._is_multi_channel and not visible_channel_indices:
+            visible_channel_indices = tuple(range(len(self._channel_checkboxes)))
+        elif not self._channel_checkboxes:
+            visible_channel_indices = ()
+        elif not visible_channel_indices:
+            visible_channel_indices = (0,)
+
+        blockers = [
             QSignalBlocker(self.duration_combo),
             QSignalBlocker(self.filter_mode_combo),
             QSignalBlocker(self.filter_family_combo),
@@ -289,39 +354,90 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             QSignalBlocker(self.y_range_combo),
             QSignalBlocker(self.manual_y_min_spinbox),
             QSignalBlocker(self.manual_y_max_spinbox),
-        ):
-            self._set_combo_to_data(
-                self.duration_combo,
-                data.get("window_seconds", SIGNAL_WINDOW_SECONDS_OPTIONS[0]),
-            )
-            self._set_combo_to_data(
-                self.filter_mode_combo, filter_data.get("mode", "none")
-            )
+            QSignalBlocker(self.layout_mode_combo),
+        ]
+        blockers.extend(QSignalBlocker(checkbox) for checkbox in self._channel_checkboxes)
+        with _SignalBlockerGroup(blockers):
+            self._set_combo_to_data(self.duration_combo, settings.window_seconds)
+            self._set_combo_to_data(self.filter_mode_combo, settings.filter.mode)
             self._set_combo_to_data(
                 self.filter_family_combo,
-                filter_data.get("family", "butterworth"),
+                settings.filter.family,
             )
-            self.filter_order_spinbox.setValue(int(filter_data.get("order", 4)))
-            self.low_cutoff_spinbox.setValue(int(filter_data.get("low_cutoff_hz", 1)))
-            self.high_cutoff_spinbox.setValue(
-                int(filter_data.get("high_cutoff_hz", 40))
+            self.filter_order_spinbox.setValue(int(settings.filter.order))
+            self.low_cutoff_spinbox.setValue(int(settings.filter.low_cutoff_hz))
+            self.high_cutoff_spinbox.setValue(int(settings.filter.high_cutoff_hz))
+            self.notch_enabled_switch.setChecked(bool(settings.filter.notch_enabled))
+            self.notch_frequencies_edit.set_tokens(
+                [f"{value:g}" for value in settings.filter.notch_frequencies_hz]
             )
-            self.notch_enabled_switch.setChecked(
-                bool(filter_data.get("notch_enabled", False))
-            )
-            tokens = filter_data.get("notch_frequencies_hz", [])
-            if isinstance(tokens, list):
-                self.notch_frequencies_edit.set_tokens([str(v) for v in tokens])
-            self.antialias_switch.setChecked(bool(data.get("antialias_enabled", True)))
-            self._set_combo_to_data(
-                self.y_range_combo, data.get("y_range_mode", "auto")
-            )
-            self.manual_y_min_spinbox.setValue(float(data.get("manual_y_min", -1.0)))
-            self.manual_y_max_spinbox.setValue(float(data.get("manual_y_max", 1.0)))
+            self.antialias_switch.setChecked(bool(settings.antialias_enabled))
+            self._set_combo_to_data(self.layout_mode_combo, settings.layout_mode)
+            self._set_combo_to_data(self.y_range_combo, settings.y_range_mode)
+            self.manual_y_min_spinbox.setValue(float(settings.manual_y_min))
+            self.manual_y_max_spinbox.setValue(float(settings.manual_y_max))
+            self._set_visible_channels(visible_channel_indices)
 
         self._sync_filter_mode_ui()
         self._sync_notch_controls(self.notch_enabled_switch.isChecked())
         self._sync_manual_y_range_visibility()
+
+    def _build_channel_checkboxes(self) -> None:
+        while self.channel_visibility_layout.count():
+            item = self.channel_visibility_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        self._channel_checkboxes.clear()
+        for index, label in enumerate(self._channel_names):
+            checkbox = QCheckBox(label or f"ch{index + 1}", self.channel_visibility_widget)
+            checkbox.setChecked(True)
+            checkbox.toggled.connect(self._on_channel_checkbox_toggled)
+            self.channel_visibility_layout.addWidget(checkbox)
+            self._channel_checkboxes.append(checkbox)
+        self.channel_visibility_layout.addStretch(1)
+
+    def _selected_channel_indices(self) -> tuple[int, ...]:
+        if not self._channel_checkboxes:
+            return ()
+        selected = tuple(
+            index
+            for index, checkbox in enumerate(self._channel_checkboxes)
+            if checkbox.isChecked()
+        )
+        if selected:
+            return selected
+        return (0,)
+
+    def _set_visible_channels(self, visible_channel_indices: tuple[int, ...]) -> None:
+        if not self._channel_checkboxes:
+            return
+        visible_set = {
+            index
+            for index in visible_channel_indices
+            if 0 <= index < len(self._channel_checkboxes)
+        }
+        if not visible_set:
+            visible_set = set(range(len(self._channel_checkboxes)))
+        for index, checkbox in enumerate(self._channel_checkboxes):
+            checkbox.setChecked(index in visible_set)
+
+    def _on_channel_checkbox_toggled(self, checked: bool) -> None:
+        if checked:
+            self._emit_state_changed()
+            return
+
+        visible_count = sum(
+            1 for checkbox in self._channel_checkboxes if checkbox.isChecked()
+        )
+        if visible_count <= 0:
+            checkbox = self.sender()
+            if isinstance(checkbox, QCheckBox):
+                with _SignalBlockerGroup([QSignalBlocker(checkbox)]):
+                    checkbox.setChecked(True)
+            return
+        self._emit_state_changed()
 
     def _sync_filter_mode_ui(self) -> None:
         mode = self.filter_mode_combo.currentData()
@@ -396,3 +512,15 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         if value.is_integer():
             return str(int(value))
         return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
+class _SignalBlockerGroup:
+    def __init__(self, blockers: list[QSignalBlocker]) -> None:
+        self._blockers = blockers
+
+    def __enter__(self) -> "_SignalBlockerGroup":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self._blockers.clear()
+        return False

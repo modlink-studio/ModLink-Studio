@@ -14,6 +14,7 @@ SignalFilterMode: TypeAlias = Literal[
     "band_pass",
     "band_stop",
 ]
+SignalLayoutMode: TypeAlias = Literal["stacked", "expanded"]
 ValueRangeMode: TypeAlias = Literal["auto", "zero_to_one", "zero_to_255", "manual"]
 SignalYAxisRangeMode: TypeAlias = Literal["auto", "manual"]
 InterpolationMode: TypeAlias = Literal["nearest", "bilinear", "bicubic"]
@@ -47,6 +48,8 @@ class SignalFilterSettings:
 class SignalPreviewSettings:
     window_seconds: int = 8
     antialias_enabled: bool = True
+    layout_mode: SignalLayoutMode = "expanded"
+    visible_channel_indices: tuple[int, ...] = ()
     y_range_mode: SignalYAxisRangeMode = "auto"
     manual_y_min: float = -1.0
     manual_y_max: float = 1.0
@@ -102,10 +105,13 @@ def default_preview_settings(payload_type: PreviewPayloadType) -> PreviewSetting
 def serialize_preview_settings(settings: PreviewSettings) -> dict[str, Any]:
     payload = asdict(settings)
     if isinstance(settings, SignalPreviewSettings):
+        visible_channel_indices = payload.get("visible_channel_indices", [])
+        if isinstance(visible_channel_indices, tuple):
+            payload["visible_channel_indices"] = list(visible_channel_indices)
         filter_payload = payload.get("filter", {})
         if isinstance(filter_payload, dict):
             frequencies = filter_payload.get("notch_frequencies_hz", [])
-            if isinstance(frequencies, list):
+            if isinstance(frequencies, (list, tuple)):
                 filter_payload["notch_frequencies_hz"] = list(frequencies)
             payload["filter"] = filter_payload
     return payload
@@ -149,6 +155,14 @@ def deserialize_preview_settings(
         return SignalPreviewSettings(
             window_seconds=_coerce_int(payload.get("window_seconds"), 8),
             antialias_enabled=bool(payload.get("antialias_enabled", True)),
+            layout_mode=_coerce_literal(
+                payload.get("layout_mode"),
+                ("stacked", "expanded"),
+                "expanded",
+            ),
+            visible_channel_indices=_coerce_int_tuple(
+                payload.get("visible_channel_indices"),
+            ),
             y_range_mode=_coerce_literal(
                 payload.get("y_range_mode"),
                 ("auto", "manual"),
@@ -256,10 +270,15 @@ def normalize_preview_settings(
     payload_type: PreviewPayloadType,
     settings: PreviewSettings,
     nominal_sample_rate_hz: float,
+    channel_names: tuple[str, ...] = (),
 ) -> PreviewSettings:
     if payload_type == "signal":
         assert isinstance(settings, SignalPreviewSettings)
-        return _normalize_signal_settings(settings, nominal_sample_rate_hz)
+        return _normalize_signal_settings(
+            settings,
+            nominal_sample_rate_hz,
+            channel_names,
+        )
     if payload_type == "raster":
         assert isinstance(settings, RasterPreviewSettings)
         return _normalize_raster_settings(settings)
@@ -275,8 +294,10 @@ def normalize_preview_settings(
 def _normalize_signal_settings(
     settings: SignalPreviewSettings,
     nominal_sample_rate_hz: float,
+    channel_names: tuple[str, ...],
 ) -> SignalPreviewSettings:
     nyquist = max(float(nominal_sample_rate_hz or 1.0) / 2.0, 1.0)
+    channel_count = max(len(channel_names), 0)
     window_seconds = max(1, int(settings.window_seconds))
     filter_settings = settings.filter
 
@@ -302,6 +323,17 @@ def _normalize_signal_settings(
     )
     notch_q = max(0.1, float(filter_settings.notch_q))
     ripple_db = max(0.01, float(filter_settings.chebyshev1_ripple_db))
+    layout_mode = _coerce_literal(
+        settings.layout_mode,
+        ("stacked", "expanded"),
+        "expanded",
+    )
+    visible_channel_indices = _normalize_visible_channel_indices(
+        settings.visible_channel_indices,
+        channel_count,
+    )
+    if channel_count <= 1:
+        layout_mode = "stacked"
     manual_y_min, manual_y_max = _normalize_manual_range(
         settings.manual_y_min,
         settings.manual_y_max,
@@ -310,6 +342,8 @@ def _normalize_signal_settings(
     return SignalPreviewSettings(
         window_seconds=window_seconds,
         antialias_enabled=bool(settings.antialias_enabled),
+        layout_mode=layout_mode,
+        visible_channel_indices=visible_channel_indices,
         y_range_mode=_coerce_literal(
             settings.y_range_mode,
             ("auto", "manual"),
@@ -450,6 +484,27 @@ def _normalize_manual_range(manual_min: float, manual_max: float) -> tuple[float
     return low, high
 
 
+def _normalize_visible_channel_indices(
+    visible_channel_indices: tuple[int, ...],
+    channel_count: int,
+) -> tuple[int, ...]:
+    if channel_count <= 0:
+        return ()
+
+    requested = tuple(
+        index
+        for index in visible_channel_indices
+        if isinstance(index, int) and 0 <= index < channel_count
+    )
+    if not requested:
+        return tuple(range(channel_count))
+
+    deduplicated = tuple(dict.fromkeys(requested))
+    if not deduplicated:
+        return tuple(range(channel_count))
+    return deduplicated
+
+
 def _coerce_int(value: object, default: int) -> int:
     try:
         return int(value)  # type: ignore[arg-type]
@@ -477,6 +532,18 @@ def _coerce_float_tuple(value: object) -> tuple[float, ...]:
     for item in value:
         try:
             result.append(float(item))
+        except (TypeError, ValueError):
+            continue
+    return tuple(result)
+
+
+def _coerce_int_tuple(value: object) -> tuple[int, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    result: list[int] = []
+    for item in value:
+        try:
+            result.append(int(item))
         except (TypeError, ValueError):
             continue
     return tuple(result)

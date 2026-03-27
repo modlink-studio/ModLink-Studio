@@ -54,6 +54,7 @@ class SignalSettingsController(QObject):
             "signal",
             settings,
             float(self._descriptor.nominal_sample_rate_hz or 1.0),
+            tuple(self._descriptor.channel_names),
         )
         assert isinstance(normalized, SignalPreviewSettings)
         return normalized
@@ -64,4 +65,3 @@ class SignalSettingsController(QObject):
             self._section.set_state(settings)
         finally:
             self._updating = False
-

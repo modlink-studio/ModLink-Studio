@@ -48,7 +48,7 @@ class PreviewSettingsRuntime:
 
         payload_type = self._payload_type(descriptor)
         if payload_type == "signal":
-            section = _adapt_signal_section(self.payload_section_widget)
+            section = self.payload_section_widget
             self.controller = SignalSettingsController(
                 descriptor=descriptor,
                 section=section,
