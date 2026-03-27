@@ -31,9 +31,7 @@ https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ## 安装主应用
 
 ```bash
-python -m pip install \
-  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
-  modlink-studio
+python -m pip install modlink-studio --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ```
 
 ## 安装官方插件
@@ -49,21 +47,15 @@ python -m pip install \
 安装示例：
 
 ```bash
-python -m pip install \
-  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
-  "modlink-studio[official-host-camera]"
+python -m pip install "modlink-studio[official-host-camera]" --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ```
 
 ```bash
-python -m pip install \
-  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
-  "modlink-studio[official-host-camera,official-host-microphone]"
+python -m pip install "modlink-studio[official-host-camera,official-host-microphone]" --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ```
 
 ```bash
-python -m pip install \
-  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
-  "modlink-studio[official-openbci-ganglion]"
+python -m pip install "modlink-studio[official-openbci-ganglion]" --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ```
 
 ## 从源码安装

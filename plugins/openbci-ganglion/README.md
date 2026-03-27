@@ -24,9 +24,7 @@
 ## 从已发布包安装
 
 ```bash
-python -m pip install \
-  --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/ \
-  "modlink-studio[official-openbci-ganglion]"
+python -m pip install "modlink-studio[official-openbci-ganglion]" --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
 ```
 
 ## 在仓库里联调
