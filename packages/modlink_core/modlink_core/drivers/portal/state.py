@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from modlink_qt import QObject, pyqtSignal
 
 
 class DeviceState(QObject):

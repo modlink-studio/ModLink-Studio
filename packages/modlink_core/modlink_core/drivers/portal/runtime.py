@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal, pyqtSlot
+from modlink_qt import QObject, QThread, Qt, pyqtSignal, pyqtSlot
 
 from modlink_sdk import Driver, DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 

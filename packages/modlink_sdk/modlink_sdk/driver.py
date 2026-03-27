@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from modlink_qt import QObject, QTimer, pyqtSignal
 
 from .models import FrameEnvelope, SearchResult, StreamDescriptor
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PyQt6.QtCore import QCoreApplication, QObject, pyqtSignal
+from modlink_qt import QCoreApplication, QObject, pyqtSignal
 
 from modlink_sdk import DriverFactory
 

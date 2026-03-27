@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import (
+from modlink_qt import (
     QObject,
     QStandardPaths,
     QThread,

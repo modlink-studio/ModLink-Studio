@@ -6,7 +6,7 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
-dependencies = ["modlink-studio"]
+dependencies = ["modlink-studio", "modlink-studio-qml"]
 
 [project.urls]
 Homepage = "https://github.com/modlink-studio/ModLink-Studio"
@@ -25,10 +25,13 @@ default-groups = ["dev"]
 
 [tool.uv.sources]
 modlink-studio = { workspace = true }
+modlink-studio-qml = { workspace = true }
 modlink-plugin-scaffold = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
 modlink-ui = { workspace = true }
+modlink-new-ui = { workspace = true }
+modlink-qt = { workspace = true }
 modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
 modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
 modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
@@ -36,10 +39,13 @@ modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable 
 [tool.uv.workspace]
 members = [
     "apps/modlink_studio",
+    "apps/modlink_studio_qml",
     "apps/modlink_plugin_scaffold",
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_ui",
+    "packages/modlink_new_ui",
+    "packages/modlink_qt",
 ]
 
 [dependency-groups]
