@@ -137,7 +137,7 @@ class DevicePageController(QObject):
             task.deleteLater()
             self.portalsChanged.emit()
 
-        task.sig_done.connect(_handle_done)
+        task.add_done_callback(lambda _task: _handle_done())
 
     def _on_search_done(
         self, state: _PortalState, task: QtDriverTask, _action: str

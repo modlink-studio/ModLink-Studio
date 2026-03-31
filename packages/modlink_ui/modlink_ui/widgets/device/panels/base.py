@@ -443,7 +443,7 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
             self._sync_ui()
             self._refresh_groups()
 
-        task.sig_done.connect(_handle_done)
+        task.add_done_callback(lambda _task: _handle_done())
 
     def _on_search_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:

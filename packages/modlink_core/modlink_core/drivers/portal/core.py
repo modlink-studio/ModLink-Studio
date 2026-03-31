@@ -81,6 +81,7 @@ class DriverPortal:
         self._executor.start()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
+        self._session.close_context()
         if not self.is_running:
             self._session.mark_stopped()
             return
@@ -120,6 +121,7 @@ class DriverPortal:
         )
 
     def _on_executor_exit(self, stop_reason: Exception | None) -> None:
+        self._session.close_context()
         self._session.mark_stopped()
         if stop_reason is None:
             return

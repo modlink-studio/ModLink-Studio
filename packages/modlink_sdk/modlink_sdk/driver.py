@@ -9,7 +9,12 @@ from .models import FrameEnvelope, SearchResult, StreamDescriptor
 
 
 class DriverContext:
-    """Runtime callbacks exposed to one driver instance."""
+    """Runtime callbacks exposed to one driver instance.
+
+    The host may close a context during shutdown. After closure, late frames
+    and late connection-lost notifications are ignored so helper threads
+    cannot mutate host state after teardown.
+    """
 
     def __init__(
         self,
@@ -19,13 +24,25 @@ class DriverContext:
     ) -> None:
         self._frame_sink = frame_sink
         self._connection_lost_sink = connection_lost_sink
+        self._lock = RLock()
+        self._closed = False
 
     def emit_frame(self, frame: FrameEnvelope) -> bool:
-        result = self._frame_sink(frame)
-        return result is not False
+        with self._lock:
+            if self._closed:
+                return False
+            result = self._frame_sink(frame)
+            return result is not False
 
     def emit_connection_lost(self, detail: object) -> None:
-        self._connection_lost_sink(detail)
+        with self._lock:
+            if self._closed:
+                return
+            self._connection_lost_sink(detail)
+
+    def _close(self) -> None:
+        with self._lock:
+            self._closed = True
 
 
 class Driver:
@@ -110,7 +127,15 @@ DriverFactory = Callable[[], Driver]
 
 
 class LoopDriver(Driver):
-    """Convenience base class for polling-style drivers with a helper thread."""
+    """Convenience base class for bounded polling drivers with a helper thread.
+
+    This helper favors simple driver code over strict shutdown guarantees.
+    ``loop()`` should stay bounded and return quickly. Long blocking or
+    non-interruptible I/O belongs in a custom ``Driver`` implementation.
+    The host only guarantees that frames and connection-lost callbacks are
+    ignored after shutdown; it does not guarantee the helper thread has
+    already finished by the time teardown returns.
+    """
 
     loop_interval_ms = 10
 
@@ -164,6 +189,7 @@ class LoopDriver(Driver):
         raise NotImplementedError(f"{type(self).__name__} must implement loop")
 
     def on_shutdown(self) -> None:
+        """Best-effort shutdown hook for the helper loop thread."""
         self.stop_streaming()
 
     def _run_loop_thread(self, stop_event: Event) -> None:

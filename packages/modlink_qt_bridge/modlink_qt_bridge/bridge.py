@@ -7,7 +7,7 @@ from threading import Event, RLock, Thread
 import time
 from uuid import uuid4
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, AcquisitionBackend
 from modlink_core.bus import FrameStream, StreamBus
@@ -30,7 +30,8 @@ from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
 
 class QtDriverTask(QObject):
-    sig_done = pyqtSignal()
+    _sig_finalize_requested = pyqtSignal()
+    _sig_invoke_callback_requested = pyqtSignal(object)
 
     def __init__(
         self,
@@ -47,7 +48,7 @@ class QtDriverTask(QObject):
         self._done = Event()
         self._lock = RLock()
         self._callbacks: list[Callable[[QtDriverTask], None]] = []
-        self._signal_emitted = False
+        self._finalized = False
 
         self.task_id = uuid4().hex
         self.action = action
@@ -56,11 +57,22 @@ class QtDriverTask(QObject):
         self.error: Exception | None = None
         self.state = "running"
 
+        self._sig_finalize_requested.connect(
+            self._finalize_on_qt_thread,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._sig_invoke_callback_requested.connect(
+            self._invoke_callback_on_qt_thread,
+            Qt.ConnectionType.QueuedConnection,
+        )
+
         if future.done():
-            self.complete_from_future()
+            self._sig_finalize_requested.emit()
             return
 
-        future.add_done_callback(lambda _future: self.complete_from_future())
+        future.add_done_callback(
+            lambda _future: self._sig_finalize_requested.emit()
+        )
 
     @property
     def is_running(self) -> bool:
@@ -71,18 +83,22 @@ class QtDriverTask(QObject):
 
     def add_done_callback(self, callback: Callable[[QtDriverTask], None]) -> None:
         with self._lock:
-            if self._signal_emitted:
-                callback(self)
-                return
-            self._callbacks.append(callback)
+            if self._finalized:
+                invoke_later = True
+            else:
+                invoke_later = False
+                self._callbacks.append(callback)
+        if invoke_later:
+            self._sig_invoke_callback_requested.emit(callback)
 
-    def complete_from_future(self) -> None:
+    @pyqtSlot()
+    def _finalize_on_qt_thread(self) -> None:
         with self._lock:
+            if self._finalized:
+                return
             self._sync_from_future()
             self._done.set()
-            if self._signal_emitted:
-                return
-            self._signal_emitted = True
+            self._finalized = True
             callbacks = list(self._callbacks)
             self._callbacks.clear()
 
@@ -90,7 +106,11 @@ class QtDriverTask(QObject):
             self._on_completed()
         for callback in callbacks:
             callback(self)
-        self.sig_done.emit()
+
+    @pyqtSlot(object)
+    def _invoke_callback_on_qt_thread(self, callback: object) -> None:
+        if callable(callback):
+            callback(self)
 
     def _sync_from_future(self) -> None:
         if not self._future.done():
