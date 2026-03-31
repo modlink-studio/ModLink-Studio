@@ -228,6 +228,54 @@ class DemoFailingStartupDriver(Driver):
         return
 
 
+class DemoLifecycleHookDriver(Driver):
+    supported_providers = ("demo",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started_thread_name: str | None = None
+        self.stopped_thread_name: str | None = None
+
+    @property
+    def device_id(self) -> str:
+        return "demo_lifecycle.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return [
+            StreamDescriptor(
+                device_id=self.device_id,
+                modality="demo",
+                payload_type="signal",
+                nominal_sample_rate_hz=1.0,
+                chunk_size=1,
+                channel_names=("demo",),
+            )
+        ]
+
+    def on_runtime_started(self) -> None:
+        self.started_thread_name = threading.current_thread().name
+
+    def on_shutdown(self) -> None:
+        self.stopped_thread_name = threading.current_thread().name
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return []
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        return
+
+    def stop_streaming(self) -> None:
+        return
+
+
 class PurePythonRuntimeTest(unittest.TestCase):
     def test_loop_driver_runs_on_pure_python_portal(self) -> None:
         broker = BackendEventBroker()
@@ -330,6 +378,23 @@ class PurePythonRuntimeTest(unittest.TestCase):
             )
         )
         event_stream.close()
+
+    def test_portal_runs_driver_lifecycle_hooks_on_executor_thread(self) -> None:
+        broker = BackendEventBroker()
+        driver = DemoLifecycleHookDriver()
+        portal = DriverPortal(lambda: driver, publish_event=broker.publish)
+
+        portal.start()
+        portal.stop()
+
+        self.assertEqual(
+            "modlink.driver.demo_lifecycle.01",
+            driver.started_thread_name,
+        )
+        self.assertEqual(
+            "modlink.driver.demo_lifecycle.01",
+            driver.stopped_thread_name,
+        )
 
 
 def _wait_for_event(stream, event_type, *, timeout: float):

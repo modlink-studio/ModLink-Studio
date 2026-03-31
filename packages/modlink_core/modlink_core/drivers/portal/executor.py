@@ -14,8 +14,6 @@ class DriverExecutor:
         self,
         name: str,
         *,
-        on_started: Callable[[], None] | None = None,
-        on_stopped: Callable[[], None] | None = None,
         on_exit: Callable[[Exception | None], None] | None = None,
     ) -> None:
         self._name = str(name)
@@ -24,8 +22,6 @@ class DriverExecutor:
         self._lock = RLock()
         self._worker = WorkerThread(
             self._name,
-            on_started=on_started,
-            on_stopped=on_stopped,
             on_exit=self._on_worker_exit,
         )
 
