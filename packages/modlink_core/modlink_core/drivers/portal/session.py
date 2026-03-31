@@ -22,12 +22,11 @@ class DriverSession:
         self._on_connection_lost = on_connection_lost
         self._on_frame = on_frame
         self._driver = self._create_driver(driver_factory)
-        self._driver.bind(
-            DriverContext(
-                frame_sink=self._on_driver_frame,
-                connection_lost_sink=self._on_driver_connection_lost,
-            )
+        self._context = DriverContext(
+            frame_sink=self._on_driver_frame,
+            connection_lost_sink=self._on_driver_connection_lost,
         )
+        self._driver.bind(self._context)
         self._driver_id = self._driver.device_id
         self._display_name = self._driver.display_name
         self._supported_providers = tuple(
@@ -78,6 +77,7 @@ class DriverSession:
         self._driver.on_runtime_started()
 
     def on_executor_stopped(self) -> None:
+        self.close_context()
         self._driver.on_shutdown()
 
     def search(self, provider: str) -> list[SearchResult]:
@@ -101,6 +101,9 @@ class DriverSession:
 
     def mark_stopped(self) -> None:
         self._state._mark_disconnected()
+
+    def close_context(self) -> None:
+        self._context._close()
 
     def _on_driver_frame(self, frame: FrameEnvelope) -> bool:
         self._on_frame(frame)

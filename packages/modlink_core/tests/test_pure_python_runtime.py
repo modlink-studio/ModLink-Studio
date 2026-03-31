@@ -130,6 +130,64 @@ class DemoDisconnectingDriver(Driver):
         self.emit_connection_lost({"code": "DEMO_CONNECTION_LOST"})
 
 
+class DemoLateEmitLoopDriver(LoopDriver):
+    supported_providers = ("demo",)
+    loop_interval_ms = 0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._connected = False
+        self.loop_entered = threading.Event()
+        self.allow_finish = threading.Event()
+        self.late_emit_result: bool | None = None
+
+    @property
+    def device_id(self) -> str:
+        return "demo_late_emit.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return [
+            StreamDescriptor(
+                device_id=self.device_id,
+                modality="demo",
+                payload_type="signal",
+                nominal_sample_rate_hz=1.0,
+                chunk_size=1,
+                channel_names=("demo",),
+            )
+        ]
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return [SearchResult(title="Late Emit Device")]
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+        self._connected = True
+
+    def disconnect_device(self) -> None:
+        self._connected = False
+
+    def on_loop_started(self) -> None:
+        if not self._connected:
+            raise RuntimeError("device is not connected")
+
+    def loop(self) -> None:
+        self.loop_entered.set()
+        self.allow_finish.wait(5.0)
+        self.late_emit_result = self.emit_frame(
+            FrameEnvelope(
+                device_id=self.device_id,
+                modality="demo",
+                timestamp_ns=time.time_ns(),
+                data=np.ones((1, 1), dtype=np.float32),
+                seq=999,
+            )
+        )
+        self.emit_connection_lost("LATE_CONNECTION_LOST")
+
+
 class DemoFailingStartupDriver(Driver):
     supported_providers = ("demo",)
 
@@ -238,6 +296,39 @@ class PurePythonRuntimeTest(unittest.TestCase):
 
         self.assertEqual("driver_executor:demo_fail_start.01", event.source)
         self.assertIn("DRIVER_EXECUTOR_FAILED", event.message)
+        event_stream.close()
+
+    def test_loop_driver_shutdown_drops_late_frame_and_connection_lost(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        frames: list[FrameEnvelope] = []
+        driver = DemoLateEmitLoopDriver()
+        portal = DriverPortal(
+            lambda: driver,
+            publish_event=broker.publish,
+            frame_sink=frames.append,
+        )
+
+        portal.start()
+        portal.connect_device(SearchResult(title="Late Emit Device")).result(1.0)
+        portal.start_streaming().result(1.0)
+        self.assertTrue(driver.loop_entered.wait(1.0))
+
+        portal.stop()
+        frame_count = len(frames)
+
+        driver.allow_finish.set()
+        _wait_for(lambda: not driver.is_looping, timeout=2.0)
+        time.sleep(0.05)
+
+        self.assertEqual(frame_count, len(frames))
+        self.assertFalse(driver.late_emit_result)
+        self.assertFalse(
+            any(
+                isinstance(event, DriverConnectionLostEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
         event_stream.close()
 
 
