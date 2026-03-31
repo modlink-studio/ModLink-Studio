@@ -30,6 +30,24 @@ class DriverTimerHandle:
         self._cancel_sink(self._timer_id)
 
 
+class DriverHost:
+    """Execution capabilities exposed by the host runtime to one driver."""
+
+    def __init__(
+        self,
+        *,
+        timer_sink: Callable[[float, Callable[[], None]], DriverTimerHandle],
+    ) -> None:
+        self._timer_sink = timer_sink
+
+    def call_later(
+        self,
+        delay_ms: float,
+        callback: Callable[[], None],
+    ) -> DriverTimerHandle:
+        return self._timer_sink(delay_ms, callback)
+
+
 class DriverContext:
     """Runtime callbacks exposed to one driver instance."""
 
@@ -38,24 +56,15 @@ class DriverContext:
         *,
         frame_sink: Callable[[FrameEnvelope], None],
         connection_lost_sink: Callable[[object], None],
-        timer_sink: Callable[[float, Callable[[], None]], DriverTimerHandle],
     ) -> None:
         self._frame_sink = frame_sink
         self._connection_lost_sink = connection_lost_sink
-        self._timer_sink = timer_sink
 
     def emit_frame(self, frame: FrameEnvelope) -> None:
         self._frame_sink(frame)
 
     def emit_connection_lost(self, detail: object) -> None:
         self._connection_lost_sink(detail)
-
-    def call_later(
-        self,
-        delay_ms: float,
-        callback: Callable[[], None],
-    ) -> DriverTimerHandle:
-        return self._timer_sink(delay_ms, callback)
 
 
 class Driver:
@@ -84,6 +93,7 @@ class Driver:
 
     def __init__(self) -> None:
         self._context: DriverContext | None = None
+        self._host: DriverHost | None = None
 
     @property
     def display_name(self) -> str:
@@ -92,6 +102,10 @@ class Driver:
     def bind(self, context: DriverContext) -> None:
         """Attach the host runtime context to this driver instance."""
         self._context = context
+
+    def attach_host(self, host: DriverHost) -> None:
+        """Attach execution capabilities from the host runtime."""
+        self._host = host
 
     def on_runtime_started(self) -> None:
         """Optional hook called after the driver worker thread starts."""
@@ -115,6 +129,11 @@ class Driver:
         if self._context is None:
             raise RuntimeError("driver is not bound to a runtime context")
         return self._context
+
+    def _require_host(self) -> DriverHost:
+        if self._host is None:
+            raise RuntimeError("driver is not attached to a host")
+        return self._host
 
     def search(self, provider: str) -> list[SearchResult]:
         raise NotImplementedError(f"{type(self).__name__} must implement search")
@@ -180,7 +199,7 @@ class LoopDriver(Driver):
         raise NotImplementedError(f"{type(self).__name__} must implement loop")
 
     def _arm_loop_timer(self) -> None:
-        self._loop_timer = self._require_context().call_later(
+        self._loop_timer = self._require_host().call_later(
             float(self.loop_interval_ms),
             self._run_loop_once,
         )

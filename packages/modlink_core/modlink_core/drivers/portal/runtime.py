@@ -1,42 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-import heapq
-from itertools import count
-import queue
 import threading
-import time
 from uuid import uuid4
 
 from modlink_sdk import (
     Driver,
     DriverContext,
     DriverFactory,
+    DriverHost,
     DriverTimerHandle,
     FrameEnvelope,
     SearchResult,
     StreamDescriptor,
 )
 
+from ...runtime.worker import WorkerThread
 from .state import DeviceState
 from .task import DriverTask
 
 
-@dataclass(slots=True)
-class _ScheduledTimer:
-    timer_id: str
-    callback: Callable[[], None]
-    due_at: float
-    canceled: bool = False
-
-
 class DriverRuntime:
-    _STOP = "__stop_runtime__"
-    _SCHEDULE_TIMER = "__schedule_timer__"
-    _CANCEL_TIMER = "__cancel_timer__"
-    _TIMER_SEQUENCE = count(1)
-
     def __init__(
         self,
         driver_factory: DriverFactory,
@@ -55,9 +39,9 @@ class DriverRuntime:
             DriverContext(
                 frame_sink=self._on_driver_frame,
                 connection_lost_sink=self._on_driver_connection_lost,
-                timer_sink=self._call_later,
             )
         )
+        self._driver.attach_host(DriverHost(timer_sink=self._call_later))
         self._driver_id = self._driver.device_id
         self._display_name = self._driver.display_name
         self._supported_providers = tuple(
@@ -69,20 +53,19 @@ class DriverRuntime:
         )
         self._descriptors = self._driver.descriptors()
         self._thread_name = f"modlink.driver.{self._driver_id.strip()}"
-        self._running = False
         self._state = DeviceState(
             device_id=self._driver_id,
             display_name=self._display_name,
             parent=parent,
         )
         self._pending_tasks: dict[str, DriverTask] = {}
-        self._command_queue: queue.Queue[tuple[str, str | None, object | None]] = (
-            queue.Queue()
-        )
-        self._timers: dict[str, _ScheduledTimer] = {}
-        self._timer_heap: list[tuple[float, int, _ScheduledTimer]] = []
-        self._thread: threading.Thread | None = None
         self._lock = threading.RLock()
+        self._worker = WorkerThread(
+            self._thread_name,
+            on_started=self._driver.on_runtime_started,
+            on_stopped=self._shutdown_driver,
+            on_exit=self._on_worker_exit,
+        )
 
     @property
     def driver_id(self) -> str:
@@ -98,8 +81,7 @@ class DriverRuntime:
 
     @property
     def is_running(self) -> bool:
-        thread = self._thread
-        return self._running and thread is not None and thread.is_alive()
+        return self._worker.is_running
 
     @property
     def state(self) -> DeviceState:
@@ -109,30 +91,18 @@ class DriverRuntime:
         return list(self._descriptors)
 
     def start(self) -> None:
-        with self._lock:
-            if self.is_running:
-                return
-            self._running = True
-            thread = threading.Thread(
-                target=self._run,
-                name=self._thread_name,
-                daemon=True,
-            )
-            self._thread = thread
-            thread.start()
+        if self.is_running:
+            return
+        self._worker.start()
         self._notify_state_changed()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
-        thread = self._thread
-        if thread is None or not thread.is_alive():
-            self._running = False
+        if not self.is_running:
             self._state._mark_disconnected()
             self._notify_state_changed()
             return
 
-        self._command_queue.put((self._STOP, None, None))
-        thread.join(max(0, timeout_ms) / 1000)
-        if thread.is_alive():
+        if not self._worker.stop(timeout_ms=timeout_ms):
             self._emit_error(
                 f"DRIVER_STOP_TIMEOUT: driver_id={self.driver_id}: timeout_ms={timeout_ms}"
             )
@@ -170,57 +140,18 @@ class DriverRuntime:
 
         with self._lock:
             self._pending_tasks[task_id] = task
-        self._command_queue.put((action, task_id, request))
-        return task
-
-    def _run(self) -> None:
-        stop_reason: Exception | None = None
-        try:
-            self._driver.on_runtime_started()
-            while True:
-                self._run_due_timers()
-                try:
-                    action, task_id, request = self._command_queue.get(
-                        timeout=self._next_timer_timeout_seconds()
-                    )
-                except queue.Empty:
-                    continue
-                if action == self._STOP:
-                    break
-                if action == self._SCHEDULE_TIMER:
-                    self._schedule_timer_worker(task_id, request)
-                    continue
-                if action == self._CANCEL_TIMER:
-                    self._cancel_timer_worker(task_id)
-                    continue
-                self._execute_task(action, task_id, request)
-        except Exception as exc:
-            stop_reason = exc
-            self._emit_error(
-                f"DRIVER_THREAD_FAILED: driver_id={self.driver_id}: "
-                f"{type(exc).__name__}: {exc}"
-            )
-        finally:
-            try:
-                self._driver.on_shutdown()
-            except Exception as exc:
-                self._emit_error(
-                    f"DRIVER_SHUTDOWN_FAILED: driver_id={self.driver_id}: "
-                    f"{type(exc).__name__}: {exc}"
+        posted = self._worker.post(
+            lambda: self._execute_task(action, task_id, request)
+        )
+        if not posted:
+            with self._lock:
+                self._pending_tasks.pop(task_id, None)
+            task._fail(
+                RuntimeError(
+                    f"driver runtime is not running: driver_id={self.driver_id}"
                 )
-            self._running = False
-            self._thread = None
-            self._timers.clear()
-            self._timer_heap.clear()
-            self._state._mark_disconnected()
-            self._notify_state_changed()
-            self._fail_pending_tasks(
-                stop_reason,
-                default_message=(
-                    "driver thread stopped before pending tasks completed: "
-                    f"driver_id={self.driver_id}"
-                ),
             )
+        return task
 
     def _execute_task(
         self,
@@ -335,88 +266,48 @@ class DriverRuntime:
     ) -> DriverTimerHandle:
         if not callable(callback):
             raise TypeError("timer callback must be callable")
-        timer_id = uuid4().hex
-        self._command_queue.put(
-            (
-                self._SCHEDULE_TIMER,
-                timer_id,
-                (max(0.0, float(delay_ms)), callback),
-            )
+        timer_id = self._worker.call_later(
+            max(0.0, float(delay_ms)),
+            lambda: self._run_timer_callback(callback),
         )
         return DriverTimerHandle(timer_id, cancel_sink=self._cancel_timer)
 
     def _cancel_timer(self, timer_id: str) -> None:
-        self._command_queue.put((self._CANCEL_TIMER, str(timer_id), None))
+        self._worker.cancel_timer(timer_id)
 
-    def _schedule_timer_worker(
-        self,
-        timer_id: str | None,
-        request: object | None,
-    ) -> None:
-        if timer_id is None or not isinstance(request, tuple) or len(request) != 2:
-            return
-        delay_ms, callback = request
-        if not callable(callback):
-            return
+    def _run_timer_callback(self, callback: Callable[[], None]) -> None:
         try:
-            delay_seconds = max(0.0, float(delay_ms) / 1000.0)
-        except (TypeError, ValueError):
-            delay_seconds = 0.0
-        scheduled_timer = _ScheduledTimer(
-            timer_id=str(timer_id),
-            callback=callback,
-            due_at=time.monotonic() + delay_seconds,
-        )
-        self._timers[scheduled_timer.timer_id] = scheduled_timer
-        heapq.heappush(
-            self._timer_heap,
-            (
-                scheduled_timer.due_at,
-                next(self._TIMER_SEQUENCE),
-                scheduled_timer,
+            callback()
+        except Exception as exc:
+            self._emit_error(
+                f"DRIVER_TIMER_FAILED: driver_id={self.driver_id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+    def _shutdown_driver(self) -> None:
+        try:
+            self._driver.on_shutdown()
+        except Exception as exc:
+            self._emit_error(
+                f"DRIVER_SHUTDOWN_FAILED: driver_id={self.driver_id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+    def _on_worker_exit(self, stop_reason: Exception | None) -> None:
+        if stop_reason is not None:
+            self._emit_error(
+                f"DRIVER_THREAD_FAILED: driver_id={self.driver_id}: "
+                f"{type(stop_reason).__name__}: {stop_reason}"
+            )
+        self._state._mark_disconnected()
+        self._notify_state_changed()
+        self._fail_pending_tasks(
+            stop_reason,
+            default_message=(
+                "driver thread stopped before pending tasks completed: "
+                f"driver_id={self.driver_id}"
             ),
         )
-
-    def _cancel_timer_worker(self, timer_id: str | None) -> None:
-        if timer_id is None:
-            return
-        scheduled_timer = self._timers.pop(str(timer_id), None)
-        if scheduled_timer is not None:
-            scheduled_timer.canceled = True
-
-    def _run_due_timers(self) -> None:
-        while True:
-            next_timer = self._peek_next_timer()
-            if next_timer is None or next_timer.due_at > time.monotonic():
-                return
-            heapq.heappop(self._timer_heap)
-            current_timer = self._timers.get(next_timer.timer_id)
-            if current_timer is not next_timer or next_timer.canceled:
-                continue
-            self._timers.pop(next_timer.timer_id, None)
-            try:
-                next_timer.callback()
-            except Exception as exc:
-                self._emit_error(
-                    f"DRIVER_TIMER_FAILED: driver_id={self.driver_id}: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-
-    def _next_timer_timeout_seconds(self) -> float | None:
-        next_timer = self._peek_next_timer()
-        if next_timer is None:
-            return None
-        return max(0.0, next_timer.due_at - time.monotonic())
-
-    def _peek_next_timer(self) -> _ScheduledTimer | None:
-        while self._timer_heap:
-            _, _, scheduled_timer = self._timer_heap[0]
-            current_timer = self._timers.get(scheduled_timer.timer_id)
-            if current_timer is not scheduled_timer or scheduled_timer.canceled:
-                heapq.heappop(self._timer_heap)
-                continue
-            return scheduled_timer
-        return None
 
     @staticmethod
     def _create_driver(driver_factory: DriverFactory) -> Driver:
