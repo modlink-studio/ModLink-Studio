@@ -1,23 +1,25 @@
 from __future__ import annotations
 
+from concurrent.futures import CancelledError, Future
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from threading import Event, RLock, Thread
 import time
+from uuid import uuid4
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, AcquisitionBackend
 from modlink_core.bus import FrameStream, StreamBus
-from modlink_core.drivers import DriverPortal, DriverTask
+from modlink_core.drivers import DriverPortal
 from modlink_core.events import (
     AcquisitionErrorEvent,
     AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
     BackendErrorEvent,
+    DriverConnectionLostEvent,
     DriverSnapshot,
-    DriverStateChangedEvent,
     EventStream,
     SettingChangedEvent,
     StreamClosedError,
@@ -32,25 +34,33 @@ class QtDriverTask(QObject):
 
     def __init__(
         self,
-        backend_task: DriverTask,
+        future: Future[object | None],
+        *,
+        action: str,
+        request: object | None = None,
+        on_completed: Callable[[], None] | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)
-        self._backend_task = backend_task
+        self._future = future
+        self._on_completed = on_completed
         self._done = Event()
         self._lock = RLock()
         self._callbacks: list[Callable[[QtDriverTask], None]] = []
         self._signal_emitted = False
 
-        self.task_id = backend_task.task_id
-        self.action = backend_task.action
-        self.request = backend_task.request
-        self.result = backend_task.result
-        self.error = backend_task.error
-        self.state = backend_task.state
+        self.task_id = uuid4().hex
+        self.action = action
+        self.request = request
+        self.result: object | None = None
+        self.error: Exception | None = None
+        self.state = "running"
 
-        if not backend_task.is_running:
-            self.complete_from_backend()
+        if future.done():
+            self.complete_from_future()
+            return
+
+        future.add_done_callback(lambda _future: self.complete_from_future())
 
     @property
     def is_running(self) -> bool:
@@ -66,9 +76,9 @@ class QtDriverTask(QObject):
                 return
             self._callbacks.append(callback)
 
-    def complete_from_backend(self) -> None:
+    def complete_from_future(self) -> None:
         with self._lock:
-            self._sync_from_backend()
+            self._sync_from_future()
             self._done.set()
             if self._signal_emitted:
                 return
@@ -76,15 +86,32 @@ class QtDriverTask(QObject):
             callbacks = list(self._callbacks)
             self._callbacks.clear()
 
+        if self._on_completed is not None:
+            self._on_completed()
         for callback in callbacks:
             callback(self)
         self.sig_done.emit()
 
-    def _sync_from_backend(self) -> None:
-        self.request = self._backend_task.request
-        self.result = self._backend_task.result
-        self.error = self._backend_task.error
-        self.state = self._backend_task.state
+    def _sync_from_future(self) -> None:
+        if not self._future.done():
+            self.state = "running"
+            return
+        if self._future.cancelled():
+            self.result = None
+            self.error = CancelledError()
+            self.state = "failed"
+            return
+
+        error = self._future.exception()
+        if error is not None:
+            self.result = None
+            self.error = error
+            self.state = "failed"
+            return
+
+        self.result = self._future.result()
+        self.error = None
+        self.state = "finished"
 
 
 class QtDriverPortal(QObject):
@@ -100,7 +127,6 @@ class QtDriverPortal(QObject):
         super().__init__(parent=parent)
         self._backend_portal = backend_portal
         self._snapshot = backend_portal.snapshot()
-        self._tasks: dict[str, QtDriverTask] = {}
 
     @property
     def driver_id(self) -> str:
@@ -137,38 +163,44 @@ class QtDriverPortal(QObject):
         return self._backend_portal.descriptors()
 
     def search(self, provider: str) -> QtDriverTask:
-        return self._wrap_task(self._backend_portal.search(provider))
+        return self._wrap_task(
+            self._backend_portal.search(provider),
+            action="search",
+            request=provider,
+        )
 
     def connect_device(self, config: SearchResult) -> QtDriverTask:
-        return self._wrap_task(self._backend_portal.connect_device(config))
+        return self._wrap_task(
+            self._backend_portal.connect_device(config),
+            action="connect_device",
+            request=config,
+            refresh_snapshot=True,
+        )
 
     def disconnect_device(self) -> QtDriverTask:
-        return self._wrap_task(self._backend_portal.disconnect_device())
+        return self._wrap_task(
+            self._backend_portal.disconnect_device(),
+            action="disconnect_device",
+            refresh_snapshot=True,
+        )
 
     def start_streaming(self) -> QtDriverTask:
-        return self._wrap_task(self._backend_portal.start_streaming())
+        return self._wrap_task(
+            self._backend_portal.start_streaming(),
+            action="start_streaming",
+            refresh_snapshot=True,
+        )
 
     def stop_streaming(self) -> QtDriverTask:
-        return self._wrap_task(self._backend_portal.stop_streaming())
+        return self._wrap_task(
+            self._backend_portal.stop_streaming(),
+            action="stop_streaming",
+            refresh_snapshot=True,
+        )
 
     def _apply_snapshot(self, snapshot: DriverSnapshot) -> None:
         self._snapshot = snapshot
         self.sig_state_changed.emit(snapshot)
-
-    def _complete_task(self, task_id: str) -> bool:
-        task = self._tasks.pop(task_id, None)
-        if task is None:
-            return False
-        task.complete_from_backend()
-        return True
-
-    def _resync_tasks(self) -> None:
-        completed_task_ids = [
-            task_id for task_id, task in self._tasks.items() if not task.is_running
-        ]
-        for task_id in completed_task_ids:
-            task = self._tasks.pop(task_id)
-            task.complete_from_backend()
 
     def _emit_error(self, message: str) -> None:
         self.sig_error.emit(message)
@@ -176,21 +208,24 @@ class QtDriverPortal(QObject):
     def _emit_connection_lost(self, detail: object | None) -> None:
         self.sig_connection_lost.emit(detail)
 
-    def _wrap_task(self, backend_task: DriverTask) -> QtDriverTask:
-        task = QtDriverTask(backend_task, parent=self)
-        if task.is_running:
-            self._tasks[task.task_id] = task
-            Thread(
-                target=self._wait_for_task,
-                args=(task.task_id, backend_task),
-                name=f"modlink.qt_task.{task.task_id}",
-                daemon=True,
-            ).start()
-        return task
+    def _refresh_snapshot(self) -> None:
+        self._apply_snapshot(self._backend_portal.snapshot())
 
-    def _wait_for_task(self, task_id: str, backend_task: DriverTask) -> None:
-        backend_task.wait()
-        self._complete_task(task_id)
+    def _wrap_task(
+        self,
+        future: Future[object | None],
+        *,
+        action: str,
+        request: object | None = None,
+        refresh_snapshot: bool = False,
+    ) -> QtDriverTask:
+        return QtDriverTask(
+            future,
+            action=action,
+            request=request,
+            on_completed=self._refresh_snapshot if refresh_snapshot else None,
+            parent=self,
+        )
 
 
 class QtBusBridge(QObject):
@@ -402,12 +437,6 @@ class QtModLinkBridge(QObject):
             self.bus._emit_frames(list(latest_by_stream.values()))
 
     def _dispatch_event(self, event: object) -> None:
-        if isinstance(event, DriverStateChangedEvent):
-            portal = self._driver_portals.get(event.snapshot.driver_id)
-            if portal is not None:
-                portal._apply_snapshot(event.snapshot)
-            return
-
         if isinstance(event, AcquisitionErrorEvent):
             self.acquisition._emit_error(event)
             return
@@ -418,6 +447,13 @@ class QtModLinkBridge(QObject):
 
         if isinstance(event, SettingChangedEvent):
             self.settings._emit_setting_changed(event)
+            return
+
+        if isinstance(event, DriverConnectionLostEvent):
+            portal = self._driver_portals.get(event.driver_id)
+            if portal is not None:
+                portal._refresh_snapshot()
+                portal._emit_connection_lost(event.detail)
             return
 
         if isinstance(event, BackendErrorEvent):
@@ -439,15 +475,10 @@ class QtModLinkBridge(QObject):
             self.bus._emit_error(event.message)
             return
 
-        if event.source.startswith("driver:"):
-            driver_id = event.source.removeprefix("driver:")
+        if event.source.startswith("driver_executor:"):
+            driver_id = event.source.removeprefix("driver_executor:")
             portal = self._driver_portals.get(driver_id)
             if portal is not None:
-                if event.message.startswith("DRIVER_CONNECTION_LOST"):
-                    portal._emit_connection_lost(
-                        _extract_driver_connection_lost_detail(event.message)
-                    )
-                    return
                 portal._emit_error(event.message)
             return
 
@@ -463,7 +494,6 @@ class QtModLinkBridge(QObject):
             if snapshot is None:
                 continue
             portal._apply_snapshot(snapshot)
-            portal._resync_tasks()
 
 
 def _flatten_settings(
@@ -476,14 +506,3 @@ def _flatten_settings(
             yield from _flatten_settings(value, qualified)
             continue
         yield qualified, value
-
-
-def _extract_driver_connection_lost_detail(message: str) -> object | None:
-    prefix = "DRIVER_CONNECTION_LOST"
-    normalized = str(message).strip()
-    if normalized == prefix:
-        return None
-    if normalized.startswith(f"{prefix}:"):
-        detail = normalized.removeprefix(f"{prefix}:").strip()
-        return detail or None
-    return normalized or None

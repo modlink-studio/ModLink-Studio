@@ -28,9 +28,10 @@ class AcquisitionSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
-class DriverStateChangedEvent:
-    snapshot: DriverSnapshot
-    kind: Literal["driver_state_changed"] = "driver_state_changed"
+class DriverConnectionLostEvent:
+    driver_id: str
+    detail: object | None = None
+    kind: Literal["driver_connection_lost"] = "driver_connection_lost"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +69,7 @@ class BackendErrorEvent:
 
 
 BackendEvent: TypeAlias = (
-    DriverStateChangedEvent
+    DriverConnectionLostEvent
     | AcquisitionStateChangedEvent
     | AcquisitionErrorEvent
     | AcquisitionLifecycleEvent
