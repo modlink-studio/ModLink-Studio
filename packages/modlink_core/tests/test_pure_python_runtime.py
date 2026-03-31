@@ -8,7 +8,14 @@ import numpy as np
 
 from modlink_core.drivers import DriverPortal
 from modlink_core.events import BackendEventBroker, DriverStateChangedEvent
-from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
+from modlink_sdk import (
+    Driver,
+    DriverHost,
+    FrameEnvelope,
+    LoopDriver,
+    SearchResult,
+    StreamDescriptor,
+)
 
 
 class DemoLoopDriver(LoopDriver):
@@ -106,6 +113,53 @@ class DemoCallbackDriver(Driver):
         return
 
 
+class DemoAttachHostDriver(Driver):
+    supported_providers = ("demo",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.host_attached = False
+
+    @property
+    def device_id(self) -> str:
+        return "demo_attach_host.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return [
+            StreamDescriptor(
+                device_id=self.device_id,
+                modality="demo",
+                payload_type="signal",
+                nominal_sample_rate_hz=1.0,
+                chunk_size=1,
+                channel_names=("demo",),
+            )
+        ]
+
+    def attach_host(self, host: DriverHost) -> None:
+        super().attach_host(host)
+        self.host_attached = True
+        host.call_later(1.0, lambda: None)
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return [SearchResult(title="Attach Host Device")]
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+        return
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        return
+
+    def stop_streaming(self) -> None:
+        return
+
+
 class PurePythonRuntimeTest(unittest.TestCase):
     def test_loop_driver_runs_on_pure_python_portal(self) -> None:
         broker = BackendEventBroker()
@@ -178,6 +232,15 @@ class PurePythonRuntimeTest(unittest.TestCase):
         self.assertTrue(task.is_failed)
         self.assertIsInstance(task.error, RuntimeError)
         self.assertIn("not running", str(task.error))
+
+    def test_attach_host_can_use_host_before_runtime_start(self) -> None:
+        broker = BackendEventBroker()
+        driver = DemoAttachHostDriver()
+
+        portal = DriverPortal(lambda: driver, publish_event=broker.publish)
+
+        self.assertEqual("demo_attach_host.01", portal.driver_id)
+        self.assertTrue(driver.host_attached)
 
 
 def _drain_events(stream, *, timeout: float = 0.05) -> list[object]:

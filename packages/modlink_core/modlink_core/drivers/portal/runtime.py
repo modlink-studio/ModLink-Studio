@@ -41,7 +41,6 @@ class DriverRuntime:
                 connection_lost_sink=self._on_driver_connection_lost,
             )
         )
-        self._driver.attach_host(DriverHost(timer_sink=self._call_later))
         self._driver_id = self._driver.device_id
         self._display_name = self._driver.display_name
         self._supported_providers = tuple(
@@ -66,6 +65,7 @@ class DriverRuntime:
             on_stopped=self._shutdown_driver,
             on_exit=self._on_worker_exit,
         )
+        self._driver.attach_host(DriverHost(timer_sink=self._call_later))
 
     @property
     def driver_id(self) -> str:
