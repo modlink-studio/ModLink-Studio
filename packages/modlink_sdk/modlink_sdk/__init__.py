@@ -1,6 +1,13 @@
 """Public exports for driver authors using the ModLink SDK."""
 
-from .driver import Driver, DriverContext, DriverFactory, DriverTimerHandle, LoopDriver
+from .driver import (
+    Driver,
+    DriverContext,
+    DriverFactory,
+    DriverHost,
+    DriverTimerHandle,
+    LoopDriver,
+)
 from .models import (
     FrameEnvelope,
     PayloadType,
@@ -12,6 +19,7 @@ __all__ = [
     "Driver",
     "DriverContext",
     "DriverFactory",
+    "DriverHost",
     "DriverTimerHandle",
     "LoopDriver",
     "FrameEnvelope",
