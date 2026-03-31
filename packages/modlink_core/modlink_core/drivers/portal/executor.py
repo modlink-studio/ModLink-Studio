@@ -58,9 +58,12 @@ class DriverExecutor:
 
         with self._lock:
             self._pending.discard(future)
-        future.set_exception(
-            RuntimeError(f"{self._name} is not running")
-        )
+        if not future.done():
+            future.set_exception(
+                RuntimeError(
+                    f"{self._name} stopped before task could be posted"
+                )
+            )
         return future
 
     def _execute_future(
