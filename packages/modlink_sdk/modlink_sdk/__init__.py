@@ -4,8 +4,6 @@ from .driver import (
     Driver,
     DriverContext,
     DriverFactory,
-    DriverHost,
-    DriverTimerHandle,
     LoopDriver,
 )
 from .models import (
@@ -19,8 +17,6 @@ __all__ = [
     "Driver",
     "DriverContext",
     "DriverFactory",
-    "DriverHost",
-    "DriverTimerHandle",
     "LoopDriver",
     "FrameEnvelope",
     "PayloadType",

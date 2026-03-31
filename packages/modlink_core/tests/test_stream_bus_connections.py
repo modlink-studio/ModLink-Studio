@@ -13,8 +13,7 @@ from modlink_core.events import (
     AcquisitionErrorEvent,
     BackendErrorEvent,
     BackendEventBroker,
-    DriverSnapshot,
-    DriverStateChangedEvent,
+    DriverConnectionLostEvent,
 )
 from modlink_core.settings.service import SettingsService as SettingsServiceType
 from modlink_sdk import FrameEnvelope, StreamDescriptor
@@ -35,28 +34,10 @@ class StreamBusConnectionTest(unittest.TestCase):
         stream = broker.open_stream(maxsize=1)
 
         broker.publish(
-            DriverStateChangedEvent(
-                snapshot=DriverSnapshot(
-                    driver_id="demo.01",
-                    display_name="demo",
-                    supported_providers=("demo",),
-                    is_running=True,
-                    is_connected=False,
-                    is_streaming=False,
-                )
-            )
+            DriverConnectionLostEvent(driver_id="demo.01", detail=None)
         )
         broker.publish(
-            DriverStateChangedEvent(
-                snapshot=DriverSnapshot(
-                    driver_id="demo.01",
-                    display_name="demo",
-                    supported_providers=("demo",),
-                    is_running=True,
-                    is_connected=True,
-                    is_streaming=False,
-                )
-            )
+            DriverConnectionLostEvent(driver_id="demo.01", detail="again")
         )
 
         event = stream.read(timeout=0.1)

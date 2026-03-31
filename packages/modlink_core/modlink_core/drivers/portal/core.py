@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import Future
 
 from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
 from ...events import (
     BackendErrorEvent,
     BackendEvent,
+    DriverConnectionLostEvent,
     DriverSnapshot,
-    DriverStateChangedEvent,
 )
-from .runtime import DriverRuntime
-from .task import DriverTask
+from .executor import DriverExecutor
+from .session import DriverSession
+from .state import DeviceState
 
 
 class DriverPortal:
@@ -28,87 +30,105 @@ class DriverPortal:
         self._parent = parent
         self._publish_event = publish_event
         self._frame_sink = frame_sink
-        self._runtime = DriverRuntime(
+        self._session = DriverSession(
             driver_factory,
-            on_error=self._on_runtime_error,
-            on_frame=self._on_runtime_frame,
-            on_state_changed=self._on_runtime_state_changed,
+            on_connection_lost=self._on_connection_lost,
+            on_frame=self._on_session_frame,
             parent=parent,
+        )
+        self._executor = DriverExecutor(
+            f"modlink.driver.{self.driver_id.strip()}",
+            on_started=self._session.on_executor_started,
+            on_stopped=self._session.on_executor_stopped,
+            on_exit=self._on_executor_exit,
         )
 
     @property
     def driver_id(self) -> str:
-        return self._runtime.driver_id
+        return self._session.driver_id
 
     @property
     def display_name(self) -> str:
-        return self._runtime.display_name
+        return self._session.display_name
 
     @property
     def supported_providers(self) -> tuple[str, ...]:
-        return self._runtime.supported_providers
+        return self._session.supported_providers
 
     @property
     def is_running(self) -> bool:
-        return self._runtime.is_running
+        return self._executor.is_running
 
     @property
     def is_connected(self) -> bool:
-        return self._runtime.state.is_connected
+        return self._session.state.is_connected
 
     @property
     def is_streaming(self) -> bool:
-        return self._runtime.state.is_streaming
+        return self._session.state.is_streaming
 
     @property
-    def state(self):
-        return self._runtime.state
+    def state(self) -> DeviceState:
+        return self._session.state
 
     def snapshot(self) -> DriverSnapshot:
-        return DriverSnapshot(
-            driver_id=self.driver_id,
-            display_name=self.display_name,
-            supported_providers=self.supported_providers,
-            is_running=self.is_running,
-            is_connected=self.is_connected,
-            is_streaming=self.is_streaming,
-        )
+        return self._session.snapshot(is_running=self.is_running)
 
     def descriptors(self) -> list[StreamDescriptor]:
-        return self._runtime.descriptors()
+        return self._session.descriptors()
 
     def start(self) -> None:
-        self._runtime.start()
+        self._executor.start()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
-        self._runtime.stop(timeout_ms=timeout_ms)
+        if not self.is_running:
+            self._session.mark_stopped()
+            return
 
-    def search(self, provider: str) -> DriverTask:
-        return self._runtime.search(provider)
+        if self._executor.stop(timeout_ms=timeout_ms):
+            return
 
-    def connect_device(self, config: SearchResult) -> DriverTask:
-        return self._runtime.connect_device(config)
+        self._publish_event(
+            BackendErrorEvent(
+                source=f"driver_executor:{self.driver_id}",
+                message=f"DRIVER_STOP_TIMEOUT: timeout_ms={timeout_ms}",
+            )
+        )
 
-    def disconnect_device(self) -> DriverTask:
-        return self._runtime.disconnect_device()
+    def search(self, provider: str) -> Future[object | None]:
+        return self._executor.submit(self._session.search, provider)
 
-    def start_streaming(self) -> DriverTask:
-        return self._runtime.start_streaming()
+    def connect_device(self, config: SearchResult) -> Future[object | None]:
+        return self._executor.submit(self._session.connect_device, config)
 
-    def stop_streaming(self) -> DriverTask:
-        return self._runtime.stop_streaming()
+    def disconnect_device(self) -> Future[object | None]:
+        return self._executor.submit(self._session.disconnect_device)
 
-    def _on_runtime_frame(self, frame: FrameEnvelope) -> None:
+    def start_streaming(self) -> Future[object | None]:
+        return self._executor.submit(self._session.start_streaming)
+
+    def stop_streaming(self) -> Future[object | None]:
+        return self._executor.submit(self._session.stop_streaming)
+
+    def _on_session_frame(self, frame: FrameEnvelope) -> None:
         if self._frame_sink is not None:
             self._frame_sink(frame)
 
-    def _on_runtime_state_changed(self) -> None:
-        self._publish_state_changed()
-
-    def _on_runtime_error(self, message: str) -> None:
+    def _on_connection_lost(self, detail: object | None) -> None:
         self._publish_event(
-            BackendErrorEvent(source=f"driver:{self.driver_id}", message=message)
+            DriverConnectionLostEvent(driver_id=self.driver_id, detail=detail)
         )
 
-    def _publish_state_changed(self) -> None:
-        self._publish_event(DriverStateChangedEvent(snapshot=self.snapshot()))
+    def _on_executor_exit(self, stop_reason: Exception | None) -> None:
+        self._session.mark_stopped()
+        if stop_reason is None:
+            return
+        self._publish_event(
+            BackendErrorEvent(
+                source=f"driver_executor:{self.driver_id}",
+                message=(
+                    "DRIVER_EXECUTOR_FAILED: "
+                    f"{type(stop_reason).__name__}: {stop_reason}"
+                ),
+            )
+        )
