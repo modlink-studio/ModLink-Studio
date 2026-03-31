@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import Future
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 
 from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
@@ -38,8 +38,6 @@ class DriverPortal:
         )
         self._executor = DriverExecutor(
             f"modlink.driver.{self.driver_id.strip()}",
-            on_started=self._session.on_executor_started,
-            on_stopped=self._session.on_executor_stopped,
             on_exit=self._on_executor_exit,
         )
 
@@ -79,12 +77,42 @@ class DriverPortal:
 
     def start(self) -> None:
         self._executor.start()
+        startup = self._executor.submit(self._session.on_executor_started)
+        try:
+            startup.result()
+        except Exception as exc:
+            self._publish_event(
+                BackendErrorEvent(
+                    source=f"driver_executor:{self.driver_id}",
+                    message=(
+                        "DRIVER_EXECUTOR_FAILED: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
+            )
+            self.stop()
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
         self._session.close_context()
         if not self.is_running:
             self._session.mark_stopped()
             return
+
+        shutdown = self._executor.submit(self._session.on_executor_stopped)
+        try:
+            shutdown.result(max(0.0, timeout_ms) / 1000.0)
+        except FutureTimeoutError:
+            pass
+        except Exception as exc:
+            self._publish_event(
+                BackendErrorEvent(
+                    source=f"driver_executor:{self.driver_id}",
+                    message=(
+                        "DRIVER_SHUTDOWN_FAILED: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
+            )
 
         if self._executor.stop(timeout_ms=timeout_ms):
             return
