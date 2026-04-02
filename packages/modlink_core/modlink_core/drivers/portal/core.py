@@ -80,17 +80,9 @@ class DriverPortal:
         startup = self._executor.submit(self._session.on_executor_started)
         try:
             startup.result()
-        except Exception as exc:
-            self._publish_event(
-                BackendErrorEvent(
-                    source=f"driver_executor:{self.driver_id}",
-                    message=(
-                        "DRIVER_EXECUTOR_FAILED: "
-                        f"{type(exc).__name__}: {exc}"
-                    ),
-                )
-            )
+        except Exception:
             self.stop()
+            raise
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
         self._session.close_context()

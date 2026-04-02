@@ -401,17 +401,21 @@ class PurePythonRuntimeTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "not running"):
             future.result(0.1)
 
-    def test_executor_failure_publishes_backend_error(self) -> None:
+    def test_startup_failure_raises_without_backend_error(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         portal = DriverPortal(DemoFailingStartupDriver, publish_event=broker.publish)
 
-        portal.start()
+        with self.assertRaisesRegex(RuntimeError, "startup failed"):
+            portal.start()
 
-        event = _wait_for_event(event_stream, BackendErrorEvent, timeout=1.0)
-
-        self.assertEqual("driver_executor:demo_fail_start.01", event.source)
-        self.assertIn("DRIVER_EXECUTOR_FAILED", event.message)
+        self.assertFalse(portal.is_running)
+        self.assertFalse(
+            any(
+                isinstance(event, BackendErrorEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
         event_stream.close()
 
     def test_loop_driver_shutdown_drops_late_frame_and_connection_lost(self) -> None:
