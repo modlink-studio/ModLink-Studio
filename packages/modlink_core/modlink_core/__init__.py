@@ -1,14 +1,13 @@
 from .acquisition import AcquisitionBackend
 from .bus import FrameStream, FrameStreamOverflowError, StreamBus
 from .events import (
-    AcquisitionErrorEvent,
-    AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
     BackendErrorEvent,
     DriverConnectionLostEvent,
     EventStream,
     DriverSnapshot,
+    RecordingFailedEvent,
     SettingChangedEvent,
     StreamClosedError,
 )
@@ -17,8 +16,6 @@ from .settings import SettingsService
 
 __all__ = [
     "AcquisitionBackend",
-    "AcquisitionErrorEvent",
-    "AcquisitionLifecycleEvent",
     "AcquisitionSnapshot",
     "AcquisitionStateChangedEvent",
     "BackendErrorEvent",
@@ -28,6 +25,7 @@ __all__ = [
     "FrameStreamOverflowError",
     "DriverSnapshot",
     "ModLinkEngine",
+    "RecordingFailedEvent",
     "SettingChangedEvent",
     "SettingsService",
     "StreamClosedError",

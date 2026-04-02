@@ -41,16 +41,14 @@ class AcquisitionStateChangedEvent:
 
 
 @dataclass(frozen=True, slots=True)
-class AcquisitionErrorEvent:
-    message: str
-    kind: Literal["acquisition_error"] = "acquisition_error"
-
-
-@dataclass(frozen=True, slots=True)
-class AcquisitionLifecycleEvent:
-    name: str
-    payload: dict[str, object]
-    kind: Literal["acquisition_lifecycle"] = "acquisition_lifecycle"
+class RecordingFailedEvent:
+    session_name: str
+    recording_id: str
+    recording_path: str
+    frame_counts_by_stream: dict[str, int]
+    reason: str
+    ts_ns: int
+    kind: Literal["recording_failed"] = "recording_failed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,8 +71,7 @@ class BackendErrorEvent:
 BackendEvent: TypeAlias = (
     DriverConnectionLostEvent
     | AcquisitionStateChangedEvent
-    | AcquisitionErrorEvent
-    | AcquisitionLifecycleEvent
+    | RecordingFailedEvent
     | SettingChangedEvent
     | BackendErrorEvent
 )

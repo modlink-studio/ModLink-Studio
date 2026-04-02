@@ -37,6 +37,9 @@ class AcquisitionController(QObject):
             self._on_recording_state_changed
         )
         self._engine.acquisition.sig_error.connect(self._on_error)
+        self._engine.acquisition.sig_recording_failed.connect(
+            self._on_recording_failed
+        )
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=sessionNameChanged)
@@ -207,5 +210,17 @@ class AcquisitionController(QObject):
         cleaned_detail = detail.strip() if separator else ""
         if cleaned_detail and cleaned_detail != "not recording":
             self.messageRaised.emit(f"{friendly} 详情：{cleaned_detail}")
+            return
+        self.messageRaised.emit(friendly)
+
+    def _on_recording_failed(self, event: object) -> None:
+        reason = str(getattr(event, "reason", "")).strip()
+        friendly = {
+            "frame_stream_overflow": "采集数据积压过多，录制已停止。",
+            "write_failed": "写入采集数据失败，录制已停止。",
+            "finalize_failed": "结束采集时写入录制元数据失败。",
+        }.get(reason)
+        if friendly is None:
+            self.messageRaised.emit("采集录制失败。")
             return
         self.messageRaised.emit(friendly)
