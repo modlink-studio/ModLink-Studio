@@ -75,13 +75,18 @@ class DriverPortal:
     def descriptors(self) -> list[StreamDescriptor]:
         return self._session.descriptors()
 
-    def start(self) -> None:
+    def start(self, *, timeout_ms: int = 5000) -> None:
         self._executor.start()
         startup = self._executor.submit(self._session.on_executor_started)
         try:
-            startup.result()
+            startup.result(max(0.0, timeout_ms) / 1000.0)
+        except FutureTimeoutError as exc:
+            self.stop(timeout_ms=timeout_ms)
+            raise TimeoutError(
+                f"driver startup timed out after {timeout_ms}ms: {self.driver_id}"
+            ) from exc
         except Exception:
-            self.stop()
+            self.stop(timeout_ms=timeout_ms)
             raise
 
     def stop(self, *, timeout_ms: int = 3000) -> None:

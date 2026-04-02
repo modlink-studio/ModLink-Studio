@@ -5,9 +5,15 @@ import queue
 import threading
 import time
 import unittest
+from unittest.mock import patch
+from pathlib import Path
+from uuid import uuid4
 
 import numpy as np
 
+from modlink_core import ModLinkEngine
+from modlink_core.acquisition import AcquisitionBackend
+from modlink_core.settings import SettingsService
 from modlink_core.drivers import DriverPortal
 from modlink_core.events import (
     BackendErrorEvent,
@@ -231,14 +237,16 @@ class DemoFailingStartupDriver(Driver):
 class DemoLifecycleHookDriver(Driver):
     supported_providers = ("demo",)
 
-    def __init__(self) -> None:
+    def __init__(self, device_id: str = "demo_lifecycle.01") -> None:
         super().__init__()
+        self._device_id = device_id
         self.started_thread_name: str | None = None
         self.stopped_thread_name: str | None = None
+        self.stopped_event = threading.Event()
 
     @property
     def device_id(self) -> str:
-        return "demo_lifecycle.01"
+        return self._device_id
 
     def descriptors(self) -> list[StreamDescriptor]:
         return [
@@ -257,6 +265,7 @@ class DemoLifecycleHookDriver(Driver):
 
     def on_shutdown(self) -> None:
         self.stopped_thread_name = threading.current_thread().name
+        self.stopped_event.set()
 
     def search(self, provider: str) -> list[SearchResult]:
         if provider != "demo":
@@ -342,6 +351,54 @@ class DemoSlowShutdownDriver(Driver):
     def on_shutdown(self) -> None:
         self.allow_shutdown.wait(1.0)
         self.shutdown_finished.set()
+
+
+class DemoHangingStartupDriver(Driver):
+    supported_providers = ("demo",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.allow_start = threading.Event()
+        self.shutdown_called = threading.Event()
+
+    @property
+    def device_id(self) -> str:
+        return "demo_hanging_start.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return [
+            StreamDescriptor(
+                device_id=self.device_id,
+                modality="demo",
+                payload_type="signal",
+                nominal_sample_rate_hz=1.0,
+                chunk_size=1,
+                channel_names=("demo",),
+            )
+        ]
+
+    def on_runtime_started(self) -> None:
+        self.allow_start.wait(1.0)
+
+    def on_shutdown(self) -> None:
+        self.shutdown_called.set()
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return []
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        return
+
+    def stop_streaming(self) -> None:
+        return
 
 
 class PurePythonRuntimeTest(unittest.TestCase):
@@ -503,6 +560,132 @@ class PurePythonRuntimeTest(unittest.TestCase):
         )
         event_stream.close()
 
+    def test_portal_start_times_out(self) -> None:
+        broker = BackendEventBroker()
+        driver = DemoHangingStartupDriver()
+        portal = DriverPortal(lambda: driver, publish_event=broker.publish)
+
+        with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
+            portal.start(timeout_ms=50)
+
+        driver.allow_start.set()
+        self.assertTrue(driver.shutdown_called.wait(1.0))
+
+    def test_engine_starts_acquisition_after_drivers(self) -> None:
+        call_order: list[str] = []
+        driver_a = DemoLifecycleHookDriver("demo_order_a.01")
+        driver_b = DemoLifecycleHookDriver("demo_order_b.01")
+
+        original_start = AcquisitionBackend.start
+
+        def _record_start(backend: AcquisitionBackend) -> None:
+            call_order.append("acquisition")
+            original_start(backend)
+
+        def _wrap_started(driver: DemoLifecycleHookDriver, driver_id: str):
+            def _started() -> None:
+                call_order.append(driver_id)
+                driver.started_thread_name = threading.current_thread().name
+            return _started
+
+        driver_a.on_runtime_started = _wrap_started(driver_a, "demo_order_a.01")  # type: ignore[method-assign]
+        driver_b.on_runtime_started = _wrap_started(driver_b, "demo_order_b.01")  # type: ignore[method-assign]
+
+        with patch(
+            "modlink_core.runtime.engine.AcquisitionBackend.start",
+            autospec=True,
+            side_effect=_record_start,
+        ):
+            engine = ModLinkEngine(
+                driver_factories=[lambda: driver_a, lambda: driver_b],
+                settings=_build_settings_service(),
+            )
+
+        self.assertEqual(
+            ["demo_order_a.01", "demo_order_b.01", "acquisition"],
+            call_order,
+        )
+        engine.shutdown()
+
+    def test_engine_rolls_back_started_drivers_when_startup_fails(self) -> None:
+        started_driver = DemoLifecycleHookDriver("demo_started.01")
+        failing_driver = DemoFailingStartupDriver()
+        removed_stream_ids: list[str] = []
+
+        original_remove = __import__(
+            "modlink_core.runtime.engine", fromlist=["StreamBus"]
+        ).StreamBus.remove_descriptor
+
+        def _spy_remove(bus, stream_id: str) -> None:
+            removed_stream_ids.append(stream_id)
+            original_remove(bus, stream_id)
+
+        with patch(
+            "modlink_core.runtime.engine.StreamBus.remove_descriptor",
+            autospec=True,
+            side_effect=_spy_remove,
+        ), patch(
+            "modlink_core.runtime.engine.AcquisitionBackend.start",
+            autospec=True,
+        ) as acquisition_start:
+            with self.assertRaisesRegex(RuntimeError, "startup failed"):
+                ModLinkEngine(
+                    driver_factories=[lambda: started_driver, lambda: failing_driver],
+                    settings=_build_settings_service(),
+                )
+
+        self.assertTrue(started_driver.stopped_event.wait(1.0))
+        self.assertFalse(acquisition_start.called)
+        self.assertEqual(
+            {
+                next(iter(started_driver.descriptors())).stream_id,
+                next(iter(failing_driver.descriptors())).stream_id,
+            },
+            set(removed_stream_ids),
+        )
+
+    def test_engine_rolls_back_started_drivers_when_startup_times_out(self) -> None:
+        started_driver = DemoLifecycleHookDriver("demo_started.01")
+        hanging_driver = DemoHangingStartupDriver()
+        removed_stream_ids: list[str] = []
+
+        original_remove = __import__(
+            "modlink_core.runtime.engine", fromlist=["StreamBus"]
+        ).StreamBus.remove_descriptor
+
+        def _spy_remove(bus, stream_id: str) -> None:
+            removed_stream_ids.append(stream_id)
+            original_remove(bus, stream_id)
+
+        with patch(
+            "modlink_core.runtime.engine.DEFAULT_DRIVER_STARTUP_TIMEOUT_MS",
+            50,
+        ), patch(
+            "modlink_core.runtime.engine.StreamBus.remove_descriptor",
+            autospec=True,
+            side_effect=_spy_remove,
+        ), patch(
+            "modlink_core.runtime.engine.AcquisitionBackend.start",
+            autospec=True,
+        ) as acquisition_start:
+            with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
+                ModLinkEngine(
+                    driver_factories=[lambda: started_driver, lambda: hanging_driver],
+                    settings=_build_settings_service(),
+                )
+
+        hanging_driver.allow_start.set()
+        self.assertTrue(started_driver.stopped_event.wait(1.0))
+        self.assertTrue(hanging_driver.shutdown_called.wait(1.0))
+        self.assertFalse(acquisition_start.called)
+        self.assertEqual(
+            {
+                next(iter(started_driver.descriptors())).stream_id,
+                next(iter(hanging_driver.descriptors())).stream_id,
+            },
+            set(removed_stream_ids),
+        )
+
 
 def _wait_for_event(stream, event_type, *, timeout: float):
     deadline = time.time() + timeout
@@ -531,6 +714,17 @@ def _wait_for(predicate, *, timeout: float) -> None:
             return
         time.sleep(0.02)
     raise AssertionError("condition not reached before timeout")
+
+
+def _build_settings_service() -> SettingsService:
+    temp_root = Path(__file__).resolve().parents[3] / ".tmp-tests" / "modlink_core"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    temp_dir = temp_root / f"settings_{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    path = temp_dir / "settings.json"
+    settings = SettingsService(path=path)
+    settings.set("acquisition.storage.root_dir", str(temp_dir / "recordings"), persist=False)
+    return settings
 
 
 if __name__ == "__main__":

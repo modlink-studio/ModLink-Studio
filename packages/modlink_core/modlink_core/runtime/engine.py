@@ -16,6 +16,8 @@ from ..events import (
 )
 from ..settings import SettingsService
 
+DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
+
 
 class ModLinkEngine:
     """Application engine that owns shared services and driver threads."""
@@ -39,11 +41,15 @@ class ModLinkEngine:
             parent=self,
         )
         self._driver_portals: dict[str, DriverPortal] = {}
-
-        self._acquisition.start()
-
-        for factory in driver_factories:
-            self._attach_driver(factory)
+        attached_portals: list[DriverPortal] = []
+        try:
+            for factory in driver_factories:
+                portal = self._attach_driver(factory)
+                attached_portals.append(portal)
+            self._acquisition.start()
+        except Exception:
+            self._rollback_startup(attached_portals)
+            raise
 
     @property
     def settings(self) -> SettingsService:
@@ -82,11 +88,32 @@ class ModLinkEngine:
         if driver_id in self._driver_portals:
             raise ValueError(f"driver_id '{driver_id}' is already installed")
 
-        self.bus.add_descriptors(portal.descriptors())
+        descriptors = portal.descriptors()
+        self.bus.add_descriptors(descriptors)
+        try:
+            portal.start(timeout_ms=DEFAULT_DRIVER_STARTUP_TIMEOUT_MS)
+        except Exception:
+            for descriptor in descriptors:
+                self.bus.remove_descriptor(descriptor.stream_id)
+            raise
 
         self._driver_portals[driver_id] = portal
-        portal.start()
         return portal
+
+    def _rollback_startup(self, attached_portals: list[DriverPortal]) -> None:
+        for portal in reversed(attached_portals):
+            try:
+                portal.stop()
+            except Exception:
+                pass
+            for descriptor in portal.descriptors():
+                self.bus.remove_descriptor(descriptor.stream_id)
+
+        self._driver_portals.clear()
+        try:
+            self._acquisition.shutdown()
+        except Exception:
+            pass
 
     def shutdown(self) -> None:
         for portal in self._driver_portals.values():
