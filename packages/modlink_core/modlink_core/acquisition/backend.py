@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import Future
 import queue
 import threading
 import time
@@ -12,11 +13,10 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
 from ..events import (
-    AcquisitionErrorEvent,
-    AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
     BackendEvent,
+    RecordingFailedEvent,
     StreamClosedError,
 )
 from ..settings.service import SettingsService
@@ -41,7 +41,9 @@ class AcquisitionBackend:
         self._settings = settings
         self._publish_event = publish_event
         self._parent = parent
-        self._command_queue: queue.Queue[tuple[str, object | None]] = queue.Queue()
+        self._command_queue: queue.Queue[
+            tuple[str, object | None, Future[None] | None]
+        ] = queue.Queue()
         self._thread: threading.Thread | None = None
         self._frame_stream: FrameStream | None = None
         self._state = "idle"
@@ -93,44 +95,30 @@ class AcquisitionBackend:
         self,
         session_name: str,
         recording_label: str | None = None,
-    ) -> None:
-        if not self.is_started:
-            self._publish_error("ACQ_NOT_STARTED")
-            return
-        self._command_queue.put(
+    ) -> Future[None]:
+        return self._submit_command(
+            "start_recording",
             (
-                "start_recording",
-                (
-                    str(self.root_dir),
-                    session_name,
-                    recording_label,
-                    self._bus.descriptors(),
-                ),
-            )
+                str(self.root_dir),
+                session_name,
+                recording_label,
+                self._bus.descriptors(),
+            ),
         )
 
-    def stop_recording(self) -> None:
-        if not self.is_started:
-            self._publish_error("ACQ_NOT_STARTED")
-            return
-        self._command_queue.put(("stop_recording", None))
+    def stop_recording(self) -> Future[None]:
+        return self._submit_command("stop_recording")
 
-    def add_marker(self, label: str | None = None) -> None:
-        if not self.is_started:
-            self._publish_error("ACQ_NOT_STARTED")
-            return
-        self._command_queue.put(("add_marker", label))
+    def add_marker(self, label: str | None = None) -> Future[None]:
+        return self._submit_command("add_marker", label)
 
     def add_segment(
         self,
         start_ns: int,
         end_ns: int,
         label: str | None = None,
-    ) -> None:
-        if not self.is_started:
-            self._publish_error("ACQ_NOT_STARTED")
-            return
-        self._command_queue.put(("add_segment", (start_ns, end_ns, label)))
+    ) -> Future[None]:
+        return self._submit_command("add_segment", (start_ns, end_ns, label))
 
     def shutdown(self, *, timeout_ms: int = 3000) -> None:
         thread = self._thread
@@ -142,13 +130,11 @@ class AcquisitionBackend:
                 self._frame_stream = None
             return
 
-        self._command_queue.put(("shutdown", None))
+        self._started = False
+        self._command_queue.put(("shutdown", None, None))
         thread.join(max(0, timeout_ms) / 1000)
-        if thread.is_alive():
-            self._publish_error(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
 
         self._set_state("idle")
-        self._started = False
         self._thread = None
         if self._frame_stream is not None:
             self._frame_stream.close()
@@ -184,47 +170,49 @@ class AcquisitionBackend:
     def _drain_commands(self) -> bool:
         while True:
             try:
-                action, payload = self._command_queue.get_nowait()
+                action, payload, future = self._command_queue.get_nowait()
             except queue.Empty:
                 return False
 
             if action == "shutdown":
                 self._shutdown_worker()
+                self._fail_pending_commands("ACQ_SHUTDOWN")
                 return True
-            if action == "start_recording":
-                root_dir, session_name, recording_label, recording_descriptors = payload
-                self._start_recording_worker(
-                    str(root_dir),
-                    str(session_name),
-                    recording_label,
-                    recording_descriptors,
-                )
+            try:
+                if action == "start_recording":
+                    root_dir, session_name, recording_label, recording_descriptors = payload
+                    self._start_recording_worker(
+                        str(root_dir),
+                        str(session_name),
+                        recording_label,
+                        recording_descriptors,
+                    )
+                elif action == "stop_recording":
+                    self._stop_recording_worker()
+                elif action == "add_marker":
+                    self._add_marker_worker(payload)
+                elif action == "add_segment":
+                    start_ns, end_ns, label = payload
+                    self._add_segment_worker(start_ns, end_ns, label)
+                else:
+                    raise RuntimeError(f"ACQ_UNKNOWN_COMMAND: {action}")
+            except Exception as exc:
+                if future is not None and not future.done():
+                    future.set_exception(exc)
                 continue
-            if action == "stop_recording":
-                self._stop_recording_worker()
-                continue
-            if action == "add_marker":
-                self._add_marker_worker(payload)
-                continue
-            if action == "add_segment":
-                start_ns, end_ns, label = payload
-                self._add_segment_worker(start_ns, end_ns, label)
+
+            if future is not None and not future.done():
+                future.set_result(None)
 
     def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
-            self._publish_error(
-                f"ACQ_INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
-            )
             return
         if self._storage is None:
             return
 
         try:
             self._storage.append_frame(frame)
-        except Exception as exc:
-            self._publish_error(
-                f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
-            )
+        except Exception:
             self._fail_recording_worker("write_failed")
 
     def _start_recording_worker(
@@ -235,19 +223,16 @@ class AcquisitionBackend:
         recording_descriptors: object,
     ) -> None:
         if self._storage is not None:
-            self._publish_error("ACQ_ALREADY_RECORDING")
-            return
+            raise RuntimeError("ACQ_ALREADY_RECORDING")
 
         if not session_name.strip():
-            self._publish_error("ACQ_INVALID_SESSION_NAME")
-            return
+            raise RuntimeError("ACQ_INVALID_SESSION_NAME")
 
         if not isinstance(recording_descriptors, dict) or not all(
             isinstance(value, StreamDescriptor)
             for value in recording_descriptors.values()
         ):
-            self._publish_error("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
-            return
+            raise RuntimeError("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
 
         started_at_ns = time.time_ns()
         try:
@@ -260,27 +245,13 @@ class AcquisitionBackend:
             )
         except Exception as exc:
             self._storage = None
-            self._publish_error(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}")
-            return
+            raise RuntimeError(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}") from exc
 
         self._set_state("recording")
-        self._publish_event(
-            AcquisitionLifecycleEvent(
-                name="recording_started",
-                payload={
-                    "session_name": session_name,
-                    "recording_id": self._storage.recording_id,
-                    "recording_path": str(self._storage.recording_dir),
-                    "recording_label": recording_label or None,
-                    "ts_ns": started_at_ns,
-                },
-            )
-        )
 
     def _stop_recording_worker(self) -> None:
         if self._storage is None:
-            self._publish_error("ACQ_STOP_IGNORED: not recording")
-            return
+            raise RuntimeError("ACQ_STOP_IGNORED: not recording")
 
         stopped_at_ns = time.time_ns()
         storage = self._storage
@@ -298,45 +269,18 @@ class AcquisitionBackend:
                 stopped_at_ns=stopped_at_ns,
                 reason=failure_reason,
             )
-            return
-
-        self._publish_event(
-            AcquisitionLifecycleEvent(
-                name="recording_stopped",
-                payload={
-                    "session_name": storage.session_name,
-                    "recording_id": storage.recording_id,
-                    "recording_path": str(storage.recording_dir),
-                    "frame_counts_by_stream": storage.frame_counts_by_stream,
-                    "ts_ns": stopped_at_ns,
-                },
-            )
-        )
+            raise RuntimeError(f"ACQ_STOP_FAILED: {failure_reason}")
 
     def _add_marker_worker(self, label: object) -> None:
         if self._storage is None:
-            self._publish_error("ACQ_MARKER_REJECTED: not recording")
-            return
+            raise RuntimeError("ACQ_MARKER_REJECTED: not recording")
 
         timestamp_ns = time.time_ns()
         normalized_label = label or None
         try:
             self._storage.add_marker(timestamp_ns=timestamp_ns, label=normalized_label)
         except Exception as exc:
-            self._publish_error(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}")
-            return
-
-        self._publish_event(
-            AcquisitionLifecycleEvent(
-                name="marker_added",
-                payload={
-                    "session_name": self._storage.session_name,
-                    "recording_id": self._storage.recording_id,
-                    "timestamp_ns": timestamp_ns,
-                    "label": normalized_label,
-                },
-            )
-        )
+            raise RuntimeError(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}") from exc
 
     def _add_segment_worker(
         self,
@@ -345,19 +289,16 @@ class AcquisitionBackend:
         label: object,
     ) -> None:
         if self._storage is None:
-            self._publish_error("ACQ_SEGMENT_REJECTED: not recording")
-            return
+            raise RuntimeError("ACQ_SEGMENT_REJECTED: not recording")
 
         try:
             start_value = int(start_ns)
             end_value = int(end_ns)
         except (TypeError, ValueError):
-            self._publish_error("ACQ_INVALID_SEGMENT_RANGE")
-            return
+            raise RuntimeError("ACQ_INVALID_SEGMENT_RANGE")
 
         if start_value > end_value:
-            self._publish_error("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
-            return
+            raise RuntimeError("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
 
         normalized_label = label or None
         try:
@@ -367,24 +308,9 @@ class AcquisitionBackend:
                 label=normalized_label,
             )
         except Exception as exc:
-            self._publish_error(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}")
-            return
-
-        self._publish_event(
-            AcquisitionLifecycleEvent(
-                name="segment_added",
-                payload={
-                    "session_name": self._storage.session_name,
-                    "recording_id": self._storage.recording_id,
-                    "start_ns": start_value,
-                    "end_ns": end_value,
-                    "label": normalized_label,
-                },
-            )
-        )
+            raise RuntimeError(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}") from exc
 
     def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
-        self._publish_error(f"ACQ_FRAME_STREAM_OVERFLOW: {consumer_name}")
         if self._storage is not None:
             self._fail_recording_worker("frame_stream_overflow")
         self._replace_frame_stream()
@@ -404,7 +330,10 @@ class AcquisitionBackend:
 
     def _shutdown_worker(self) -> None:
         if self._storage is not None:
-            self._stop_recording_worker()
+            try:
+                self._stop_recording_worker()
+            except Exception:
+                pass
 
     def _fail_recording_worker(self, reason: str) -> None:
         storage = self._storage
@@ -435,8 +364,7 @@ class AcquisitionBackend:
         try:
             storage.finalize(stopped_at_ns=stopped_at_ns, status=status)
             return None
-        except Exception as exc:
-            self._publish_error(f"ACQ_FINALIZE_FAILED: {type(exc).__name__}: {exc}")
+        except Exception:
             try:
                 storage.write_manifest(stopped_at_ns=stopped_at_ns, status="failed")
             except Exception:
@@ -451,16 +379,13 @@ class AcquisitionBackend:
         reason: str,
     ) -> None:
         self._publish_event(
-            AcquisitionLifecycleEvent(
-                name="recording_failed",
-                payload={
-                    "session_name": storage.session_name,
-                    "recording_id": storage.recording_id,
-                    "recording_path": str(storage.recording_dir),
-                    "frame_counts_by_stream": storage.frame_counts_by_stream,
-                    "reason": reason,
-                    "ts_ns": stopped_at_ns,
-                },
+            RecordingFailedEvent(
+                session_name=storage.session_name,
+                recording_id=storage.recording_id,
+                recording_path=str(storage.recording_dir),
+                frame_counts_by_stream=storage.frame_counts_by_stream,
+                reason=reason,
+                ts_ns=stopped_at_ns,
             )
         )
 
@@ -471,8 +396,27 @@ class AcquisitionBackend:
             self._state = state
         self._publish_event(AcquisitionStateChangedEvent(snapshot=self.snapshot()))
 
-    def _publish_error(self, message: str) -> None:
-        self._publish_event(AcquisitionErrorEvent(message=message))
+    def _submit_command(
+        self,
+        action: str,
+        payload: object | None = None,
+    ) -> Future[None]:
+        future: Future[None] = Future()
+        if not self.is_started:
+            future.set_exception(RuntimeError("ACQ_NOT_STARTED"))
+            return future
+        self._command_queue.put((action, payload, future))
+        return future
+
+    def _fail_pending_commands(self, message: str) -> None:
+        while True:
+            try:
+                _action, _payload, future = self._command_queue.get_nowait()
+            except queue.Empty:
+                return
+            if future is None or future.done():
+                continue
+            future.set_exception(RuntimeError(message))
 
 
 def _default_root_dir() -> Path:

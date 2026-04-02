@@ -13,14 +13,13 @@ from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, Acquisiti
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
 from modlink_core.events import (
-    AcquisitionErrorEvent,
-    AcquisitionLifecycleEvent,
     AcquisitionSnapshot,
     AcquisitionStateChangedEvent,
     BackendErrorEvent,
     DriverConnectionLostEvent,
     DriverSnapshot,
     EventStream,
+    RecordingFailedEvent,
     SettingChangedEvent,
     StreamClosedError,
 )
@@ -311,7 +310,9 @@ class QtSettingsBridge(QObject):
 class QtAcquisitionBridge(QObject):
     sig_state_changed = pyqtSignal(str)
     sig_error = pyqtSignal(str)
-    sig_event = pyqtSignal(object)
+    sig_recording_failed = pyqtSignal(object)
+    _sig_refresh_requested = pyqtSignal()
+    _sig_error_requested = pyqtSignal(str)
 
     def __init__(
         self,
@@ -323,6 +324,14 @@ class QtAcquisitionBridge(QObject):
         self._backend = backend
         self._settings = settings
         self._snapshot = backend.snapshot()
+        self._sig_refresh_requested.connect(
+            self._refresh_snapshot,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._sig_error_requested.connect(
+            self._emit_error_message,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
     @property
     def root_dir(self) -> Path:
@@ -350,13 +359,13 @@ class QtAcquisitionBridge(QObject):
         session_name: str,
         recording_label: str | None = None,
     ) -> None:
-        self._backend.start_recording(session_name, recording_label)
+        self._watch_command(self._backend.start_recording(session_name, recording_label))
 
     def stop_recording(self) -> None:
-        self._backend.stop_recording()
+        self._watch_command(self._backend.stop_recording())
 
     def add_marker(self, label: str | None = None) -> None:
-        self._backend.add_marker(label)
+        self._watch_command(self._backend.add_marker(label))
 
     def add_segment(
         self,
@@ -364,17 +373,41 @@ class QtAcquisitionBridge(QObject):
         end_ns: int,
         label: str | None = None,
     ) -> None:
-        self._backend.add_segment(start_ns=start_ns, end_ns=end_ns, label=label)
+        self._watch_command(
+            self._backend.add_segment(start_ns=start_ns, end_ns=end_ns, label=label)
+        )
 
     def _apply_snapshot(self, snapshot: AcquisitionSnapshot) -> None:
         self._snapshot = snapshot
         self.sig_state_changed.emit(snapshot.state)
 
-    def _emit_error(self, event: AcquisitionErrorEvent) -> None:
-        self.sig_error.emit(event.message)
+    @pyqtSlot()
+    def _refresh_snapshot(self) -> None:
+        self._apply_snapshot(self._backend.snapshot())
 
-    def _emit_lifecycle(self, event: AcquisitionLifecycleEvent) -> None:
-        self.sig_event.emit(event)
+    @pyqtSlot(str)
+    def _emit_error_message(self, message: str) -> None:
+        self.sig_error.emit(message)
+
+    def _emit_recording_failed(self, event: RecordingFailedEvent) -> None:
+        self.sig_recording_failed.emit(event)
+
+    def _watch_command(self, future: Future[None]) -> None:
+        def _notify_completed(completed: Future[None]) -> None:
+            try:
+                completed.result()
+            except CancelledError:
+                self._sig_error_requested.emit("ACQ_COMMAND_CANCELLED")
+                return
+            except Exception as exc:
+                self._sig_error_requested.emit(str(exc))
+                return
+            self._sig_refresh_requested.emit()
+
+        if future.done():
+            _notify_completed(future)
+            return
+        future.add_done_callback(_notify_completed)
 
 
 class QtModLinkBridge(QObject):
@@ -457,12 +490,8 @@ class QtModLinkBridge(QObject):
             self.bus._emit_frames(list(latest_by_stream.values()))
 
     def _dispatch_event(self, event: object) -> None:
-        if isinstance(event, AcquisitionErrorEvent):
-            self.acquisition._emit_error(event)
-            return
-
-        if isinstance(event, AcquisitionLifecycleEvent):
-            self.acquisition._emit_lifecycle(event)
+        if isinstance(event, RecordingFailedEvent):
+            self.acquisition._emit_recording_failed(event)
             return
 
         if isinstance(event, SettingChangedEvent):

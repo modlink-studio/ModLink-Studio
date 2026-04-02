@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import Future
 import json
 import queue
 import threading
@@ -13,10 +14,10 @@ import numpy as np
 
 from modlink_core import AcquisitionBackend, SettingsService, StreamBus
 from modlink_core.events import (
-    AcquisitionErrorEvent,
     BackendErrorEvent,
     BackendEventBroker,
     DriverConnectionLostEvent,
+    RecordingFailedEvent,
 )
 from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.settings.service import SettingsService as SettingsServiceType
@@ -127,8 +128,10 @@ class StreamBusConnectionTest(unittest.TestCase):
 
         backend._on_frame_worker = _slow_on_frame  # type: ignore[method-assign]
         backend.start()
-        backend.start_recording("overflow_case")
-        _wait_for(lambda: backend.is_recording, timeout=1.0)
+        start_future = backend.start_recording("overflow_case")
+        self.assertIsInstance(start_future, Future)
+        self.assertIsNone(start_future.result(1.0))
+        self.assertTrue(backend.is_recording)
 
         for seq in range(20):
             bus.ingest_frame(_demo_frame(seq=seq))
@@ -136,22 +139,14 @@ class StreamBusConnectionTest(unittest.TestCase):
         _wait_for(lambda: not backend.is_recording, timeout=2.0)
 
         events = _drain_events(event_stream, timeout=0.2)
-        acquisition_errors = [
-            event.message
-            for event in events
-            if isinstance(event, AcquisitionErrorEvent)
-        ]
-        self.assertTrue(
-            any(message.startswith("ACQ_FRAME_STREAM_OVERFLOW") for message in acquisition_errors)
-        )
         failure_event = next(
             event
             for event in events
-            if getattr(event, "name", "") == "recording_failed"
+            if isinstance(event, RecordingFailedEvent)
         )
-        self.assertEqual("frame_stream_overflow", failure_event.payload["reason"])
+        self.assertEqual("frame_stream_overflow", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+            (Path(failure_event.recording_path) / "recording.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -181,30 +176,18 @@ class StreamBusConnectionTest(unittest.TestCase):
                 publish_event=broker.publish,
             )
             backend.start()
-            backend.start_recording("write_failure_case")
-            started_event = _wait_for_lifecycle_event(
-                event_stream,
-                "recording_started",
-                timeout=1.0,
-            )
+            start_future = backend.start_recording("write_failure_case")
+            self.assertIsNone(start_future.result(1.0))
             bus.ingest_frame(_demo_frame(seq=1))
-            failure_event = _wait_for_lifecycle_event(
-                event_stream,
-                "recording_failed",
-                timeout=1.0,
-            )
+            failure_event = _wait_for_recording_failed(event_stream, timeout=1.0)
 
-        self.assertEqual("write_failed", failure_event.payload["reason"])
+        self.assertEqual("write_failed", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+            (Path(failure_event.recording_path) / "recording.json").read_text(
                 encoding="utf-8"
             )
         )
         self.assertEqual("failed", manifest["status"])
-        self.assertEqual(
-            started_event.payload["recording_id"],
-            failure_event.payload["recording_id"],
-        )
         backend.shutdown()
         event_stream.close()
 
@@ -229,30 +212,20 @@ class StreamBusConnectionTest(unittest.TestCase):
                 publish_event=broker.publish,
             )
             backend.start()
-            backend.start_recording("finalize_failure_case")
-            started_event = _wait_for_lifecycle_event(
-                event_stream,
-                "recording_started",
-                timeout=1.0,
-            )
-            backend.stop_recording()
-            failure_event = _wait_for_lifecycle_event(
-                event_stream,
-                "recording_failed",
-                timeout=1.0,
-            )
+            start_future = backend.start_recording("finalize_failure_case")
+            self.assertIsNone(start_future.result(1.0))
+            stop_future = backend.stop_recording()
+            failure_event = _wait_for_recording_failed(event_stream, timeout=1.0)
 
-        self.assertEqual("finalize_failed", failure_event.payload["reason"])
+        with self.assertRaisesRegex(RuntimeError, "ACQ_STOP_FAILED: finalize_failed"):
+            stop_future.result(1.0)
+        self.assertEqual("finalize_failed", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+            (Path(failure_event.recording_path) / "recording.json").read_text(
                 encoding="utf-8"
             )
         )
         self.assertEqual("failed", manifest["status"])
-        self.assertEqual(
-            started_event.payload["recording_id"],
-            failure_event.payload["recording_id"],
-        )
         backend.shutdown()
         event_stream.close()
 
@@ -268,33 +241,52 @@ class StreamBusConnectionTest(unittest.TestCase):
             publish_event=broker.publish,
         )
         backend.start()
-        backend.start_recording("completed_case")
-        started_event = _wait_for_lifecycle_event(
-            event_stream,
-            "recording_started",
-            timeout=1.0,
-        )
+        start_future = backend.start_recording("completed_case")
+        self.assertIsNone(start_future.result(1.0))
 
         bus.ingest_frame(_demo_frame(seq=1))
-        backend.stop_recording()
-        stopped_event = _wait_for_lifecycle_event(
-            event_stream,
-            "recording_stopped",
-            timeout=1.0,
-        )
+        stop_future = backend.stop_recording()
+        self.assertIsNone(stop_future.result(1.0))
 
+        session_dir = Path(settings.get("acquisition.storage.root_dir")) / "session_completed_case"
+        recording_dirs = [path for path in session_dir.iterdir() if path.is_dir()]
+        self.assertEqual(1, len(recording_dirs))
         manifest = json.loads(
-            (Path(stopped_event.payload["recording_path"]) / "recording.json").read_text(
-                encoding="utf-8"
-            )
+            (recording_dirs[0] / "recording.json").read_text(encoding="utf-8")
         )
         self.assertEqual("completed", manifest["status"])
-        self.assertEqual(
-            started_event.payload["recording_id"],
-            stopped_event.payload["recording_id"],
+        self.assertFalse(
+            any(
+                isinstance(event, RecordingFailedEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
         )
         backend.shutdown()
         event_stream.close()
+
+    def test_acquisition_commands_fail_through_future(self) -> None:
+        broker = BackendEventBroker()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+        backend = AcquisitionBackend(
+            bus,
+            settings=settings,
+            publish_event=broker.publish,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "ACQ_NOT_STARTED"):
+            backend.start_recording("command_failure_case").result(0.1)
+
+        backend.start()
+        with self.assertRaisesRegex(RuntimeError, "ACQ_INVALID_SESSION_NAME"):
+            backend.start_recording("   ").result(1.0)
+        with self.assertRaisesRegex(RuntimeError, "ACQ_MARKER_REJECTED"):
+            backend.add_marker("marker").result(1.0)
+        with self.assertRaisesRegex(RuntimeError, "ACQ_SEGMENT_REJECTED"):
+            backend.add_segment(1, 2, "segment").result(1.0)
+
+        backend.shutdown()
 
     def test_multiple_engines_do_not_share_settings_state(self) -> None:
         settings_a = _build_settings_service()
@@ -392,14 +384,14 @@ def _wait_for(predicate, *, timeout: float) -> None:
     raise AssertionError("condition not reached before timeout")
 
 
-def _wait_for_lifecycle_event(stream, name: str, *, timeout: float):
+def _wait_for_recording_failed(stream, *, timeout: float) -> RecordingFailedEvent:
     deadline = time.time() + timeout
     while time.time() < deadline:
         for item in _drain_events(stream, timeout=0.05):
-            if getattr(item, "name", "") == name:
+            if isinstance(item, RecordingFailedEvent):
                 return item
         time.sleep(0.01)
-    raise AssertionError(f"{name} was not published before timeout")
+    raise AssertionError("RecordingFailedEvent was not published before timeout")
 
 
 def _build_settings_service() -> SettingsServiceType:

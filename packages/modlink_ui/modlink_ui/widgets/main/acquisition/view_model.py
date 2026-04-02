@@ -106,6 +106,9 @@ class AcquisitionViewModel(QObject):
 
         self.engine.acquisition.sig_state_changed.connect(self._on_state_changed)
         self.engine.acquisition.sig_error.connect(self._on_error)
+        self.engine.acquisition.sig_recording_failed.connect(
+            self._on_recording_failed
+        )
 
     @property
     def state(self) -> AcquisitionPanelState:
@@ -290,6 +293,15 @@ class AcquisitionViewModel(QObject):
 
     def _on_error(self, message: str) -> None:
         self.sig_error.emit(self._format_error_message(message))
+
+    def _on_recording_failed(self, event: object) -> None:
+        reason = str(getattr(event, "reason", "")).strip()
+        friendly = {
+            "frame_stream_overflow": "采集数据积压过多，录制已停止。",
+            "write_failed": "写入采集数据失败，录制已停止。",
+            "finalize_failed": "结束采集时写入录制元数据失败。",
+        }.get(reason)
+        self.sig_error.emit(friendly or "采集录制失败。")
 
     def _format_error_message(self, message: str) -> str:
         normalized = str(message or "").strip()
