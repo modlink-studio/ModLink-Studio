@@ -124,14 +124,29 @@ class RecordingStorage:
             label=label,
         )
 
-    def finalize(self, *, stopped_at_ns: int) -> None:
+    def finalize(self, *, stopped_at_ns: int, status: str = "completed") -> None:
+        first_error: Exception | None = None
         for writer in self._stream_writers.values():
-            writer.close()
-        self._annotation_writer.close()
-        self._write_recording_manifest(
-            stopped_at_ns=stopped_at_ns,
-            status="completed",
-        )
+            try:
+                writer.close()
+            except Exception as exc:
+                if first_error is None:
+                    first_error = exc
+        try:
+            self._annotation_writer.close()
+        except Exception as exc:
+            if first_error is None:
+                first_error = exc
+        try:
+            self.write_manifest(stopped_at_ns=stopped_at_ns, status=status)
+        except Exception as exc:
+            if first_error is None:
+                first_error = exc
+        if first_error is not None:
+            raise first_error
+
+    def write_manifest(self, *, stopped_at_ns: int | None, status: str) -> None:
+        self._write_recording_manifest(stopped_at_ns=stopped_at_ns, status=status)
 
     def _stream_dir_for(self, descriptor: StreamDescriptor) -> Path:
         device_dir = _safe_path_component(descriptor.device_id) or "unknown_device"
