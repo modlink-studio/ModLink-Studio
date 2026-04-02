@@ -3,7 +3,6 @@ from __future__ import annotations
 import ctypes
 import sys
 
-from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtGui import QShowEvent
 from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import FluentIcon as FIF, MSFluentWindow
@@ -53,10 +52,6 @@ class MainWindow(MSFluentWindow):
         if hasattr(self.navigationInterface, "setAcrylicEnabled"):
             self.navigationInterface.setAcrylicEnabled(False)
         self.stackedWidget.setAnimationEnabled(False)
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self.engine.shutdown()
-        super().closeEvent(event)
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)

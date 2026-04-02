@@ -48,6 +48,8 @@ class AcquisitionBackend:
         self._frame_stream: FrameStream | None = None
         self._state = "idle"
         self._started = False
+        self._accepting_commands = False
+        self._worker_exit_error: Exception | None = None
         self._storage: RecordingStorage | None = None
         self._lock = threading.RLock()
 
@@ -79,6 +81,7 @@ class AcquisitionBackend:
     def start(self) -> None:
         if self.is_started:
             self._started = True
+            self._accepting_commands = True
             return
         if self._frame_stream is None or self._frame_stream.closed:
             self._frame_stream = self._open_frame_stream()
@@ -88,6 +91,8 @@ class AcquisitionBackend:
             daemon=True,
         )
         self._thread = thread
+        self._worker_exit_error = None
+        self._accepting_commands = True
         self._started = True
         thread.start()
 
@@ -121,51 +126,65 @@ class AcquisitionBackend:
         return self._submit_command("add_segment", (start_ns, end_ns, label))
 
     def shutdown(self, *, timeout_ms: int = 3000) -> None:
-        thread = self._thread
+        with self._lock:
+            self._accepting_commands = False
+            thread = self._thread
+            worker_exit_error = self._worker_exit_error
+
         if thread is None or not thread.is_alive():
-            self._set_state("idle")
-            self._started = False
-            if self._frame_stream is not None:
-                self._frame_stream.close()
-                self._frame_stream = None
+            self._finalize_shutdown(publish_event=worker_exit_error is None)
+            if worker_exit_error is not None:
+                self._worker_exit_error = None
+                raise worker_exit_error
             return
 
-        self._started = False
         self._command_queue.put(("shutdown", None, None))
         thread.join(max(0, timeout_ms) / 1000)
 
-        self._set_state("idle")
-        self._thread = None
-        if self._frame_stream is not None:
-            self._frame_stream.close()
-            self._frame_stream = None
+        if thread.is_alive():
+            raise TimeoutError(f"acquisition shutdown timed out after {timeout_ms}ms")
+
+        self._finalize_shutdown()
+        worker_exit_error = self._take_worker_exit_error()
+        if worker_exit_error is not None:
+            raise worker_exit_error
 
     def _run(self) -> None:
+        exit_error: Exception | None = None
         while True:
-            if self._drain_commands():
-                return
-
-            frame_stream = self._frame_stream
-            if frame_stream is None:
-                time.sleep(0.01)
-                continue
-
             try:
-                frame = frame_stream.read(timeout=0.05)
-            except queue.Empty:
-                continue
-            except StreamClosedError:
-                if not self._started:
+                if self._drain_commands():
                     return
-                self._frame_stream = self._open_frame_stream()
-                continue
-            except FrameStreamOverflowError as exc:
-                self._handle_frame_stream_overflow(exc.consumer_name)
-                continue
 
-            if not self.is_recording:
-                continue
-            self._on_frame_worker(frame)
+                frame_stream = self._frame_stream
+                if frame_stream is None:
+                    time.sleep(0.01)
+                    continue
+
+                try:
+                    frame = frame_stream.read(timeout=0.05)
+                except queue.Empty:
+                    continue
+                except StreamClosedError:
+                    if not self._started:
+                        return
+                    self._frame_stream = self._open_frame_stream()
+                    continue
+                except FrameStreamOverflowError as exc:
+                    self._handle_frame_stream_overflow(exc.consumer_name)
+                    continue
+
+                if not self.is_recording:
+                    continue
+                self._on_frame_worker(frame)
+            except Exception as exc:
+                exit_error = exc
+                break
+
+        with self._lock:
+            self._worker_exit_error = exit_error
+            self._started = False
+            self._accepting_commands = False
 
     def _drain_commands(self) -> bool:
         while True:
@@ -175,8 +194,10 @@ class AcquisitionBackend:
                 return False
 
             if action == "shutdown":
-                self._shutdown_worker()
-                self._fail_pending_commands("ACQ_SHUTDOWN")
+                try:
+                    self._shutdown_worker()
+                finally:
+                    self._fail_pending_commands("ACQ_SHUTDOWN")
                 return True
             try:
                 if action == "start_recording":
@@ -250,6 +271,9 @@ class AcquisitionBackend:
         self._set_state("recording")
 
     def _stop_recording_worker(self) -> None:
+        self._stop_recording_worker_with_policy(publish_failure=True)
+
+    def _stop_recording_worker_with_policy(self, *, publish_failure: bool) -> None:
         if self._storage is None:
             raise RuntimeError("ACQ_STOP_IGNORED: not recording")
 
@@ -262,13 +286,14 @@ class AcquisitionBackend:
             stopped_at_ns=stopped_at_ns,
             status="completed",
         )
-        self._set_state("idle")
+        self._set_state("idle", publish_event=publish_failure or failure_reason is None)
         if failure_reason is not None:
-            self._publish_recording_failed(
-                storage,
-                stopped_at_ns=stopped_at_ns,
-                reason=failure_reason,
-            )
+            if publish_failure:
+                self._publish_recording_failed(
+                    storage,
+                    stopped_at_ns=stopped_at_ns,
+                    reason=failure_reason,
+                )
             raise RuntimeError(f"ACQ_STOP_FAILED: {failure_reason}")
 
     def _add_marker_worker(self, label: object) -> None:
@@ -330,10 +355,7 @@ class AcquisitionBackend:
 
     def _shutdown_worker(self) -> None:
         if self._storage is not None:
-            try:
-                self._stop_recording_worker()
-            except Exception:
-                pass
+            self._stop_recording_worker_with_policy(publish_failure=False)
 
     def _fail_recording_worker(self, reason: str) -> None:
         storage = self._storage
@@ -389,11 +411,13 @@ class AcquisitionBackend:
             )
         )
 
-    def _set_state(self, state: str) -> None:
+    def _set_state(self, state: str, *, publish_event: bool = True) -> None:
         with self._lock:
             if state == self._state:
                 return
             self._state = state
+        if not publish_event:
+            return
         self._publish_event(AcquisitionStateChangedEvent(snapshot=self.snapshot()))
 
     def _submit_command(
@@ -404,6 +428,9 @@ class AcquisitionBackend:
         future: Future[None] = Future()
         if not self.is_started:
             future.set_exception(RuntimeError("ACQ_NOT_STARTED"))
+            return future
+        if not self._accepting_commands:
+            future.set_exception(RuntimeError("ACQ_SHUTTING_DOWN"))
             return future
         self._command_queue.put((action, payload, future))
         return future
@@ -417,6 +444,21 @@ class AcquisitionBackend:
             if future is None or future.done():
                 continue
             future.set_exception(RuntimeError(message))
+
+    def _finalize_shutdown(self, *, publish_event: bool = True) -> None:
+        self._set_state("idle", publish_event=publish_event)
+        self._started = False
+        self._accepting_commands = True
+        self._thread = None
+        if self._frame_stream is not None:
+            self._frame_stream.close()
+            self._frame_stream = None
+
+    def _take_worker_exit_error(self) -> Exception | None:
+        with self._lock:
+            error = self._worker_exit_error
+            self._worker_exit_error = None
+            return error
 
 
 def _default_root_dir() -> Path:

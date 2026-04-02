@@ -531,8 +531,10 @@ class PurePythonRuntimeTest(unittest.TestCase):
         portal = DriverPortal(DemoFailingShutdownDriver, publish_event=broker.publish)
 
         portal.start()
-        portal.stop(timeout_ms=100)
+        with self.assertRaisesRegex(RuntimeError, "shutdown failed"):
+            portal.stop(timeout_ms=100)
 
+        self.assertFalse(portal.is_running)
         self.assertFalse(
             any(
                 isinstance(event, BackendErrorEvent)
@@ -548,9 +550,12 @@ class PurePythonRuntimeTest(unittest.TestCase):
         portal = DriverPortal(lambda: driver, publish_event=broker.publish)
 
         portal.start()
-        portal.stop(timeout_ms=10)
+        with self.assertRaisesRegex(TimeoutError, "driver shutdown timed out"):
+            portal.stop(timeout_ms=10)
+        self.assertTrue(portal.is_running)
         driver.allow_shutdown.set()
         self.assertTrue(driver.shutdown_finished.wait(1.0))
+        _wait_for(lambda: not portal.is_running, timeout=1.0)
 
         self.assertFalse(
             any(
@@ -606,6 +611,32 @@ class PurePythonRuntimeTest(unittest.TestCase):
             call_order,
         )
         engine.shutdown()
+
+    def test_engine_shutdown_attempts_all_children_and_raises_first_error(self) -> None:
+        failing_driver = DemoFailingShutdownDriver()
+        healthy_driver = DemoLifecycleHookDriver("demo_shutdown_ok.01")
+        acquisition_called = threading.Event()
+
+        original_shutdown = AcquisitionBackend.shutdown
+
+        def _record_shutdown(backend: AcquisitionBackend, *args, **kwargs) -> None:
+            acquisition_called.set()
+            original_shutdown(backend, *args, **kwargs)
+
+        with patch(
+            "modlink_core.runtime.engine.AcquisitionBackend.shutdown",
+            autospec=True,
+            side_effect=_record_shutdown,
+        ):
+            engine = ModLinkEngine(
+                driver_factories=[lambda: failing_driver, lambda: healthy_driver],
+                settings=_build_settings_service(),
+            )
+            with self.assertRaisesRegex(RuntimeError, "shutdown failed"):
+                engine.shutdown()
+
+        self.assertTrue(healthy_driver.stopped_event.wait(1.0))
+        self.assertTrue(acquisition_called.wait(1.0))
 
     def test_engine_rolls_back_started_drivers_when_startup_fails(self) -> None:
         started_driver = DemoLifecycleHookDriver("demo_started.01")

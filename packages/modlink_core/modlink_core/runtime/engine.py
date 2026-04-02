@@ -116,7 +116,18 @@ class ModLinkEngine:
             pass
 
     def shutdown(self) -> None:
+        first_error: Exception | None = None
         for portal in self._driver_portals.values():
-            portal.stop()
+            try:
+                portal.stop()
+            except Exception as exc:
+                if first_error is None:
+                    first_error = exc
         self._driver_portals.clear()
-        self._acquisition.shutdown()
+        try:
+            self._acquisition.shutdown()
+        except Exception as exc:
+            if first_error is None:
+                first_error = exc
+        if first_error is not None:
+            raise first_error
