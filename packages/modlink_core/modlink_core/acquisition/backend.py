@@ -225,6 +225,7 @@ class AcquisitionBackend:
             self._publish_error(
                 f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
             )
+            self._fail_recording_worker("write_failed")
 
     def _start_recording_worker(
         self,
@@ -285,12 +286,19 @@ class AcquisitionBackend:
         storage = self._storage
         self._storage = None
 
-        try:
-            storage.finalize(stopped_at_ns=stopped_at_ns)
-        except Exception as exc:
-            self._publish_error(f"ACQ_STOP_FAILED: {type(exc).__name__}: {exc}")
-        finally:
-            self._set_state("idle")
+        failure_reason = self._finalize_recording_storage(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            status="completed",
+        )
+        self._set_state("idle")
+        if failure_reason is not None:
+            self._publish_recording_failed(
+                storage,
+                stopped_at_ns=stopped_at_ns,
+                reason=failure_reason,
+            )
+            return
 
         self._publish_event(
             AcquisitionLifecycleEvent(
@@ -378,7 +386,7 @@ class AcquisitionBackend:
     def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
         self._publish_error(f"ACQ_FRAME_STREAM_OVERFLOW: {consumer_name}")
         if self._storage is not None:
-            self._stop_recording_worker()
+            self._fail_recording_worker("frame_stream_overflow")
         self._replace_frame_stream()
 
     def _replace_frame_stream(self) -> None:
@@ -397,6 +405,64 @@ class AcquisitionBackend:
     def _shutdown_worker(self) -> None:
         if self._storage is not None:
             self._stop_recording_worker()
+
+    def _fail_recording_worker(self, reason: str) -> None:
+        storage = self._storage
+        if storage is None:
+            return
+
+        stopped_at_ns = time.time_ns()
+        self._storage = None
+        final_reason = self._finalize_recording_storage(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            status="failed",
+        )
+        self._set_state("idle")
+        self._publish_recording_failed(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            reason=final_reason or reason,
+        )
+
+    def _finalize_recording_storage(
+        self,
+        storage: RecordingStorage,
+        *,
+        stopped_at_ns: int,
+        status: str,
+    ) -> str | None:
+        try:
+            storage.finalize(stopped_at_ns=stopped_at_ns, status=status)
+            return None
+        except Exception as exc:
+            self._publish_error(f"ACQ_FINALIZE_FAILED: {type(exc).__name__}: {exc}")
+            try:
+                storage.write_manifest(stopped_at_ns=stopped_at_ns, status="failed")
+            except Exception:
+                pass
+            return "finalize_failed"
+
+    def _publish_recording_failed(
+        self,
+        storage: RecordingStorage,
+        *,
+        stopped_at_ns: int,
+        reason: str,
+    ) -> None:
+        self._publish_event(
+            AcquisitionLifecycleEvent(
+                name="recording_failed",
+                payload={
+                    "session_name": storage.session_name,
+                    "recording_id": storage.recording_id,
+                    "recording_path": str(storage.recording_dir),
+                    "frame_counts_by_stream": storage.frame_counts_by_stream,
+                    "reason": reason,
+                    "ts_ns": stopped_at_ns,
+                },
+            )
+        )
 
     def _set_state(self, state: str) -> None:
         with self._lock:

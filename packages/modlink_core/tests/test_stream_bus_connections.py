@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import queue
+import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import numpy as np
@@ -15,6 +18,7 @@ from modlink_core.events import (
     BackendEventBroker,
     DriverConnectionLostEvent,
 )
+from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.settings.service import SettingsService as SettingsServiceType
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
@@ -131,15 +135,164 @@ class StreamBusConnectionTest(unittest.TestCase):
 
         _wait_for(lambda: not backend.is_recording, timeout=2.0)
 
+        events = _drain_events(event_stream, timeout=0.2)
         acquisition_errors = [
             event.message
-            for event in _drain_events(event_stream, timeout=0.2)
+            for event in events
             if isinstance(event, AcquisitionErrorEvent)
         ]
         self.assertTrue(
             any(message.startswith("ACQ_FRAME_STREAM_OVERFLOW") for message in acquisition_errors)
         )
+        failure_event = next(
+            event
+            for event in events
+            if getattr(event, "name", "") == "recording_failed"
+        )
+        self.assertEqual("frame_stream_overflow", failure_event.payload["reason"])
+        manifest = json.loads(
+            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("failed", manifest["status"])
 
+        backend.shutdown()
+        event_stream.close()
+
+    def test_acquisition_backend_publishes_failed_recording_on_write_error(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+
+        class FailingAppendStorage(RecordingStorage):
+            def append_frame(self, frame: FrameEnvelope) -> None:
+                raise RuntimeError("append failed")
+
+        with patch(
+            "modlink_core.acquisition.backend.RecordingStorage",
+            FailingAppendStorage,
+        ):
+            backend = AcquisitionBackend(
+                bus,
+                settings=settings,
+                publish_event=broker.publish,
+            )
+            backend.start()
+            backend.start_recording("write_failure_case")
+            started_event = _wait_for_lifecycle_event(
+                event_stream,
+                "recording_started",
+                timeout=1.0,
+            )
+            bus.ingest_frame(_demo_frame(seq=1))
+            failure_event = _wait_for_lifecycle_event(
+                event_stream,
+                "recording_failed",
+                timeout=1.0,
+            )
+
+        self.assertEqual("write_failed", failure_event.payload["reason"])
+        manifest = json.loads(
+            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("failed", manifest["status"])
+        self.assertEqual(
+            started_event.payload["recording_id"],
+            failure_event.payload["recording_id"],
+        )
+        backend.shutdown()
+        event_stream.close()
+
+    def test_acquisition_backend_publishes_failed_recording_on_finalize_error(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+
+        class FailingFinalizeStorage(RecordingStorage):
+            def finalize(self, *, stopped_at_ns: int, status: str = "completed") -> None:
+                raise RuntimeError("finalize failed")
+
+        with patch(
+            "modlink_core.acquisition.backend.RecordingStorage",
+            FailingFinalizeStorage,
+        ):
+            backend = AcquisitionBackend(
+                bus,
+                settings=settings,
+                publish_event=broker.publish,
+            )
+            backend.start()
+            backend.start_recording("finalize_failure_case")
+            started_event = _wait_for_lifecycle_event(
+                event_stream,
+                "recording_started",
+                timeout=1.0,
+            )
+            backend.stop_recording()
+            failure_event = _wait_for_lifecycle_event(
+                event_stream,
+                "recording_failed",
+                timeout=1.0,
+            )
+
+        self.assertEqual("finalize_failed", failure_event.payload["reason"])
+        manifest = json.loads(
+            (Path(failure_event.payload["recording_path"]) / "recording.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("failed", manifest["status"])
+        self.assertEqual(
+            started_event.payload["recording_id"],
+            failure_event.payload["recording_id"],
+        )
+        backend.shutdown()
+        event_stream.close()
+
+    def test_acquisition_backend_writes_completed_manifest_on_normal_stop(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+        backend = AcquisitionBackend(
+            bus,
+            settings=settings,
+            publish_event=broker.publish,
+        )
+        backend.start()
+        backend.start_recording("completed_case")
+        started_event = _wait_for_lifecycle_event(
+            event_stream,
+            "recording_started",
+            timeout=1.0,
+        )
+
+        bus.ingest_frame(_demo_frame(seq=1))
+        backend.stop_recording()
+        stopped_event = _wait_for_lifecycle_event(
+            event_stream,
+            "recording_stopped",
+            timeout=1.0,
+        )
+
+        manifest = json.loads(
+            (Path(stopped_event.payload["recording_path"]) / "recording.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("completed", manifest["status"])
+        self.assertEqual(
+            started_event.payload["recording_id"],
+            stopped_event.payload["recording_id"],
+        )
         backend.shutdown()
         event_stream.close()
 
@@ -153,6 +306,40 @@ class StreamBusConnectionTest(unittest.TestCase):
         self.assertEqual(30, settings_a.get("ui.preview.rate_hz"))
         self.assertEqual(60, settings_b.get("ui.preview.rate_hz"))
         self.assertNotEqual(settings_a.snapshot(), settings_b.snapshot())
+
+    def test_settings_service_concurrent_updates_keep_valid_json(self) -> None:
+        settings = _build_settings_service()
+        errors: list[Exception] = []
+
+        def _worker(worker_id: int) -> None:
+            try:
+                for seq in range(25):
+                    settings.set(
+                        f"ui.worker_{worker_id}",
+                        {"seq": seq, "labels": [worker_id, seq]},
+                        persist=True,
+                    )
+                    _ = settings.get(f"ui.worker_{worker_id}")
+                    _ = settings.snapshot()
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=_worker, args=(worker_id,), daemon=True)
+            for worker_id in range(4)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual([], errors)
+        payload = json.loads(settings._path.read_text(encoding="utf-8"))
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(
+            4,
+            len([key for key in payload["ui"] if key.startswith("worker_")]),
+        )
 
 
 def _demo_descriptor() -> StreamDescriptor:
@@ -203,6 +390,16 @@ def _wait_for(predicate, *, timeout: float) -> None:
             return
         time.sleep(0.02)
     raise AssertionError("condition not reached before timeout")
+
+
+def _wait_for_lifecycle_event(stream, name: str, *, timeout: float):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for item in _drain_events(stream, timeout=0.05):
+            if getattr(item, "name", "") == name:
+                return item
+        time.sleep(0.01)
+    raise AssertionError(f"{name} was not published before timeout")
 
 
 def _build_settings_service() -> SettingsServiceType:
