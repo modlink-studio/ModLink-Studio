@@ -13,10 +13,10 @@ from modlink_sdk import (
     StreamDescriptor,
 )
 
-from ...runtime.worker import WorkerThread
 from .session import DriverSession
 from .state import DeviceState
 from .task import DriverTask
+from .worker import WorkerThread
 
 
 class DriverRuntime:
