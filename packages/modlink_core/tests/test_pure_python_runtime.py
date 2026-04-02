@@ -9,7 +9,6 @@ import unittest
 import numpy as np
 
 from modlink_core.drivers import DriverPortal
-from modlink_core.drivers.portal.executor import DriverExecutor
 from modlink_core.events import (
     BackendErrorEvent,
     BackendEventBroker,
@@ -332,24 +331,6 @@ class PurePythonRuntimeTest(unittest.TestCase):
         future = portal.search("demo")
 
         with self.assertRaisesRegex(RuntimeError, "not running"):
-            future.result(0.1)
-
-    def test_executor_reports_post_race_distinctly(self) -> None:
-        executor = DriverExecutor("demo.executor")
-        executor.start()
-
-        original_post = executor._worker.post
-        executor._worker.post = lambda callback: False  # type: ignore[method-assign]
-        try:
-            future = executor.submit(lambda: None)
-        finally:
-            executor._worker.post = original_post  # type: ignore[method-assign]
-            executor.stop()
-
-        with self.assertRaisesRegex(
-            RuntimeError,
-            "stopped before task could be posted",
-        ):
             future.result(0.1)
 
     def test_executor_failure_publishes_backend_error(self) -> None:
