@@ -81,12 +81,18 @@ class DriverPortal:
         try:
             startup.result(max(0.0, timeout_ms) / 1000.0)
         except FutureTimeoutError as exc:
-            self.stop(timeout_ms=timeout_ms)
+            try:
+                self.stop(timeout_ms=timeout_ms)
+            except Exception:
+                pass
             raise TimeoutError(
                 f"driver startup timed out after {timeout_ms}ms: {self.driver_id}"
             ) from exc
         except Exception:
-            self.stop(timeout_ms=timeout_ms)
+            try:
+                self.stop(timeout_ms=timeout_ms)
+            except Exception:
+                pass
             raise
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
@@ -95,16 +101,24 @@ class DriverPortal:
             self._session.mark_stopped()
             return
 
+        first_error: Exception | None = None
         shutdown = self._executor.submit(self._session.on_executor_stopped)
         try:
             shutdown.result(max(0.0, timeout_ms) / 1000.0)
-        except FutureTimeoutError:
-            pass
-        except Exception:
-            pass
+        except FutureTimeoutError as exc:
+            first_error = TimeoutError(
+                f"driver shutdown timed out after {timeout_ms}ms: {self.driver_id}"
+            )
+        except Exception as exc:
+            first_error = exc
 
-        if self._executor.stop(timeout_ms=timeout_ms):
-            return
+        if not self._executor.stop(timeout_ms=timeout_ms) and first_error is None:
+            first_error = TimeoutError(
+                f"driver executor stop timed out after {timeout_ms}ms: {self.driver_id}"
+            )
+
+        if first_error is not None:
+            raise first_error
 
     def search(self, provider: str) -> Future[object | None]:
         return self._executor.submit(self._session.search, provider)

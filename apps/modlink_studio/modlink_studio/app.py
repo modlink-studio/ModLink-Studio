@@ -8,6 +8,7 @@ from pathlib import Path
 import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
 from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QApplication
 from qfluentwidgets import Theme, setTheme
 
@@ -60,6 +61,17 @@ def _create_application(argv: Sequence[str] | None = None) -> QApplication:
     return app
 
 
+def _shutdown_bridge_with_prompt(bridge: QtModLinkBridge) -> None:
+    try:
+        bridge.shutdown()
+    except Exception as exc:
+        QMessageBox.critical(
+            None,
+            "ModLink Studio",
+            f"关闭后台资源时发生错误。\n\n{exc}",
+        )
+
+
 def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
@@ -74,7 +86,7 @@ def main() -> None:
         parent=app,
     )
     bridge = QtModLinkBridge(runtime, parent=app)
-    app.aboutToQuit.connect(bridge.shutdown)
+    app.aboutToQuit.connect(lambda: _shutdown_bridge_with_prompt(bridge))
     window = MainWindow(engine=bridge)
     window.setWindowIcon(_load_app_icon())
     window.show()

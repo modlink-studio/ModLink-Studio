@@ -33,6 +33,16 @@ class TinyFrameStreamAcquisitionBackend(AcquisitionBackend):
         )
 
 
+class SlowShutdownAcquisitionBackend(AcquisitionBackend):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.allow_shutdown = threading.Event()
+
+    def _shutdown_worker(self) -> None:
+        self.allow_shutdown.wait(1.0)
+        super()._shutdown_worker()
+
+
 class StreamBusConnectionTest(unittest.TestCase):
     def test_event_stream_overflow_emits_backend_error(self) -> None:
         broker = BackendEventBroker()
@@ -228,6 +238,66 @@ class StreamBusConnectionTest(unittest.TestCase):
         self.assertEqual("failed", manifest["status"])
         backend.shutdown()
         event_stream.close()
+
+    def test_acquisition_backend_shutdown_propagates_finalize_failure_without_events(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+
+        class FailingFinalizeStorage(RecordingStorage):
+            def finalize(self, *, stopped_at_ns: int, status: str = "completed") -> None:
+                raise RuntimeError("finalize failed")
+
+        with patch(
+            "modlink_core.acquisition.backend.RecordingStorage",
+            FailingFinalizeStorage,
+        ):
+            backend = AcquisitionBackend(
+                bus,
+                settings=settings,
+                publish_event=broker.publish,
+            )
+            backend.start()
+            start_future = backend.start_recording("shutdown_finalize_failure_case")
+            self.assertIsNone(start_future.result(1.0))
+            with self.assertRaisesRegex(RuntimeError, "ACQ_STOP_FAILED: finalize_failed"):
+                backend.shutdown()
+
+        self.assertFalse(
+            any(
+                isinstance(event, RecordingFailedEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
+        self.assertFalse(
+            any(
+                isinstance(event, BackendErrorEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
+        event_stream.close()
+
+    def test_acquisition_backend_shutdown_timeout_does_not_pretend_stopped(self) -> None:
+        broker = BackendEventBroker()
+        bus = StreamBus(event_broker=broker)
+        bus.add_descriptor(_demo_descriptor())
+        settings = _build_settings_service()
+        backend = SlowShutdownAcquisitionBackend(
+            bus,
+            settings=settings,
+            publish_event=broker.publish,
+        )
+        backend.start()
+
+        with self.assertRaisesRegex(TimeoutError, "acquisition shutdown timed out"):
+            backend.shutdown(timeout_ms=10)
+
+        self.assertTrue(backend.is_started)
+        backend.allow_shutdown.set()
+        _wait_for(lambda: not backend.is_started, timeout=1.0)
+        backend.shutdown(timeout_ms=100)
 
     def test_acquisition_backend_writes_completed_manifest_on_normal_stop(self) -> None:
         broker = BackendEventBroker()
