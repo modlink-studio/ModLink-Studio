@@ -204,6 +204,9 @@ class StreamBus:
         for descriptor in descriptors:
             self.add_descriptor(descriptor)
 
+    def remove_descriptor(self, stream_id: str) -> None:
+        self._descriptors.pop(str(stream_id), None)
+
     def ingest_frame(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
             self._publish_error(
