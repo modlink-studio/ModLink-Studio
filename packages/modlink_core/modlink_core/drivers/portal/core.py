@@ -6,9 +6,9 @@ from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
 from ...events import (
-    BackendErrorEvent,
     BackendEvent,
     DriverConnectionLostEvent,
+    DriverExecutorFailedEvent,
     DriverSnapshot,
 )
 from .executor import DriverExecutor
@@ -150,11 +150,8 @@ class DriverPortal:
         if stop_reason is None:
             return
         self._publish_event(
-            BackendErrorEvent(
-                source=f"driver_executor:{self.driver_id}",
-                message=(
-                    "DRIVER_EXECUTOR_FAILED: "
-                    f"{type(stop_reason).__name__}: {stop_reason}"
-                ),
+            DriverExecutorFailedEvent(
+                driver_id=self.driver_id,
+                detail=f"{type(stop_reason).__name__}: {stop_reason}",
             )
         )

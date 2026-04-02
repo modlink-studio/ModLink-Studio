@@ -12,16 +12,18 @@ from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, AcquisitionBackend
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
+from modlink_core.event_stream import (
+    EventStream,
+    EventStreamOverflowError,
+    StreamClosedError,
+)
 from modlink_core.events import (
     AcquisitionSnapshot,
-    AcquisitionStateChangedEvent,
-    BackendErrorEvent,
     DriverConnectionLostEvent,
+    DriverExecutorFailedEvent,
     DriverSnapshot,
-    EventStream,
     RecordingFailedEvent,
     SettingChangedEvent,
-    StreamClosedError,
 )
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_core.settings.service import SettingsService
@@ -472,6 +474,9 @@ class QtModLinkBridge(QObject):
         while not self._stop_event.is_set():
             try:
                 event = self._event_stream.read()
+            except EventStreamOverflowError:
+                self._resync_all()
+                continue
             except StreamClosedError:
                 return
             self._dispatch_event(event)
@@ -491,6 +496,7 @@ class QtModLinkBridge(QObject):
 
     def _dispatch_event(self, event: object) -> None:
         if isinstance(event, RecordingFailedEvent):
+            self.acquisition._refresh_snapshot()
             self.acquisition._emit_recording_failed(event)
             return
 
@@ -505,34 +511,12 @@ class QtModLinkBridge(QObject):
                 portal._emit_connection_lost(event.detail)
             return
 
-        if isinstance(event, BackendErrorEvent):
-            self._dispatch_backend_error(event)
-            return
-
-        if isinstance(event, AcquisitionStateChangedEvent):
-            self.acquisition._apply_snapshot(event.snapshot)
-
-    def _dispatch_backend_error(self, event: BackendErrorEvent) -> None:
-        if (
-            event.source == "event_stream"
-            and event.message == "EVENT_STREAM_OVERFLOW"
-        ):
-            self._resync_all()
-            return
-
-        if event.source == "stream_bus":
-            self.bus._emit_error(event.message)
-            return
-
-        if event.source.startswith("driver_executor:"):
-            driver_id = event.source.removeprefix("driver_executor:")
+        if isinstance(event, DriverExecutorFailedEvent):
+            driver_id = event.driver_id
             portal = self._driver_portals.get(driver_id)
             if portal is not None:
-                portal._emit_error(event.message)
+                portal._emit_error(str(event.detail))
             return
-
-        if event.source == "frame_stream":
-            self.bus._emit_error(event.message)
 
     def _resync_all(self) -> None:
         self.acquisition._apply_snapshot(self._engine.acquisition_snapshot())

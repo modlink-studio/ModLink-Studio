@@ -8,8 +8,7 @@ from typing import Literal
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ..events import BackendErrorEvent, BackendEventBroker
-from ..events import StreamClosedError
+from ..event_stream import BackendEventBroker, StreamClosedError
 
 FrameDropPolicy = Literal["drop_oldest", "error"]
 
@@ -124,11 +123,6 @@ class FrameStream:
                 self._clear_queue_locked()
                 self._push_control_locked(_FRAME_STREAM_OVERFLOW)
 
-        self._bus._publish_error(
-            f"FRAME_STREAM_OVERFLOW:{self._consumer_name}",
-            source="frame_stream",
-        )
-
     def _drop_oldest_and_enqueue(self, frame: FrameEnvelope) -> None:
         try:
             self._queue.get_nowait()
@@ -191,9 +185,6 @@ class StreamBus:
             if existing_descriptor == descriptor:
                 return
 
-            self._publish_error(
-                f"DUPLICATE_STREAM_DESCRIPTOR: conflicting registration for stream_id={descriptor.stream_id}"
-            )
             raise ValueError(
                 f"conflicting descriptor for stream_id '{descriptor.stream_id}'"
             )
@@ -207,23 +198,18 @@ class StreamBus:
     def remove_descriptor(self, stream_id: str) -> None:
         self._descriptors.pop(str(stream_id), None)
 
-    def ingest_frame(self, frame: object) -> None:
+    def ingest_frame(self, frame: object) -> bool:
         if not isinstance(frame, FrameEnvelope):
-            self._publish_error(
-                f"INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
-            )
-            return
+            return False
 
         if frame.stream_id not in self._descriptors:
-            self._publish_error(
-                f"UNKNOWN_STREAM: frame published before stream registration for stream_id={frame.stream_id}"
-            )
-            return
+            return False
 
         with self._lock:
             streams = tuple(self._frame_streams)
         for stream in streams:
             stream._publish(frame)
+        return True
 
     def open_frame_stream(
         self,
@@ -255,9 +241,6 @@ class StreamBus:
             except ValueError:
                 pass
         stream._push_closed()
-
-    def _publish_error(self, message: str, *, source: str = "stream_bus") -> None:
-        self._event_broker.publish(BackendErrorEvent(source=source, message=message))
 
     @classmethod
     def _next_consumer_name(cls) -> str:

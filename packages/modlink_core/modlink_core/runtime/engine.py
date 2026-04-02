@@ -8,11 +8,10 @@ from modlink_sdk import DriverFactory
 from ..acquisition import AcquisitionBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
+from ..event_stream import BackendEventBroker, EventStream
 from ..events import (
     AcquisitionSnapshot,
-    BackendEventBroker,
     DriverSnapshot,
-    EventStream,
 )
 from ..settings import SettingsService
 

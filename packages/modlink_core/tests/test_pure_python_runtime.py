@@ -13,12 +13,12 @@ import numpy as np
 
 from modlink_core import ModLinkEngine
 from modlink_core.acquisition import AcquisitionBackend
+from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.settings import SettingsService
 from modlink_core.drivers import DriverPortal
 from modlink_core.events import (
-    BackendErrorEvent,
-    BackendEventBroker,
     DriverConnectionLostEvent,
+    DriverExecutorFailedEvent,
 )
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
@@ -469,7 +469,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         self.assertFalse(portal.is_running)
         self.assertFalse(
             any(
-                isinstance(event, BackendErrorEvent)
+                isinstance(event, DriverExecutorFailedEvent)
                 for event in _drain_events(event_stream, timeout=0.05)
             )
         )
@@ -537,7 +537,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         self.assertFalse(portal.is_running)
         self.assertFalse(
             any(
-                isinstance(event, BackendErrorEvent)
+                isinstance(event, DriverExecutorFailedEvent)
                 for event in _drain_events(event_stream, timeout=0.05)
             )
         )
@@ -559,10 +559,21 @@ class PurePythonRuntimeTest(unittest.TestCase):
 
         self.assertFalse(
             any(
-                isinstance(event, BackendErrorEvent)
+                isinstance(event, DriverExecutorFailedEvent)
                 for event in _drain_events(event_stream, timeout=0.05)
             )
         )
+        event_stream.close()
+
+    def test_event_stream_overflow_raises_local_error(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream(maxsize=1)
+
+        broker.publish(DriverConnectionLostEvent(driver_id="demo.01", detail=None))
+        broker.publish(DriverConnectionLostEvent(driver_id="demo.01", detail="again"))
+
+        with self.assertRaises(EventStreamOverflowError):
+            event_stream.read(timeout=0.1)
         event_stream.close()
 
     def test_portal_start_times_out(self) -> None:
