@@ -315,18 +315,4 @@ class DevicePageController(QObject):
         normalized = str(message or "").strip()
         if not normalized:
             return "设备操作失败。"
-        if "DRIVER_STOP_TIMEOUT" in normalized:
-            return "Driver 停止超时。"
-        if "DRIVER_CALL_FAILED" in normalized:
-            parts = [part.strip() for part in normalized.split(":") if part.strip()]
-            action = next(
-                (
-                    part.removeprefix("action=").strip()
-                    for part in parts
-                    if part.startswith("action=")
-                ),
-                "",
-            )
-            detail = parts[-1]
-            return self._format_task_error(action or "driver", RuntimeError(detail))
         return normalized

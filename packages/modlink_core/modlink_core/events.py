@@ -63,6 +63,8 @@ class SettingChangedEvent:
 
 @dataclass(frozen=True, slots=True)
 class BackendErrorEvent:
+    """Low-frequency backend infrastructure failure."""
+
     source: str
     message: str
     kind: Literal["backend_error"] = "backend_error"

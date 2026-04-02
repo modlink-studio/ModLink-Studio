@@ -103,26 +103,11 @@ class DriverPortal:
             shutdown.result(max(0.0, timeout_ms) / 1000.0)
         except FutureTimeoutError:
             pass
-        except Exception as exc:
-            self._publish_event(
-                BackendErrorEvent(
-                    source=f"driver_executor:{self.driver_id}",
-                    message=(
-                        "DRIVER_SHUTDOWN_FAILED: "
-                        f"{type(exc).__name__}: {exc}"
-                    ),
-                )
-            )
+        except Exception:
+            pass
 
         if self._executor.stop(timeout_ms=timeout_ms):
             return
-
-        self._publish_event(
-            BackendErrorEvent(
-                source=f"driver_executor:{self.driver_id}",
-                message=f"DRIVER_STOP_TIMEOUT: timeout_ms={timeout_ms}",
-            )
-        )
 
     def search(self, provider: str) -> Future[object | None]:
         return self._executor.submit(self._session.search, provider)

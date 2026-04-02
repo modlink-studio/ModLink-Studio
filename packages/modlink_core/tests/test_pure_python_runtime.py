@@ -276,6 +276,74 @@ class DemoLifecycleHookDriver(Driver):
         return
 
 
+class DemoFailingShutdownDriver(Driver):
+    supported_providers = ("demo",)
+
+    @property
+    def device_id(self) -> str:
+        return "demo_fail_shutdown.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return []
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return []
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        return
+
+    def stop_streaming(self) -> None:
+        return
+
+    def on_shutdown(self) -> None:
+        raise RuntimeError("shutdown failed")
+
+
+class DemoSlowShutdownDriver(Driver):
+    supported_providers = ("demo",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.allow_shutdown = threading.Event()
+        self.shutdown_finished = threading.Event()
+
+    @property
+    def device_id(self) -> str:
+        return "demo_slow_shutdown.01"
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return []
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return []
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        return
+
+    def stop_streaming(self) -> None:
+        return
+
+    def on_shutdown(self) -> None:
+        self.allow_shutdown.wait(1.0)
+        self.shutdown_finished.set()
+
+
 class PurePythonRuntimeTest(unittest.TestCase):
     def test_loop_driver_runs_on_pure_python_portal(self) -> None:
         broker = BackendEventBroker()
@@ -395,6 +463,41 @@ class PurePythonRuntimeTest(unittest.TestCase):
             "modlink.driver.demo_lifecycle.01",
             driver.stopped_thread_name,
         )
+
+    def test_stop_does_not_publish_backend_error_for_shutdown_failure(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        portal = DriverPortal(DemoFailingShutdownDriver, publish_event=broker.publish)
+
+        portal.start()
+        portal.stop(timeout_ms=100)
+
+        self.assertFalse(
+            any(
+                isinstance(event, BackendErrorEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
+        event_stream.close()
+
+    def test_stop_timeout_does_not_publish_backend_error(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        driver = DemoSlowShutdownDriver()
+        portal = DriverPortal(lambda: driver, publish_event=broker.publish)
+
+        portal.start()
+        portal.stop(timeout_ms=10)
+        driver.allow_shutdown.set()
+        self.assertTrue(driver.shutdown_finished.wait(1.0))
+
+        self.assertFalse(
+            any(
+                isinstance(event, BackendErrorEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
+        event_stream.close()
 
 
 def _wait_for_event(stream, event_type, *, timeout: float):
