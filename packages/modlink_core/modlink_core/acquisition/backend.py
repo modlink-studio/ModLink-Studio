@@ -12,12 +12,11 @@ from platformdirs import user_documents_path
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
+from ..event_stream import StreamClosedError
 from ..events import (
     AcquisitionSnapshot,
-    AcquisitionStateChangedEvent,
     BackendEvent,
     RecordingFailedEvent,
-    StreamClosedError,
 )
 from ..settings.service import SettingsService
 from .storage import RecordingStorage
@@ -132,7 +131,7 @@ class AcquisitionBackend:
             worker_exit_error = self._worker_exit_error
 
         if thread is None or not thread.is_alive():
-            self._finalize_shutdown(publish_event=worker_exit_error is None)
+            self._finalize_shutdown()
             if worker_exit_error is not None:
                 self._worker_exit_error = None
                 raise worker_exit_error
@@ -286,7 +285,7 @@ class AcquisitionBackend:
             stopped_at_ns=stopped_at_ns,
             status="completed",
         )
-        self._set_state("idle", publish_event=publish_failure or failure_reason is None)
+        self._set_state("idle")
         if failure_reason is not None:
             if publish_failure:
                 self._publish_recording_failed(
@@ -411,14 +410,11 @@ class AcquisitionBackend:
             )
         )
 
-    def _set_state(self, state: str, *, publish_event: bool = True) -> None:
+    def _set_state(self, state: str) -> None:
         with self._lock:
             if state == self._state:
                 return
             self._state = state
-        if not publish_event:
-            return
-        self._publish_event(AcquisitionStateChangedEvent(snapshot=self.snapshot()))
 
     def _submit_command(
         self,
@@ -445,8 +441,8 @@ class AcquisitionBackend:
                 continue
             future.set_exception(RuntimeError(message))
 
-    def _finalize_shutdown(self, *, publish_event: bool = True) -> None:
-        self._set_state("idle", publish_event=publish_event)
+    def _finalize_shutdown(self) -> None:
+        self._set_state("idle")
         self._started = False
         self._accepting_commands = True
         self._thread = None

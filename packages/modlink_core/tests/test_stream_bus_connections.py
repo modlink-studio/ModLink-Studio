@@ -13,9 +13,8 @@ from uuid import uuid4
 import numpy as np
 
 from modlink_core import AcquisitionBackend, SettingsService, StreamBus
+from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
-    BackendErrorEvent,
-    BackendEventBroker,
     DriverConnectionLostEvent,
     RecordingFailedEvent,
 )
@@ -44,7 +43,7 @@ class SlowShutdownAcquisitionBackend(AcquisitionBackend):
 
 
 class StreamBusConnectionTest(unittest.TestCase):
-    def test_event_stream_overflow_emits_backend_error(self) -> None:
+    def test_event_stream_overflow_raises_local_error(self) -> None:
         broker = BackendEventBroker()
         stream = broker.open_stream(maxsize=1)
 
@@ -55,10 +54,8 @@ class StreamBusConnectionTest(unittest.TestCase):
             DriverConnectionLostEvent(driver_id="demo.01", detail="again")
         )
 
-        event = stream.read(timeout=0.1)
-        self.assertIsInstance(event, BackendErrorEvent)
-        self.assertEqual("event_stream", event.source)
-        self.assertEqual("EVENT_STREAM_OVERFLOW", event.message)
+        with self.assertRaises(EventStreamOverflowError):
+            stream.read(timeout=0.1)
         stream.close()
 
     def test_frame_streams_are_multi_consumer_and_drop_oldest_independently(self) -> None:
@@ -80,9 +77,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         fast_stream.close()
         slow_stream.close()
 
-    def test_error_policy_overflow_publishes_event_without_blocking_other_consumers(self) -> None:
+    def test_error_policy_overflow_does_not_block_other_consumers(self) -> None:
         broker = BackendEventBroker()
-        event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
         descriptor = _demo_descriptor()
         bus.add_descriptor(descriptor)
@@ -104,20 +100,10 @@ class StreamBusConnectionTest(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "recorder"):
             recorder_stream.read(timeout=0.1)
 
-        errors = [
-            event
-            for event in _drain_events(event_stream)
-            if isinstance(event, BackendErrorEvent)
-            and event.source == "frame_stream"
-        ]
-        self.assertTrue(
-            any(event.message == "FRAME_STREAM_OVERFLOW:recorder" for event in errors)
-        )
         self.assertEqual([2, 3], [frame.seq for frame in _drain_frames(preview_stream)])
 
         recorder_stream.close()
         preview_stream.close()
-        event_stream.close()
 
     def test_acquisition_backend_stops_recording_on_frame_stream_overflow(self) -> None:
         broker = BackendEventBroker()
@@ -198,6 +184,12 @@ class StreamBusConnectionTest(unittest.TestCase):
             )
         )
         self.assertEqual("failed", manifest["status"])
+        self.assertFalse(
+            any(
+                getattr(event, "kind", None) == "acquisition_state_changed"
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
         backend.shutdown()
         event_stream.close()
 
@@ -236,6 +228,12 @@ class StreamBusConnectionTest(unittest.TestCase):
             )
         )
         self.assertEqual("failed", manifest["status"])
+        self.assertFalse(
+            any(
+                getattr(event, "kind", None) == "acquisition_state_changed"
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
         backend.shutdown()
         event_stream.close()
 
@@ -273,7 +271,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         )
         self.assertFalse(
             any(
-                isinstance(event, BackendErrorEvent)
+                getattr(event, "kind", None) == "acquisition_state_changed"
                 for event in _drain_events(event_stream, timeout=0.05)
             )
         )
@@ -325,11 +323,15 @@ class StreamBusConnectionTest(unittest.TestCase):
             (recording_dirs[0] / "recording.json").read_text(encoding="utf-8")
         )
         self.assertEqual("completed", manifest["status"])
+        events = _drain_events(event_stream, timeout=0.05)
         self.assertFalse(
             any(
-                isinstance(event, RecordingFailedEvent)
-                for event in _drain_events(event_stream, timeout=0.05)
+                getattr(event, "kind", None) == "acquisition_state_changed"
+                for event in events
             )
+        )
+        self.assertFalse(
+            any(isinstance(event, RecordingFailedEvent) for event in events)
         )
         backend.shutdown()
         event_stream.close()
