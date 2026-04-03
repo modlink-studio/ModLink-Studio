@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 Rectangle {
     id: root
@@ -9,42 +10,51 @@ Rectangle {
     property string subtitle: ""
     default property alias contentData: contentColumn.data
 
-    radius: 22
-    color: "#fbfdff"
+    radius: 8
+    color: palette.base
     border.width: 1
-    border.color: "#d8e4f0"
+    border.color: palette.mid
 
     implicitWidth: 360
-    implicitHeight: contentColumn.implicitHeight + 36
+    implicitHeight: contentColumn.implicitHeight + 32
+
+    layer.enabled: true
+    layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: Qt.rgba(0, 0, 0, 0.06)
+        shadowBlur: 0.3
+        shadowVerticalOffset: 2
+        shadowHorizontalOffset: 0
+    }
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 12
+        anchors.margins: 16
+        spacing: 10
 
         Item {
             Layout.fillWidth: true
             visible: root.title.length > 0 || root.subtitle.length > 0
-            implicitHeight: headerColumn.implicitHeight
+            implicitHeight: headerCol.implicitHeight
 
             ColumnLayout {
-                id: headerColumn
+                id: headerCol
                 anchors.fill: parent
-                spacing: 4
+                spacing: 2
 
                 Label {
                     text: root.title
-                    font.pixelSize: 18
+                    font.pixelSize: 16
                     font.weight: Font.DemiBold
-                    color: "#102235"
+                    color: palette.windowText
                     visible: text.length > 0
                 }
 
                 Label {
                     text: root.subtitle
-                    color: "#5f7288"
-                    font.pixelSize: 13
+                    color: palette.placeholderText
+                    font.pixelSize: 12
                     wrapMode: Text.Wrap
                     visible: text.length > 0
                 }

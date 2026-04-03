@@ -6,30 +6,36 @@ Rectangle {
     property string text: ""
     property string tone: "neutral"
 
-    radius: 999
-    implicitHeight: 28
-    implicitWidth: label.implicitWidth + 24
+    radius: 12
+    implicitHeight: 24
+    implicitWidth: label.implicitWidth + 20
 
-    color: tone === "success" ? "#dff7e8"
-        : tone === "info" ? "#e0efff"
-        : tone === "warning" ? "#fff2cf"
-        : "#eef3f7"
+    color: {
+        if (tone === "success") return Qt.rgba(0.0, 0.6, 0.3, 0.12);
+        if (tone === "info")    return Qt.rgba(0.0, 0.4, 0.8, 0.12);
+        if (tone === "warning") return Qt.rgba(0.8, 0.6, 0.0, 0.12);
+        return Qt.rgba(0.5, 0.5, 0.5, 0.08);
+    }
 
     border.width: 1
-    border.color: tone === "success" ? "#9ed7b3"
-        : tone === "info" ? "#a7c8ee"
-        : tone === "warning" ? "#e5c677"
-        : "#d1dbe5"
+    border.color: {
+        if (tone === "success") return Qt.rgba(0.0, 0.6, 0.3, 0.25);
+        if (tone === "info")    return Qt.rgba(0.0, 0.4, 0.8, 0.25);
+        if (tone === "warning") return Qt.rgba(0.8, 0.6, 0.0, 0.25);
+        return Qt.rgba(0.5, 0.5, 0.5, 0.15);
+    }
 
     Text {
         id: label
         anchors.centerIn: parent
         text: root.text
-        font.pixelSize: 13
+        font.pixelSize: 12
         font.weight: Font.DemiBold
-        color: tone === "success" ? "#14532d"
-            : tone === "info" ? "#0f5cab"
-            : tone === "warning" ? "#7c5a00"
-            : "#445769"
+        color: {
+            if (root.tone === "success") return "#0d6832";
+            if (root.tone === "info")    return "#0a5caa";
+            if (root.tone === "warning") return "#7a5200";
+            return palette.windowText;
+        }
     }
 }

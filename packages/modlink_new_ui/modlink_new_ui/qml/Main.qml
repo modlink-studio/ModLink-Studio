@@ -7,179 +7,144 @@ import "pages"
 ApplicationWindow {
     id: root
 
-    width: 1460
-    height: 920
+    width: 1480
+    height: 960
     visible: true
-    title: appController.applicationTitle
-    color: "#edf3f8"
+    title: "ModLink Studio"
+    color: palette.window
 
     property int currentPageIndex: 0
     property string flashMessage: ""
 
     function showFlash(message) {
-        if (!message || message.length === 0) {
-            return;
-        }
+        if (!message || message.length === 0) return;
         flashMessage = message;
         flashTimer.restart();
     }
 
     Timer {
         id: flashTimer
-        interval: 3600
+        interval: 4000
         repeat: false
         onTriggered: root.flashMessage = ""
     }
 
     Connections {
-        target: appController.mainPage
+        target: appController ? appController.mainPage : null
         function onMessageRaised(message) { root.showFlash(message); }
     }
-
     Connections {
-        target: appController.devicePage
+        target: appController ? appController.devicePage : null
         function onMessageRaised(message) { root.showFlash(message); }
     }
-
     Connections {
-        target: appController.settingsPage
+        target: appController ? appController.settingsPage : null
         function onMessageRaised(message) { root.showFlash(message); }
-    }
-
-    header: Rectangle {
-        height: 72
-        color: "#f9fbfd"
-        border.width: 1
-        border.color: "#d8e4f0"
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 18
-            spacing: 12
-
-            ColumnLayout {
-                spacing: 2
-
-                Label {
-                    text: "ModLink Studio"
-                    font.pixelSize: 24
-                    font.weight: Font.Bold
-                    color: "#102235"
-                }
-
-                Label {
-                    text: "QML 迁移线"
-                    color: "#5f7288"
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Rectangle {
-                Layout.preferredWidth: 380
-                Layout.preferredHeight: 42
-                radius: 16
-                color: root.flashMessage.length > 0 ? "#d7ebff" : "#eef3f7"
-                border.width: 1
-                border.color: root.flashMessage.length > 0 ? "#9fc5ef" : "#d8e4f0"
-
-                Label {
-                    anchors.centerIn: parent
-                    width: parent.width - 24
-                    text: root.flashMessage.length > 0
-                        ? root.flashMessage
-                        : "共享 core/sdk/settings，逐步替换旧 UI。"
-                    horizontalAlignment: Text.AlignHCenter
-                    color: root.flashMessage.length > 0 ? "#0f5cab" : "#5f7288"
-                    elide: Text.ElideRight
-                }
-            }
-        }
     }
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 18
+        spacing: 0
 
+        // --- Sidebar Navigation ---
         Rectangle {
             Layout.preferredWidth: 220
             Layout.fillHeight: true
-            radius: 26
-            color: "#f9fbfd"
-            border.width: 1
-            border.color: "#d8e4f0"
+            color: Qt.darker(palette.window, 1.03)
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 18
-                spacing: 12
+                anchors.margins: 12
+                spacing: 4
 
-                Label {
-                    text: "导航"
-                    font.pixelSize: 18
-                    font.weight: Font.DemiBold
-                    color: "#102235"
+                // App title
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: 16
+                    spacing: 2
+
+                    Label {
+                        text: "ModLink Studio"
+                        font.pixelSize: 20
+                        font.weight: Font.Bold
+                        color: palette.windowText
+                    }
+
+                    Label {
+                        text: "v0.2.0"
+                        font.pixelSize: 12
+                        color: palette.placeholderText
+                    }
                 }
 
-                NavButton {
-                    text: "实时展示"
-                    active: root.currentPageIndex === 0
-                    onClicked: root.currentPageIndex = 0
-                }
+                // Nav items
+                Repeater {
+                    model: [
+                        { label: "实时展示", idx: 0 },
+                        { label: "设备",     idx: 1 },
+                        { label: "设置",     idx: 2 }
+                    ]
 
-                NavButton {
-                    text: "设备"
-                    active: root.currentPageIndex === 1
-                    onClicked: root.currentPageIndex = 1
-                }
-
-                NavButton {
-                    text: "设置"
-                    active: root.currentPageIndex === 2
-                    onClicked: root.currentPageIndex = 2
+                    delegate: Button {
+                        Layout.fillWidth: true
+                        text: modelData.label
+                        flat: true
+                        highlighted: root.currentPageIndex === modelData.idx
+                        onClicked: root.currentPageIndex = modelData.idx
+                        leftPadding: 16
+                        rightPadding: 16
+                        topPadding: 10
+                        bottomPadding: 10
+                        font.weight: root.currentPageIndex === modelData.idx ? Font.DemiBold : Font.Normal
+                    }
                 }
 
                 Item { Layout.fillHeight: true }
 
+                // Flash message area
                 Rectangle {
                     Layout.fillWidth: true
-                    radius: 18
-                    color: "#eef5fb"
-                    border.width: 1
-                    border.color: "#d7e3ef"
-                    implicitHeight: 120
+                    implicitHeight: flashLabel.implicitHeight + 20
+                    radius: 8
+                    color: root.flashMessage.length > 0
+                        ? Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.12)
+                        : "transparent"
+                    border.width: root.flashMessage.length > 0 ? 1 : 0
+                    border.color: Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.3)
+                    visible: root.flashMessage.length > 0
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 14
-                        spacing: 6
-
-                        Label {
-                            text: "迁移状态"
-                            font.pixelSize: 16
-                            font.weight: Font.DemiBold
-                            color: "#102235"
-                        }
-
-                        Label {
-                            text: "旧 UI 继续交付，新 UI 用 QML 重建三页骨架。"
-                            wrapMode: Text.Wrap
-                            color: "#5f7288"
-                        }
+                    Label {
+                        id: flashLabel
+                        anchors.centerIn: parent
+                        width: parent.width - 16
+                        text: root.flashMessage
+                        wrapMode: Text.Wrap
+                        color: palette.highlight
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignHCenter
                     }
+
+                    Behavior on opacity { NumberAnimation { duration: 200 } }
                 }
             }
         }
 
+        // --- Separator ---
+        Rectangle {
+            Layout.preferredWidth: 1
+            Layout.fillHeight: true
+            color: palette.mid
+        }
+
+        // --- Content Area ---
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: root.currentPageIndex
 
-            MainPage { controller: appController.mainPage }
-            DevicePage { controller: appController.devicePage }
-            SettingsPage { controller: appController.settingsPage }
+            MainPage { controller: appController ? appController.mainPage : null }
+            DevicePage { controller: appController ? appController.devicePage : null }
+            SettingsPage { controller: appController ? appController.settingsPage : null }
         }
     }
 }

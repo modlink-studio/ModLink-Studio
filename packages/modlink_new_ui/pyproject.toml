@@ -10,6 +10,7 @@ dependencies = [
     "modlink-sdk",
     "numpy>=2.3.3",
     "pyqt6>=6.10.2",
+    "scipy>=1.15.2",
 ]
 
 [project.urls]
