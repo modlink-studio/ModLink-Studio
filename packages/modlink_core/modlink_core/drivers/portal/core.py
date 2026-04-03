@@ -24,7 +24,7 @@ class DriverPortal:
         driver_factory: DriverFactory,
         *,
         publish_event: Callable[[BackendEvent], None],
-        frame_sink: Callable[[FrameEnvelope], None] | None = None,
+        frame_sink: Callable[[FrameEnvelope], object | None] | None = None,
         parent: object | None = None,
     ) -> None:
         self._parent = parent
@@ -135,9 +135,10 @@ class DriverPortal:
     def stop_streaming(self) -> Future[object | None]:
         return self._executor.submit(self._session.stop_streaming)
 
-    def _on_session_frame(self, frame: FrameEnvelope) -> None:
-        if self._frame_sink is not None:
-            self._frame_sink(frame)
+    def _on_session_frame(self, frame: FrameEnvelope) -> object | None:
+        if self._frame_sink is None:
+            return None
+        return self._frame_sink(frame)
 
     def _on_connection_lost(self, detail: object | None) -> None:
         self._publish_event(

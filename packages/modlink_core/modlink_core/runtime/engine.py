@@ -46,8 +46,8 @@ class ModLinkEngine:
                 portal = self._attach_driver(factory)
                 attached_portals.append(portal)
             self._acquisition.start()
-        except Exception:
-            self._rollback_startup(attached_portals)
+        except Exception as exc:
+            self._rollback_startup(attached_portals, exc)
             raise
 
     @property
@@ -99,20 +99,34 @@ class ModLinkEngine:
         self._driver_portals[driver_id] = portal
         return portal
 
-    def _rollback_startup(self, attached_portals: list[DriverPortal]) -> None:
+    def _rollback_startup(
+        self,
+        attached_portals: list[DriverPortal],
+        startup_error: Exception,
+    ) -> None:
+        cleanup_failures: list[str] = []
         for portal in reversed(attached_portals):
             try:
                 portal.stop()
-            except Exception:
-                pass
+            except Exception as exc:
+                cleanup_failures.append(
+                    "cleanup failed while stopping driver "
+                    f"'{portal.driver_id}': {type(exc).__name__}: {exc}"
+                )
             for descriptor in portal.descriptors():
                 self.bus.remove_descriptor(descriptor.stream_id)
 
         self._driver_portals.clear()
         try:
             self._acquisition.shutdown()
-        except Exception:
-            pass
+        except Exception as exc:
+            cleanup_failures.append(
+                "cleanup failed while shutting down acquisition: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+        for note in cleanup_failures:
+            startup_error.add_note(note)
 
     def shutdown(self) -> None:
         first_error: Exception | None = None
