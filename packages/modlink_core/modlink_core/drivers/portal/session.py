@@ -16,7 +16,7 @@ class DriverSession:
         driver_factory: DriverFactory,
         *,
         on_connection_lost: Callable[[object | None], None],
-        on_frame: Callable[[FrameEnvelope], None],
+        on_frame: Callable[[FrameEnvelope], object | None],
         parent: object | None = None,
     ) -> None:
         self._on_connection_lost = on_connection_lost
@@ -106,8 +106,8 @@ class DriverSession:
         self._context._close()
 
     def _on_driver_frame(self, frame: FrameEnvelope) -> bool:
-        self._on_frame(frame)
-        return True
+        result = self._on_frame(frame)
+        return result is not False
 
     def _on_driver_connection_lost(self, detail: object) -> None:
         if not self._state._mark_connection_lost():

@@ -26,6 +26,7 @@ default-groups = ["dev"]
 [tool.uv.sources]
 modlink-studio = { workspace = true }
 modlink-studio-qml = { workspace = true }
+modlink-server = { workspace = true }
 modlink-plugin-scaffold = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
@@ -40,6 +41,7 @@ modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable 
 members = [
     "apps/modlink_studio",
     "apps/modlink_studio_qml",
+    "apps/modlink_server",
     "apps/modlink_plugin_scaffold",
     "packages/modlink_sdk",
     "packages/modlink_core",

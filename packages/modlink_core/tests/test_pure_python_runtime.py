@@ -234,6 +234,56 @@ class DemoFailingStartupDriver(Driver):
         return
 
 
+class DemoImmediateEmitDriver(Driver):
+    supported_providers = ("demo",)
+
+    def __init__(self, device_id: str = "demo_emit.01") -> None:
+        super().__init__()
+        self._device_id = device_id
+        self.last_emit_result: bool | None = None
+
+    @property
+    def device_id(self) -> str:
+        return self._device_id
+
+    def descriptors(self) -> list[StreamDescriptor]:
+        return [
+            StreamDescriptor(
+                device_id=self.device_id,
+                modality="demo",
+                payload_type="signal",
+                nominal_sample_rate_hz=1.0,
+                chunk_size=1,
+                channel_names=("demo",),
+            )
+        ]
+
+    def search(self, provider: str) -> list[SearchResult]:
+        if provider != "demo":
+            raise ValueError("unsupported provider")
+        return [SearchResult(title="Immediate Emit Device")]
+
+    def connect_device(self, config: SearchResult) -> None:
+        _ = config
+
+    def disconnect_device(self) -> None:
+        return
+
+    def start_streaming(self) -> None:
+        self.last_emit_result = self.emit_frame(
+            FrameEnvelope(
+                device_id=self.device_id,
+                modality="demo",
+                timestamp_ns=time.time_ns(),
+                data=np.ones((1, 1), dtype=np.float32),
+                seq=1,
+            )
+        )
+
+    def stop_streaming(self) -> None:
+        return
+
+
 class DemoLifecycleHookDriver(Driver):
     supported_providers = ("demo",)
 
@@ -457,6 +507,40 @@ class PurePythonRuntimeTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "not running"):
             future.result(0.1)
+
+    def test_emit_frame_returns_false_when_sink_rejects_frame(self) -> None:
+        broker = BackendEventBroker()
+        driver = DemoImmediateEmitDriver("demo_emit_false.01")
+        portal = DriverPortal(
+            lambda: driver,
+            publish_event=broker.publish,
+            frame_sink=lambda _frame: False,
+        )
+
+        portal.start()
+        portal.connect_device(SearchResult(title="Immediate Emit Device")).result(1.0)
+        portal.start_streaming().result(1.0)
+        portal.stop()
+
+        self.assertFalse(driver.last_emit_result)
+
+    def test_emit_frame_treats_none_returning_sink_as_success(self) -> None:
+        broker = BackendEventBroker()
+        frames: list[FrameEnvelope] = []
+        driver = DemoImmediateEmitDriver("demo_emit_none.01")
+        portal = DriverPortal(
+            lambda: driver,
+            publish_event=broker.publish,
+            frame_sink=frames.append,
+        )
+
+        portal.start()
+        portal.connect_device(SearchResult(title="Immediate Emit Device")).result(1.0)
+        portal.start_streaming().result(1.0)
+        portal.stop()
+
+        self.assertTrue(driver.last_emit_result)
+        self.assertEqual(1, len(frames))
 
     def test_startup_failure_raises_without_backend_error(self) -> None:
         broker = BackendEventBroker()
@@ -726,6 +810,23 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 next(iter(hanging_driver.descriptors())).stream_id,
             },
             set(removed_stream_ids),
+        )
+
+    def test_engine_startup_failure_adds_cleanup_failure_notes(self) -> None:
+        started_driver = DemoFailingShutdownDriver()
+        failing_driver = DemoFailingStartupDriver()
+
+        with self.assertRaisesRegex(RuntimeError, "startup failed") as ctx:
+            ModLinkEngine(
+                driver_factories=[lambda: started_driver, lambda: failing_driver],
+                settings=_build_settings_service(),
+            )
+
+        self.assertTrue(
+            any(
+                "demo_fail_shutdown.01" in note and "shutdown failed" in note
+                for note in getattr(ctx.exception, "__notes__", [])
+            )
         )
 
 

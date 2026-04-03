@@ -17,6 +17,7 @@ from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowErr
 from modlink_core.events import (
     DriverConnectionLostEvent,
     RecordingFailedEvent,
+    SettingChangedEvent,
 )
 from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.settings.service import SettingsService as SettingsServiceType
@@ -371,6 +372,29 @@ class StreamBusConnectionTest(unittest.TestCase):
         self.assertEqual(60, settings_b.get("ui.preview.rate_hz"))
         self.assertNotEqual(settings_a.snapshot(), settings_b.snapshot())
 
+    def test_acquisition_root_dir_read_does_not_mutate_settings(self) -> None:
+        broker = BackendEventBroker()
+        event_stream = broker.open_stream()
+        bus = StreamBus(event_broker=broker)
+        settings = _build_empty_settings_service()
+        backend = AcquisitionBackend(
+            bus,
+            settings=settings,
+            publish_event=broker.publish,
+        )
+
+        root_dir = backend.root_dir
+
+        self.assertIsInstance(root_dir, Path)
+        self.assertIsNone(settings.get("acquisition.storage.root_dir"))
+        self.assertFalse(
+            any(
+                isinstance(event, SettingChangedEvent)
+                for event in _drain_events(event_stream, timeout=0.05)
+            )
+        )
+        event_stream.close()
+
     def test_settings_service_concurrent_updates_keep_valid_json(self) -> None:
         settings = _build_settings_service()
         errors: list[Exception] = []
@@ -475,6 +499,14 @@ def _build_settings_service() -> SettingsServiceType:
     settings = SettingsService(path=path)
     settings.set("acquisition.storage.root_dir", str(temp_dir / "recordings"), persist=False)
     return settings
+
+
+def _build_empty_settings_service() -> SettingsServiceType:
+    temp_root = Path(__file__).resolve().parents[3] / ".tmp-tests" / "modlink_core"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    temp_dir = temp_root / f"settings_empty_{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    return SettingsService(path=temp_dir / "settings.json")
 
 
 if __name__ == "__main__":

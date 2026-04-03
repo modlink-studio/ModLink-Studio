@@ -23,6 +23,7 @@ from .storage import RecordingStorage
 
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
 ACQUISITION_CONSUMER_NAME = "acquisition"
+AcquisitionCommand = tuple[Callable[[], None], Future[None]]
 
 
 class AcquisitionBackend:
@@ -40,9 +41,8 @@ class AcquisitionBackend:
         self._settings = settings
         self._publish_event = publish_event
         self._parent = parent
-        self._command_queue: queue.Queue[
-            tuple[str, object | None, Future[None] | None]
-        ] = queue.Queue()
+        self._command_queue: queue.Queue[AcquisitionCommand | object] = queue.Queue()
+        self._shutdown_sentinel = object()
         self._thread: threading.Thread | None = None
         self._frame_stream: FrameStream | None = None
         self._state = "idle"
@@ -101,20 +101,18 @@ class AcquisitionBackend:
         recording_label: str | None = None,
     ) -> Future[None]:
         return self._submit_command(
-            "start_recording",
-            (
-                str(self.root_dir),
-                session_name,
-                recording_label,
-                self._bus.descriptors(),
-            ),
+            self._start_recording_worker,
+            str(self.root_dir),
+            session_name,
+            recording_label,
+            self._bus.descriptors(),
         )
 
     def stop_recording(self) -> Future[None]:
-        return self._submit_command("stop_recording")
+        return self._submit_command(self._stop_recording_worker)
 
     def add_marker(self, label: str | None = None) -> Future[None]:
-        return self._submit_command("add_marker", label)
+        return self._submit_command(self._add_marker_worker, label)
 
     def add_segment(
         self,
@@ -122,7 +120,12 @@ class AcquisitionBackend:
         end_ns: int,
         label: str | None = None,
     ) -> Future[None]:
-        return self._submit_command("add_segment", (start_ns, end_ns, label))
+        return self._submit_command(
+            self._add_segment_worker,
+            start_ns,
+            end_ns,
+            label,
+        )
 
     def shutdown(self, *, timeout_ms: int = 3000) -> None:
         with self._lock:
@@ -137,7 +140,7 @@ class AcquisitionBackend:
                 raise worker_exit_error
             return
 
-        self._command_queue.put(("shutdown", None, None))
+        self._command_queue.put(self._shutdown_sentinel)
         thread.join(max(0, timeout_ms) / 1000)
 
         if thread.is_alive():
@@ -188,41 +191,19 @@ class AcquisitionBackend:
     def _drain_commands(self) -> bool:
         while True:
             try:
-                action, payload, future = self._command_queue.get_nowait()
+                item = self._command_queue.get_nowait()
             except queue.Empty:
                 return False
 
-            if action == "shutdown":
+            if item is self._shutdown_sentinel:
                 try:
                     self._shutdown_worker()
                 finally:
                     self._fail_pending_commands("ACQ_SHUTDOWN")
                 return True
-            try:
-                if action == "start_recording":
-                    root_dir, session_name, recording_label, recording_descriptors = payload
-                    self._start_recording_worker(
-                        str(root_dir),
-                        str(session_name),
-                        recording_label,
-                        recording_descriptors,
-                    )
-                elif action == "stop_recording":
-                    self._stop_recording_worker()
-                elif action == "add_marker":
-                    self._add_marker_worker(payload)
-                elif action == "add_segment":
-                    start_ns, end_ns, label = payload
-                    self._add_segment_worker(start_ns, end_ns, label)
-                else:
-                    raise RuntimeError(f"ACQ_UNKNOWN_COMMAND: {action}")
-            except Exception as exc:
-                if future is not None and not future.done():
-                    future.set_exception(exc)
-                continue
 
-            if future is not None and not future.done():
-                future.set_result(None)
+            command, _future = item
+            command()
 
     def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
@@ -418,8 +399,8 @@ class AcquisitionBackend:
 
     def _submit_command(
         self,
-        action: str,
-        payload: object | None = None,
+        worker_method: Callable[..., None],
+        *args: object,
     ) -> Future[None]:
         future: Future[None] = Future()
         if not self.is_started:
@@ -428,15 +409,29 @@ class AcquisitionBackend:
         if not self._accepting_commands:
             future.set_exception(RuntimeError("ACQ_SHUTTING_DOWN"))
             return future
-        self._command_queue.put((action, payload, future))
+
+        def _run_command() -> None:
+            try:
+                worker_method(*args)
+            except Exception as exc:
+                if not future.done():
+                    future.set_exception(exc)
+                return
+            if not future.done():
+                future.set_result(None)
+
+        self._command_queue.put((_run_command, future))
         return future
 
     def _fail_pending_commands(self, message: str) -> None:
         while True:
             try:
-                _action, _payload, future = self._command_queue.get_nowait()
+                item = self._command_queue.get_nowait()
             except queue.Empty:
                 return
+            if item is self._shutdown_sentinel:
+                continue
+            _command, future = item
             if future is None or future.done():
                 continue
             future.set_exception(RuntimeError(message))
@@ -467,7 +462,5 @@ def _default_root_dir() -> Path:
 def _resolve_root_dir(settings: SettingsService) -> Path:
     root_dir = settings.get(ACQUISITION_ROOT_DIR_KEY)
     if root_dir is None:
-        resolved_root_dir = _default_root_dir()
-        settings.set(ACQUISITION_ROOT_DIR_KEY, str(resolved_root_dir), persist=False)
-        return resolved_root_dir
+        return _default_root_dir()
     return Path(root_dir)
