@@ -4,6 +4,7 @@ import os
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Fusion")
 
 from modlink_core import ModLinkEngine, SettingsService
 from modlink_qt_bridge import QtModLinkBridge
@@ -21,10 +22,21 @@ class QmlSmokeTest(unittest.TestCase):
 
         self.assertTrue(qml_engine.rootObjects())
         self.assertIsNotNone(controller.mainPage)
+        self.assertIsNotNone(controller.devicePage)
+        self.assertIsNotNone(controller.settingsPage)
 
         for obj in qml_engine.rootObjects():
             obj.deleteLater()
         bridge.shutdown()
+
+    def test_gpu_items_importable(self) -> None:
+        from modlink_new_ui.gpu import WaveformItem, TextureItem
+        self.assertIsNotNone(WaveformItem)
+        self.assertIsNotNone(TextureItem)
+
+    def test_preview_controllers_importable(self) -> None:
+        from modlink_new_ui.preview.stream_controller_factory import create_stream_controller
+        self.assertIsNotNone(create_stream_controller)
 
 
 if __name__ == "__main__":

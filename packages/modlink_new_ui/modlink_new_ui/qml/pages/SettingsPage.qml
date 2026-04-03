@@ -13,82 +13,119 @@ ScrollView {
 
     ColumnLayout {
         width: root.availableWidth
-        spacing: 16
+        spacing: 14
 
         Label {
             text: "设置"
-            font.pixelSize: 22
+            font.pixelSize: 20
             font.weight: Font.DemiBold
-            color: "#102235"
+            color: palette.windowText
+            Layout.leftMargin: 16
+            Layout.topMargin: 16
         }
 
         CardPanel {
             Layout.fillWidth: true
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
             title: "数据保存"
-            subtitle: "新旧 UI 共用同一份 settings。"
-
-            TextField {
-                id: saveDirField
-                Layout.fillWidth: true
-                text: controller.saveDirectory
-            }
-
-            Button {
-                text: "应用目录"
-                onClicked: controller.setSaveDirectory(saveDirField.text)
-            }
-        }
-
-        CardPanel {
-            Layout.fillWidth: true
-            title: "实时展示"
-            subtitle: "控制基础预览的刷新节奏。"
-
-            ComboBox {
-                id: refreshRateCombo
-                Layout.preferredWidth: 180
-                model: controller.previewRateOptions
-                currentIndex: controller.previewRateOptions.indexOf(controller.previewRefreshRateHz)
-                onActivated: controller.setPreviewRefreshRateHz(Number(currentText))
-            }
-        }
-
-        CardPanel {
-            Layout.fillWidth: true
-            title: "标签管理"
-            subtitle: "录制和标注时复用这里的标签集合。"
+            subtitle: "配置采集数据的保存路径。"
 
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 8
+
+                TextField {
+                    id: saveDirField
+                    Layout.fillWidth: true
+                    text: controller ? controller.saveDirectory : ""
+                    placeholderText: "保存目录路径"
+                }
+
+                Button {
+                    text: "应用"
+                    highlighted: true
+                    onClicked: { if (controller) controller.setSaveDirectory(saveDirField.text); }
+                }
+            }
+        }
+
+        CardPanel {
+            Layout.fillWidth: true
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
+            title: "实时展示"
+            subtitle: "控制预览的刷新频率。"
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Label {
+                    text: "刷新率"
+                    color: palette.windowText
+                }
+
+                ComboBox {
+                    Layout.preferredWidth: 160
+                    model: controller ? controller.previewRateOptions : []
+                    currentIndex: (controller && controller.previewRateOptions) ? controller.previewRateOptions.indexOf(controller.previewRefreshRateHz) : -1
+                    onActivated: { if (controller) controller.setPreviewRefreshRateHz(Number(currentText)); }
+
+                    delegate: ItemDelegate {
+                        text: modelData + " Hz"
+                        width: parent.width
+                    }
+                }
+            }
+        }
+
+        CardPanel {
+            Layout.fillWidth: true
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
+            title: "标签管理"
+            subtitle: "录制和标注时复用的标签集合。"
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
 
                 TextField {
                     id: labelField
                     Layout.fillWidth: true
                     placeholderText: "输入新标签"
+                    onAccepted: {
+                        if (controller) controller.addLabel(labelField.text);
+                        labelField.clear();
+                    }
                 }
 
                 Button {
                     text: "添加"
+                    highlighted: true
                     onClicked: {
-                        controller.addLabel(labelField.text)
-                        labelField.clear()
+                        if (controller) controller.addLabel(labelField.text);
+                        labelField.clear();
                     }
                 }
             }
 
             Flow {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: 6
 
                 Repeater {
-                    model: controller.labels
+                    model: controller ? controller.labels : []
 
                     delegate: TagChip {
                         text: modelData
-                        onRemoveRequested: controller.removeLabel(modelData)
+                        onRemoveRequested: { if (controller) controller.removeLabel(modelData); }
                     }
                 }
             }
         }
+
+        Item { Layout.fillHeight: true }
     }
 }
