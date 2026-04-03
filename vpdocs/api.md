@@ -2,11 +2,17 @@
 
 这个页面主要作为 API 入口和 SDK 对象速查表。
 
+如果目标是接前端、联调 FastAPI 宿主或直接消费 HTTP / SSE / WebSocket 协议，请先看 [服务端 API 手册](/server-api)。
+
 如果目标是安装和运行宿主应用，建议先看 [安装与发布](/install)；如果目标是开发 driver，建议先看 [SDK 开发者指南](/sdk)。
 
 如果目标已经比较明确，可以直接从这里跳到对应类型或对应包的 API 页面；如果只是想先看“接一个 driver 到底要碰哪些对象”，建议先读下面这部分。
 
 当前 API 说明以 `0.2.0` 为准：`modlink_sdk` / `modlink_core` 已是纯 Python runtime，`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API。
+
+## Web API 入口
+
+- 前端接入和服务端联调：看 [服务端 API 手册](/server-api)
 
 ## 完整 API 参考
 
