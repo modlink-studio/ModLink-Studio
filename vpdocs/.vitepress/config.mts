@@ -36,6 +36,7 @@ export default defineConfig({
                         { text: 'Core 模块架构', link: '/core' },
                         { text: 'UI 模块架构', link: '/ui' },
                         { text: 'App 组合根', link: '/app' },
+                        { text: '服务端 API 手册', link: '/server-api' },
                         { text: 'API 快速索引', link: '/api' },
                     ],
                 },
