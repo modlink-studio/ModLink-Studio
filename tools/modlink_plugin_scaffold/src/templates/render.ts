@@ -1,7 +1,5 @@
-import path from "node:path";
-
 import {getCopy} from "../lib/i18n.js";
-import type {DriverSpec, Language, PreviewBundle, StreamSpec} from "../lib/types.js";
+import type {DriverSpec, Language, PreviewBundle, StreamSpec, SummaryMetric, SummaryViewModel} from "../lib/types.js";
 
 function renderExpectedShape(stream: StreamSpec): string {
   if (stream.payloadType === "signal") {
@@ -402,43 +400,48 @@ def test_create_driver_returns_ready_instance() -> None:
 `;
 }
 
-export function renderSummary(spec: DriverSpec, cwd: string, language: Language): string {
+function summarizeMetrics(spec: DriverSpec, language: Language): SummaryMetric[] {
   const copy = getCopy(language);
   return [
-    copy.summaryTitle,
-    "=".repeat(copy.summaryTitle.length),
-    "",
-    `cwd: ${cwd}`,
-    `project_dir: ${path.join(cwd, spec.pluginName)}`,
-    `plugin: ${spec.pluginName}`,
-    `display_name: ${spec.displayName}`,
-    `device_id: ${spec.deviceId}`,
-    `providers: ${spec.providers.join(", ")}`,
-    `base_class: ${spec.driverKind === "loop" ? "LoopDriver" : "Driver"}`,
-    `reason: ${spec.driverReason}`,
-    `dependencies: ${spec.dependencies.join(", ")}`,
-    "",
-    "streams:",
-    ...spec.streams.map(
-      (stream, index) =>
-        `${index + 1}. ${stream.displayName} | ${stream.modality} | payload=${stream.payloadType} | shape=${renderExpectedShape(stream)} | rate=${stream.sampleRateHz}`,
-    ),
-  ].join("\n");
+    {label: copy.deviceIdLabel, value: spec.deviceId},
+    {label: copy.providersLabel, value: spec.providers.join(", ")},
+    {label: copy.driverKindLabel, value: spec.driverKind === "loop" ? "LoopDriver" : "Driver"},
+    {label: copy.dataArrivalLabel, value: copy.dataArrivalSummaryOptions[spec.dataArrival]},
+    {label: copy.streamCountLabel, value: String(spec.streams.length)},
+  ];
+}
+
+export function renderSummary(spec: DriverSpec, language: Language): SummaryViewModel {
+  const copy = getCopy(language);
+  return {
+    kind: "ready",
+    title: copy.summaryTitle,
+    hero: {
+      displayName: spec.displayName,
+      pluginName: spec.pluginName,
+      deviceId: spec.deviceId,
+    },
+    metrics: summarizeMetrics(spec, language),
+  };
 }
 
 export function buildPreviewBundle(spec: DriverSpec | null, cwd: string, language: Language, errors: string[]): PreviewBundle {
   const copy = getCopy(language);
   if (spec === null) {
-    const errorBlock = errors.length > 0 ? `${copy.validationErrorsHeader}\n- ${errors.join("\n- ")}` : copy.validationBlocked;
     return {
-      summary: `${copy.summaryTitle}\n${"=".repeat(copy.summaryTitle.length)}\n\n${errorBlock}`,
+      summary: {
+        kind: "invalid",
+        title: copy.summaryTitle,
+        message: copy.invalidSummaryMessage,
+        errors,
+      },
       driver: copy.invalidPreviewPlaceholder,
       pyproject: copy.invalidPreviewPlaceholder,
       readme: copy.invalidPreviewPlaceholder,
     };
   }
   return {
-    summary: renderSummary(spec, cwd, language),
+      summary: renderSummary(spec, language),
     driver: renderDriverPy(spec),
     pyproject: renderPyprojectToml(spec),
     readme: renderReadme(spec, language),

@@ -1,13 +1,11 @@
-import {dataArrivalOrder, driverKindOrder, previewOrder, sectionOrder} from "./i18n.js";
+import {dataArrivalOrder, driverKindOrder, sectionOrder} from "./i18n.js";
 import {applyDataArrival, applyPayloadDefaults, applyPluginName, createDefaultDraft, createDefaultStream, validateDraft, visibleStreamFieldKeys} from "./spec.js";
-import type {AppState, DataArrival, Draft, ModalFocus, PayloadType, PreviewTab, StreamDraft} from "./types.js";
+import type {AppState, DataArrival, Draft, ModalFocus, PayloadType, StreamDraft} from "./types.js";
 
 export type Action =
   | {type: "section.delta"; delta: number}
   | {type: "row.delta"; delta: number; rowCount: number}
   | {type: "row.clamp"; rowCount: number}
-  | {type: "preview.delta"; delta: number}
-  | {type: "preview.set"; tab: PreviewTab}
   | {type: "status"; message: string | null; tone: "info" | "error" | "success"}
   | {type: "edit.start"; key: string; value: string}
   | {type: "edit.change"; value: string}
@@ -24,7 +22,6 @@ export function createInitialState(): AppState {
     draft: createDefaultDraft(),
     section: "identity",
     rowIndex: 0,
-    previewTab: "summary",
     editingKey: null,
     editBuffer: "",
     statusMessage: null,
@@ -49,13 +46,6 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     case "row.clamp":
       return {...state, rowIndex: Math.min(state.rowIndex, Math.max(action.rowCount - 1, 0))};
-    case "preview.delta": {
-      const index = previewOrder.indexOf(state.previewTab);
-      const nextIndex = (index + action.delta + previewOrder.length) % previewOrder.length;
-      return {...state, previewTab: previewOrder[nextIndex]};
-    }
-    case "preview.set":
-      return {...state, previewTab: action.tab};
     case "status":
       return {...state, statusMessage: action.message, statusTone: action.tone};
     case "edit.start":

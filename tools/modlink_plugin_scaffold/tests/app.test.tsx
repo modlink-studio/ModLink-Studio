@@ -31,6 +31,12 @@ function pressArrow(stdin: {write: (data: string) => void}, direction: "up" | "d
   stdin.write(map[direction]);
 }
 
+function pressBackspace(stdin: {write: (data: string) => void}, count: number): void {
+  for (let index = 0; index < count; index += 1) {
+    stdin.write("\u007F");
+  }
+}
+
 afterEach(async () => {
   cleanup();
   await Promise.all(tempDirs.splice(0).map(async (dir) => fs.rm(dir, {recursive: true, force: true})));
@@ -49,7 +55,7 @@ describe("ScaffoldApp", () => {
     expect(zhApp.lastFrame()).toContain("ModLink 插件脚手架");
   });
 
-  test("updates the derived preview after editing the plugin name", async () => {
+  test("keeps the banner stable until enter commits the edit", async () => {
     const cwd = await makeTempDir();
     const draft = createDefaultDraft();
     draft.pluginName = "";
@@ -63,12 +69,50 @@ describe("ScaffoldApp", () => {
     await flush();
     app.stdin.write("demo-device");
     await flush();
+
+    expect(app.lastFrame()).toContain("demo-device");
+    expect(app.lastFrame()).toContain("Validation errors");
+
     app.stdin.write("\r");
     await flush();
 
     expect(app.lastFrame()).toContain("demo-device");
     expect(app.lastFrame()).toContain("DemoDevice");
     expect(app.lastFrame()).toContain("demo_device.01");
+  });
+
+  test("supports escape to cancel an in-progress edit", async () => {
+    const cwd = await makeTempDir();
+    const app = render(<ScaffoldApp language="en" cwd={cwd} />);
+    await flush();
+
+    app.stdin.write("\r");
+    await flush();
+    pressBackspace(app.stdin, 9);
+    app.stdin.write("cancelled");
+    await flush();
+    app.stdin.write("\u001B");
+    await flush();
+
+    expect(app.lastFrame()).toContain("my-device");
+    expect(app.lastFrame()).not.toContain("cancelled█");
+  });
+
+  test("accepts unicode text input on commit", async () => {
+    const cwd = await makeTempDir();
+    const app = render(<ScaffoldApp language="zh" cwd={cwd} />);
+    await flush();
+
+    pressArrow(app.stdin, "down");
+    await flush();
+    app.stdin.write("\r");
+    await flush();
+    app.stdin.write("测试设备");
+    await flush();
+    app.stdin.write("\r");
+    await flush();
+
+    expect(app.lastFrame()).toContain("测试设备");
   });
 
   test("updates driver recommendation when data arrival changes", async () => {
@@ -88,25 +132,51 @@ describe("ScaffoldApp", () => {
     expect(app.lastFrame()).toContain("Recommended: LoopDriver");
   });
 
-  test("switches preview tabs and supports stream actions", async () => {
+  test("supports stream actions in the single-column layout", async () => {
     const cwd = await makeTempDir();
     const app = render(<ScaffoldApp language="en" cwd={cwd} />);
     await flush();
 
-    app.stdin.write("]");
-    await flush();
-    expect(app.lastFrame()).toContain("class MyDeviceDriver");
+    expect(app.lastFrame()).toContain("my-device");
+    expect(app.lastFrame()).not.toContain("driver.py");
 
     app.stdin.write("\t");
     app.stdin.write("\t");
     app.stdin.write("\t");
     await flush();
+    expect(app.lastFrame()).toContain("[Streams]");
+    expect(app.lastFrame()).toContain("[Current stream details]");
+    expect(app.lastFrame()).toContain("[Controls]");
+    expect(app.lastFrame()).toContain("Add stream");
+    expect(app.lastFrame()).toContain("Delete stream");
+    expect(app.lastFrame()).not.toContain("Duplicate stream");
+    expect(app.lastFrame()).not.toContain("Move stream up");
+    expect(app.lastFrame()).not.toContain("<>");
     pressArrow(app.stdin, "down");
     await flush();
     app.stdin.write("\r");
     await flush();
 
-    expect(app.lastFrame()).toContain("2. Stream 2");
+    expect(app.lastFrame()).toContain("Stream 2");
+  });
+
+  test("renders global section tabs and the top banner", async () => {
+    const cwd = await makeTempDir();
+    const app = render(<ScaffoldApp language="zh" cwd={cwd} />);
+    await flush();
+
+    expect(app.lastFrame()).toContain("[基本信息]");
+    expect(app.lastFrame()).toContain("连接方式");
+    expect(app.lastFrame()).toContain("Driver 类型");
+    expect(app.lastFrame()).toContain("Streams");
+    expect(app.lastFrame()).toContain("依赖");
+    expect(app.lastFrame()).toContain("定义生成项目的包名");
+    expect(app.lastFrame()).toContain("脚手架摘要");
+    expect(app.lastFrame()).toContain("my-device");
+    expect(app.lastFrame()).toContain("Device ID");
+    expect(app.lastFrame()).not.toContain("driver.py");
+    expect(app.lastFrame()).toContain("位置:");
+    expect(app.lastFrame()).toContain("操作:");
   });
 
   test("blocks generation for invalid drafts", async () => {
