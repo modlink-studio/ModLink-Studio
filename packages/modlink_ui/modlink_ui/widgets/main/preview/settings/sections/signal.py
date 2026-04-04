@@ -14,7 +14,6 @@ from qfluentwidgets import (
 )
 
 from modlink_sdk import StreamDescriptor
-
 from modlink_ui.widgets.shared.inputs import TokenLineEdit
 
 from ..models import SignalFilterSettings, SignalPreviewSettings
@@ -297,9 +296,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         self.notch_enabled_switch.checkedChanged.connect(self._emit_state_changed)
         self.notch_frequencies_edit.sig_tokens_changed.connect(self._emit_state_changed)
         self.antialias_switch.checkedChanged.connect(self._emit_state_changed)
-        self.y_range_combo.currentIndexChanged.connect(
-            self._sync_manual_y_range_visibility
-        )
+        self.y_range_combo.currentIndexChanged.connect(self._sync_manual_y_range_visibility)
         self.y_range_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.manual_y_min_spinbox.valueChanged.connect(self._emit_state_changed)
         self.manual_y_max_spinbox.valueChanged.connect(self._emit_state_changed)
@@ -402,9 +399,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         if not self._channel_checkboxes:
             return ()
         selected = tuple(
-            index
-            for index, checkbox in enumerate(self._channel_checkboxes)
-            if checkbox.isChecked()
+            index for index, checkbox in enumerate(self._channel_checkboxes) if checkbox.isChecked()
         )
         if selected:
             return selected
@@ -414,9 +409,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
         if not self._channel_checkboxes:
             return
         visible_set = {
-            index
-            for index in visible_channel_indices
-            if 0 <= index < len(self._channel_checkboxes)
+            index for index in visible_channel_indices if 0 <= index < len(self._channel_checkboxes)
         }
         if not visible_set:
             visible_set = set(range(len(self._channel_checkboxes)))
@@ -428,9 +421,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             self._emit_state_changed()
             return
 
-        visible_count = sum(
-            1 for checkbox in self._channel_checkboxes if checkbox.isChecked()
-        )
+        visible_count = sum(1 for checkbox in self._channel_checkboxes if checkbox.isChecked())
         if visible_count <= 0:
             checkbox = self.sender()
             if isinstance(checkbox, QCheckBox):
@@ -518,7 +509,7 @@ class _SignalBlockerGroup:
     def __init__(self, blockers: list[QSignalBlocker]) -> None:
         self._blockers = blockers
 
-    def __enter__(self) -> "_SignalBlockerGroup":
+    def __enter__(self) -> _SignalBlockerGroup:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from PyQt6.QtWidgets import QVBoxLayout
-
 import pyqtgraph as pg
+from PyQt6.QtWidgets import QVBoxLayout
 
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor

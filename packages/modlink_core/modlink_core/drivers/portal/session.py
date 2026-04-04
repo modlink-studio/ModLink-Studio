@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from modlink_sdk import Driver, DriverContext, DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
+from modlink_sdk import (
+    Driver,
+    DriverContext,
+    DriverFactory,
+    FrameEnvelope,
+    SearchResult,
+    StreamDescriptor,
+)
 
 from ...events import DriverSnapshot
 from .state import DeviceState
@@ -31,9 +38,7 @@ class DriverSession:
         self._display_name = self._driver.display_name
         self._supported_providers = tuple(
             provider
-            for provider in (
-                str(item).strip() for item in self._driver.supported_providers
-            )
+            for provider in (str(item).strip() for item in self._driver.supported_providers)
             if provider
         )
         self._descriptors = list(self._driver.descriptors())

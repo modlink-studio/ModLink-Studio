@@ -26,9 +26,7 @@ class DevicePage(BasePage):
 
         portals = self.engine.driver_portals()
         if not portals:
-            self.placeholder_title = StrongBodyLabel(
-                "当前没有可用 driver", self.scroll_widget
-            )
+            self.placeholder_title = StrongBodyLabel("当前没有可用 driver", self.scroll_widget)
             self.placeholder_body = BodyLabel(
                 "设备页骨架已经就位，但当前环境还没有发现已加载的 driver。后续装入 driver 包后，这里会自动生成对应控制 panel。",
                 self.scroll_widget,
@@ -41,7 +39,5 @@ class DevicePage(BasePage):
             return
 
         for portal in portals:
-            self.content_layout.addWidget(
-                create_device_control_panel(portal, self.scroll_widget)
-            )
+            self.content_layout.addWidget(create_device_control_panel(portal, self.scroll_widget))
         self.content_layout.addStretch(1)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +55,7 @@ class SettingChangedEvent:
     kind: Literal["setting_changed"] = "setting_changed"
 
 
-BackendEvent: TypeAlias = (
+type BackendEvent = (
     DriverConnectionLostEvent
     | DriverExecutorFailedEvent
     | RecordingFailedEvent

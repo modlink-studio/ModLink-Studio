@@ -67,15 +67,13 @@ class MainPageController(QObject):
         return [
             {
                 "streamId": state.descriptor.stream_id,
-                "displayName": state.descriptor.display_name
-                or state.descriptor.stream_id,
+                "displayName": state.descriptor.display_name or state.descriptor.stream_id,
                 "payloadType": state.descriptor.payload_type,
                 "summaryText": state.summary_text,
                 "frameCount": state.frame_count,
                 "plotPoints": state.plot_points,
                 "imageDataUrl": state.image_data_url,
-                "channelSummary": ", ".join(state.descriptor.channel_names)
-                or "无 channel 标签",
+                "channelSummary": ", ".join(state.descriptor.channel_names) or "无 channel 标签",
                 "sampleRateText": f"{state.descriptor.nominal_sample_rate_hz:g} Hz",
             }
             for state in ordered
@@ -108,8 +106,7 @@ class MainPageController(QObject):
             state.frame_count += 1
             state.last_timestamp_ns = frame.timestamp_ns
             state.summary_text = (
-                f"已接收 {state.frame_count} 帧 · 最近 "
-                f"{format_timestamp_ns(frame.timestamp_ns)}"
+                f"已接收 {state.frame_count} 帧 · 最近 {format_timestamp_ns(frame.timestamp_ns)}"
             )
             if state.descriptor.payload_type == "signal":
                 payload = np.asarray(frame.data)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QSize
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
-from qfluentwidgets import FluentIcon as FIF, TransparentToolButton
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import TransparentToolButton
 
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
@@ -49,9 +49,7 @@ class DetachableStreamPreviewCard(QWidget):
         self._is_detached = False
         self._detached_size: QSize | None = None
         self._detached_window = _DetachedPreviewWindow(title)
-        self._detached_window.sig_close_requested.connect(
-            lambda: self._set_detached(False)
-        )
+        self._detached_window.sig_close_requested.connect(lambda: self._set_detached(False))
         self.destroyed.connect(self._detached_window.deleteLater)
 
         self._embedded_container = QWidget(self)
@@ -71,9 +69,7 @@ class DetachableStreamPreviewCard(QWidget):
 
         self.card = StreamPreviewCard(descriptor, settings)
         self.popout_button = TransparentToolButton(FIF.FULL_SCREEN, self.card)
-        self.popout_button.clicked.connect(
-            lambda: self._set_detached(not self._is_detached)
-        )
+        self.popout_button.clicked.connect(lambda: self._set_detached(not self._is_detached))
         self.card.add_header_action(self.popout_button)
         self._move_content(self._embedded_container, self._embedded_layout)
 
@@ -134,9 +130,7 @@ class DetachableStreamPreviewCard(QWidget):
         self.setVisible(not detached)
         self.updateGeometry()
         self.card.updateGeometry()
-        self.popout_button.setIcon(
-            FIF.BACK_TO_WINDOW if self._is_detached else FIF.FULL_SCREEN
-        )
+        self.popout_button.setIcon(FIF.BACK_TO_WINDOW if self._is_detached else FIF.FULL_SCREEN)
         self.sig_detached_changed.emit(detached)
 
     def _set_stream_view_embedded_mode(self, embedded: bool) -> None:

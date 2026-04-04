@@ -38,9 +38,7 @@ class DevicePageController(QObject):
             state = _PortalState(portal=portal, selected_provider=selected_provider)
             self._states[portal.driver_id] = state
             portal.sig_state_changed.connect(
-                lambda _value, driver_id=portal.driver_id: self._on_state_changed(
-                    driver_id
-                )
+                lambda _value, driver_id=portal.driver_id: self._on_state_changed(driver_id)
             )
             portal.sig_connection_lost.connect(
                 lambda detail, driver_id=portal.driver_id: self._on_connection_lost(
@@ -111,14 +109,10 @@ class DevicePageController(QObject):
         state.last_error_text = ""
         if state.portal.is_streaming:
             task = state.portal.stop_streaming()
-            self._bind_task(
-                state, "stop_streaming", task, self._on_stream_toggle_done
-            )
+            self._bind_task(state, "stop_streaming", task, self._on_stream_toggle_done)
         else:
             task = state.portal.start_streaming()
-            self._bind_task(
-                state, "start_streaming", task, self._on_stream_toggle_done
-            )
+            self._bind_task(state, "start_streaming", task, self._on_stream_toggle_done)
         self.portalsChanged.emit()
 
     def _bind_task(
@@ -139,9 +133,7 @@ class DevicePageController(QObject):
 
         task.add_done_callback(lambda _task: _handle_done())
 
-    def _on_search_done(
-        self, state: _PortalState, task: QtDriverTask, _action: str
-    ) -> None:
+    def _on_search_done(self, state: _PortalState, task: QtDriverTask, _action: str) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("search", task.error)
             self.messageRaised.emit(state.last_error_text)
@@ -149,13 +141,9 @@ class DevicePageController(QObject):
             return
 
         result = task.result if isinstance(task.result, list) else []
-        state.search_results = [
-            item for item in result if isinstance(item, SearchResult)
-        ]
+        state.search_results = [item for item in result if isinstance(item, SearchResult)]
 
-    def _on_connect_done(
-        self, state: _PortalState, task: QtDriverTask, _action: str
-    ) -> None:
+    def _on_connect_done(self, state: _PortalState, task: QtDriverTask, _action: str) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("connect", task.error)
             self.messageRaised.emit(state.last_error_text)
@@ -164,25 +152,17 @@ class DevicePageController(QObject):
         if isinstance(task.request, SearchResult):
             state.connected_result = task.request
         state.search_results.clear()
-        self.messageRaised.emit(
-            f"{state.portal.display_name or state.portal.driver_id} 已连接。"
-        )
+        self.messageRaised.emit(f"{state.portal.display_name or state.portal.driver_id} 已连接。")
 
-    def _on_disconnect_done(
-        self, state: _PortalState, task: QtDriverTask, _action: str
-    ) -> None:
+    def _on_disconnect_done(self, state: _PortalState, task: QtDriverTask, _action: str) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error("disconnect", task.error)
             self.messageRaised.emit(state.last_error_text)
             return
         state.connected_result = None
-        self.messageRaised.emit(
-            f"{state.portal.display_name or state.portal.driver_id} 已断开。"
-        )
+        self.messageRaised.emit(f"{state.portal.display_name or state.portal.driver_id} 已断开。")
 
-    def _on_stream_toggle_done(
-        self, state: _PortalState, task: QtDriverTask, action: str
-    ) -> None:
+    def _on_stream_toggle_done(self, state: _PortalState, task: QtDriverTask, action: str) -> None:
         if task.error is not None:
             state.last_error_text = self._format_task_error(action, task.error)
             self.messageRaised.emit(state.last_error_text)
@@ -235,10 +215,7 @@ class DevicePageController(QObject):
         subtitle_parts: list[str] = []
         if state.selected_provider:
             subtitle_parts.append(state.selected_provider)
-        if (
-            state.connected_result is not None
-            and state.connected_result.subtitle.strip()
-        ):
+        if state.connected_result is not None and state.connected_result.subtitle.strip():
             subtitle_parts.append(state.connected_result.subtitle.strip())
         if descriptor_count:
             subtitle_parts.append(f"{descriptor_count} 路流")
@@ -260,8 +237,7 @@ class DevicePageController(QObject):
             "searchButtonText": "搜索中..." if busy_action == "search" else "搜索设备",
             "streamButtonText": "停止流" if is_streaming else "开始流",
             "searchResults": [
-                {"title": item.title, "subtitle": item.subtitle}
-                for item in state.search_results
+                {"title": item.title, "subtitle": item.subtitle} for item in state.search_results
             ],
             "errorText": state.last_error_text,
         }

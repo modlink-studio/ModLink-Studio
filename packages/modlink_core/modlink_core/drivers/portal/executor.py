@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from concurrent.futures import Future
 import queue
 import threading
+from collections.abc import Callable
+from concurrent.futures import Future
 
 
 class DriverExecutor:

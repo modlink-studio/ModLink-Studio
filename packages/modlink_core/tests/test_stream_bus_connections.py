@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
 import json
 import queue
 import threading
 import time
 import unittest
+from concurrent.futures import Future
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -13,13 +13,13 @@ from uuid import uuid4
 import numpy as np
 
 from modlink_core import AcquisitionBackend, SettingsService, StreamBus
+from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
     DriverConnectionLostEvent,
     RecordingFailedEvent,
     SettingChangedEvent,
 )
-from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.settings.service import SettingsService as SettingsServiceType
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
@@ -48,12 +48,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         broker = BackendEventBroker()
         stream = broker.open_stream(maxsize=1)
 
-        broker.publish(
-            DriverConnectionLostEvent(driver_id="demo.01", detail=None)
-        )
-        broker.publish(
-            DriverConnectionLostEvent(driver_id="demo.01", detail="again")
-        )
+        broker.publish(DriverConnectionLostEvent(driver_id="demo.01", detail=None))
+        broker.publish(DriverConnectionLostEvent(driver_id="demo.01", detail="again"))
 
         with self.assertRaises(EventStreamOverflowError):
             stream.read(timeout=0.1)
@@ -136,16 +132,10 @@ class StreamBusConnectionTest(unittest.TestCase):
         _wait_for(lambda: not backend.is_recording, timeout=2.0)
 
         events = _drain_events(event_stream, timeout=0.2)
-        failure_event = next(
-            event
-            for event in events
-            if isinstance(event, RecordingFailedEvent)
-        )
+        failure_event = next(event for event in events if isinstance(event, RecordingFailedEvent))
         self.assertEqual("frame_stream_overflow", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.recording_path) / "recording.json").read_text(
-                encoding="utf-8"
-            )
+            (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
         )
         self.assertEqual("failed", manifest["status"])
 
@@ -180,9 +170,7 @@ class StreamBusConnectionTest(unittest.TestCase):
 
         self.assertEqual("write_failed", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.recording_path) / "recording.json").read_text(
-                encoding="utf-8"
-            )
+            (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
         )
         self.assertEqual("failed", manifest["status"])
         self.assertFalse(
@@ -224,9 +212,7 @@ class StreamBusConnectionTest(unittest.TestCase):
             stop_future.result(1.0)
         self.assertEqual("finalize_failed", failure_event.reason)
         manifest = json.loads(
-            (Path(failure_event.recording_path) / "recording.json").read_text(
-                encoding="utf-8"
-            )
+            (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
         )
         self.assertEqual("failed", manifest["status"])
         self.assertFalse(
@@ -320,20 +306,13 @@ class StreamBusConnectionTest(unittest.TestCase):
         session_dir = Path(settings.get("acquisition.storage.root_dir")) / "session_completed_case"
         recording_dirs = [path for path in session_dir.iterdir() if path.is_dir()]
         self.assertEqual(1, len(recording_dirs))
-        manifest = json.loads(
-            (recording_dirs[0] / "recording.json").read_text(encoding="utf-8")
-        )
+        manifest = json.loads((recording_dirs[0] / "recording.json").read_text(encoding="utf-8"))
         self.assertEqual("completed", manifest["status"])
         events = _drain_events(event_stream, timeout=0.05)
         self.assertFalse(
-            any(
-                getattr(event, "kind", None) == "acquisition_state_changed"
-                for event in events
-            )
+            any(getattr(event, "kind", None) == "acquisition_state_changed" for event in events)
         )
-        self.assertFalse(
-            any(isinstance(event, RecordingFailedEvent) for event in events)
-        )
+        self.assertFalse(any(isinstance(event, RecordingFailedEvent) for event in events))
         backend.shutdown()
         event_stream.close()
 

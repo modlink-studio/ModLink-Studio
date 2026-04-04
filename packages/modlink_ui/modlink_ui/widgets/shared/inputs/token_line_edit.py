@@ -8,11 +8,13 @@ from PyQt6.QtGui import QFontMetrics, QKeyEvent, QMouseEvent, QPainter, QPainter
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLineEdit, QSizePolicy, QWidget
 from qfluentwidgets import (
     CaptionLabel,
-    FluentIcon as FIF,
     LineEdit,
     TransparentToolButton,
     isDarkTheme,
     setFont,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 from qfluentwidgets.components.layout import FlowLayout
 
@@ -45,16 +47,8 @@ class _TokenChip(QFrame):
         self.sig_remove_requested.emit(self.text)
 
     def _apply_styles(self) -> None:
-        border = (
-            "rgba(255, 255, 255, 0.14)"
-            if isDarkTheme()
-            else "rgba(15, 23, 42, 0.08)"
-        )
-        background = (
-            "rgba(255, 255, 255, 0.05)"
-            if isDarkTheme()
-            else "rgba(15, 23, 42, 0.03)"
-        )
+        border = "rgba(255, 255, 255, 0.14)" if isDarkTheme() else "rgba(15, 23, 42, 0.08)"
+        background = "rgba(255, 255, 255, 0.05)" if isDarkTheme() else "rgba(15, 23, 42, 0.03)"
         self.setStyleSheet(
             "QFrame#token-line-edit-chip {"
             f"border: 1px solid {border};"
@@ -152,11 +146,7 @@ class TokenLineEdit(QWidget):
         self.flow_layout.addWidget(self.input_edit)
 
         self.input_edit.setStyleSheet(
-            "QLineEdit {"
-            "background: transparent;"
-            "border: none;"
-            "padding: 0px;"
-            "}"
+            "QLineEdit {background: transparent;border: none;padding: 0px;}"
         )
         self._sync_placeholder_text()
         self._update_input_width()

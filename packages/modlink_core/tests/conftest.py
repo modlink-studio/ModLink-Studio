@@ -22,7 +22,9 @@ def descriptor_factory():
         metadata: dict[str, Any] | None = None,
     ) -> StreamDescriptor:
         resolved_channel_names = (
-            ("ch0", "ch1") if channel_names is None and payload_type == "signal" else ()
+            ("ch0", "ch1")
+            if channel_names is None and payload_type == "signal"
+            else ()
             if channel_names is None
             else channel_names
         )
@@ -61,7 +63,9 @@ def frame_factory():
             resolved_channel_count = (
                 channel_count
                 if channel_count is not None
-                else len(descriptor.channel_names) if descriptor.channel_names else 2
+                else len(descriptor.channel_names)
+                if descriptor.channel_names
+                else 2
             )
             resolved_dtype = np.dtype(dtype or _default_dtype(descriptor.payload_type))
             data = _build_default_array(

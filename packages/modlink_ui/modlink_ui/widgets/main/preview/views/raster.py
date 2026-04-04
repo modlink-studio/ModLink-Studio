@@ -3,9 +3,8 @@ from __future__ import annotations
 from collections import deque
 
 import numpy as np
-from PyQt6.QtWidgets import QVBoxLayout
-
 import pyqtgraph as pg
+from PyQt6.QtWidgets import QVBoxLayout
 
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
@@ -103,9 +102,7 @@ class RasterStreamView(BaseStreamView):
             return
 
         self._max_lines = max_lines
-        self._line_buffer = deque(
-            list(self._line_buffer)[-max_lines:], maxlen=max_lines
-        )
+        self._line_buffer = deque(list(self._line_buffer)[-max_lines:], maxlen=max_lines)
         if self.has_frame:
             self._dirty = True
 

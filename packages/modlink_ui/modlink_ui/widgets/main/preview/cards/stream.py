@@ -4,10 +4,12 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     CaptionLabel,
-    FluentIcon as FIF,
     SimpleCardWidget,
     StrongBodyLabel,
     TransparentToolButton,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 
 from modlink_qt_bridge import QtSettingsBridge

@@ -116,9 +116,7 @@ class MicrophoneDemoDriver(Driver):
                 device_id=self.device_id,
                 modality="audio",
                 timestamp_ns=time.time_ns(),
-                data=np.ascontiguousarray(indata[:, 0], dtype=np.float32)[
-                    np.newaxis, :
-                ],
+                data=np.ascontiguousarray(indata[:, 0], dtype=np.float32)[np.newaxis, :],
                 seq=self._seq,
             )
         )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QFrame,
@@ -16,13 +16,15 @@ from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     FlowLayout,
-    FluentIcon as FIF,
     LineEdit,
     PushButton,
     PushSettingCard,
     StrongBodyLabel,
     TransparentToolButton,
     isDarkTheme,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 
 from modlink_qt_bridge import QtSettingsBridge

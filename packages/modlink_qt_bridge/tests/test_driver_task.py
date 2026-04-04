@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
 import threading
 import time
 import unittest
+from concurrent.futures import Future
 
 import pytest
 
@@ -50,9 +50,7 @@ class QtDriverTaskTest(unittest.TestCase):
 
         task = QtDriverTask(future, action="connect_device")
         task.add_done_callback(
-            lambda done_task: callback_threads.append(
-                QThread.currentThread() == done_task.thread()
-            )
+            lambda done_task: callback_threads.append(QThread.currentThread() == done_task.thread())
         )
 
         threading.Thread(target=lambda: future.set_result(None), daemon=True).start()

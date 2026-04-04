@@ -35,9 +35,7 @@ class FrameStream:
             raise ValueError(f"unsupported frame drop policy: {drop_policy}")
         normalized_maxsize = max(1, int(maxsize))
         self._bus = bus
-        self._queue: queue.Queue[FrameEnvelope | object] = queue.Queue(
-            maxsize=normalized_maxsize
-        )
+        self._queue: queue.Queue[FrameEnvelope | object] = queue.Queue(maxsize=normalized_maxsize)
         self._drop_policy = drop_policy
         self._consumer_name = consumer_name
         self._dropped_count = 0
@@ -185,9 +183,7 @@ class StreamBus:
             if existing_descriptor == descriptor:
                 return
 
-            raise ValueError(
-                f"conflicting descriptor for stream_id '{descriptor.stream_id}'"
-            )
+            raise ValueError(f"conflicting descriptor for stream_id '{descriptor.stream_id}'")
 
         self._descriptors[descriptor.stream_id] = descriptor
 

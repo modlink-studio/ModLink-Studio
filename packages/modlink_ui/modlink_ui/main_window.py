@@ -5,7 +5,8 @@ import sys
 
 from PyQt6.QtGui import QShowEvent
 from PyQt6.QtWidgets import QWidget
-from qfluentwidgets import FluentIcon as FIF, MSFluentWindow
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import MSFluentWindow
 from qfluentwidgets.components.navigation import NavigationItemPosition
 
 from modlink_qt_bridge import QtModLinkBridge

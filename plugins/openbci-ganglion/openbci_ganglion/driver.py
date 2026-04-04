@@ -5,12 +5,11 @@ import time
 from collections.abc import Iterable
 
 import numpy as np
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
 from bleak import BleakScanner
+from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
 from serial.tools import list_ports
 
 from modlink_sdk import FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
-
 
 DEFAULT_GANGLION_DEVICE_ID = "openbci_ganglion.01"
 DEFAULT_GANGLION_DISPLAY_NAME = "OpenBCI Ganglion"
@@ -224,11 +223,7 @@ def _preferred_results(
         seen.add(key)
         unique.append(result)
 
-    tokens = (
-        _LIKELY_GANGLION_TOKENS
-        if transport == "native_ble"
-        else _LIKELY_DONGLE_TOKENS
-    )
+    tokens = _LIKELY_GANGLION_TOKENS if transport == "native_ble" else _LIKELY_DONGLE_TOKENS
     preferred = [
         result
         for result in unique
@@ -246,9 +241,7 @@ def _preferred_results(
 
 
 def _contains_any_token(parts: Iterable[str], tokens: Iterable[str]) -> bool:
-    haystack = " ".join(
-        str(part).strip().lower() for part in parts if str(part).strip()
-    )
+    haystack = " ".join(str(part).strip().lower() for part in parts if str(part).strip())
     return any(token in haystack for token in tokens)
 
 

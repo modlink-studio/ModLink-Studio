@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import Future, TimeoutError as FutureTimeoutError
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 
 from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
@@ -105,7 +106,7 @@ class DriverPortal:
         shutdown = self._executor.submit(self._session.on_executor_stopped)
         try:
             shutdown.result(max(0.0, timeout_ms) / 1000.0)
-        except FutureTimeoutError as exc:
+        except FutureTimeoutError:
             first_error = TimeoutError(
                 f"driver shutdown timed out after {timeout_ms}ms: {self.driver_id}"
             )
@@ -141,9 +142,7 @@ class DriverPortal:
         return self._frame_sink(frame)
 
     def _on_connection_lost(self, detail: object | None) -> None:
-        self._publish_event(
-            DriverConnectionLostEvent(driver_id=self.driver_id, detail=detail)
-        )
+        self._publish_event(DriverConnectionLostEvent(driver_id=self.driver_id, detail=detail))
 
     def _on_executor_exit(self, stop_reason: Exception | None) -> None:
         self._session.close_context()

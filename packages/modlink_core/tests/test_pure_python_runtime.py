@@ -1,25 +1,25 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
 import queue
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from concurrent.futures import Future
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import numpy as np
 
 from modlink_core import ModLinkEngine
 from modlink_core.acquisition import AcquisitionBackend
-from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
-from modlink_core.settings import SettingsService
 from modlink_core.drivers import DriverPortal
+from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
 )
+from modlink_core.settings import SettingsService
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -686,6 +686,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             def _started() -> None:
                 call_order.append(driver_id)
                 driver.started_thread_name = threading.current_thread().name
+
             return _started
 
         driver_a.on_runtime_started = _wrap_started(driver_a, "demo_order_a.01")  # type: ignore[method-assign]
@@ -746,14 +747,17 @@ class PurePythonRuntimeTest(unittest.TestCase):
             removed_stream_ids.append(stream_id)
             original_remove(bus, stream_id)
 
-        with patch(
-            "modlink_core.runtime.engine.StreamBus.remove_descriptor",
-            autospec=True,
-            side_effect=_spy_remove,
-        ), patch(
-            "modlink_core.runtime.engine.AcquisitionBackend.start",
-            autospec=True,
-        ) as acquisition_start:
+        with (
+            patch(
+                "modlink_core.runtime.engine.StreamBus.remove_descriptor",
+                autospec=True,
+                side_effect=_spy_remove,
+            ),
+            patch(
+                "modlink_core.runtime.engine.AcquisitionBackend.start",
+                autospec=True,
+            ) as acquisition_start,
+        ):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 ModLinkEngine(
                     driver_factories=[lambda: started_driver, lambda: failing_driver],
@@ -783,17 +787,21 @@ class PurePythonRuntimeTest(unittest.TestCase):
             removed_stream_ids.append(stream_id)
             original_remove(bus, stream_id)
 
-        with patch(
-            "modlink_core.runtime.engine.DEFAULT_DRIVER_STARTUP_TIMEOUT_MS",
-            50,
-        ), patch(
-            "modlink_core.runtime.engine.StreamBus.remove_descriptor",
-            autospec=True,
-            side_effect=_spy_remove,
-        ), patch(
-            "modlink_core.runtime.engine.AcquisitionBackend.start",
-            autospec=True,
-        ) as acquisition_start:
+        with (
+            patch(
+                "modlink_core.runtime.engine.DEFAULT_DRIVER_STARTUP_TIMEOUT_MS",
+                50,
+            ),
+            patch(
+                "modlink_core.runtime.engine.StreamBus.remove_descriptor",
+                autospec=True,
+                side_effect=_spy_remove,
+            ),
+            patch(
+                "modlink_core.runtime.engine.AcquisitionBackend.start",
+                autospec=True,
+            ) as acquisition_start,
+        ):
             with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
                 ModLinkEngine(
                     driver_factories=[lambda: started_driver, lambda: hanging_driver],

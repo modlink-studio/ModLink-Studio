@@ -144,9 +144,7 @@ class FieldPayloadSettingsPanel(SimpleCardWidget):
         layout.addLayout(self.settings_grid)
         layout.addWidget(self.colormap_hint_label)
 
-        self.value_range_combo.currentIndexChanged.connect(
-            self._sync_manual_range_visibility
-        )
+        self.value_range_combo.currentIndexChanged.connect(self._sync_manual_range_visibility)
         self.colormap_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.value_range_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.manual_min_spinbox.valueChanged.connect(self._emit_state_changed)
@@ -166,9 +164,7 @@ class FieldPayloadSettingsPanel(SimpleCardWidget):
         )
 
     def set_state(self, state: object) -> None:
-        settings = (
-            state if isinstance(state, FieldPreviewSettings) else FieldPreviewSettings()
-        )
+        settings = state if isinstance(state, FieldPreviewSettings) else FieldPreviewSettings()
         with (
             QSignalBlocker(self.colormap_combo),
             QSignalBlocker(self.value_range_combo),

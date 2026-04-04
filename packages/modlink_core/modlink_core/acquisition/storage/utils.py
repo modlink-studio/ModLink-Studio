@@ -73,9 +73,7 @@ def write_npz(path: Path, **payload: Any) -> None:
 def normalize_data_array(frame: FrameEnvelope, *, expected_ndim: int) -> np.ndarray:
     data = np.asarray(frame.data)
     if data.dtype == np.dtype("O"):
-        raise ValueError(
-            f"stream_id={frame.stream_id}: object dtype arrays are not supported"
-        )
+        raise ValueError(f"stream_id={frame.stream_id}: object dtype arrays are not supported")
     if data.ndim != expected_ndim:
         raise ValueError(
             f"stream_id={frame.stream_id}: expected data.ndim == {expected_ndim}, got {data.ndim}"

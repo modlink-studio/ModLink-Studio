@@ -4,8 +4,8 @@ import os
 import shutil
 import sys
 import unittest
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -38,8 +38,8 @@ from modlink_ui.widgets.main.preview.settings.sections import (
     VideoPayloadSettingsPanel,
 )
 from modlink_ui.widgets.main.preview.settings.store import (
-    PreviewStreamSettingsStore,
     UI_PREVIEW_STREAMS_KEY,
+    PreviewStreamSettingsStore,
 )
 
 
@@ -61,9 +61,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"preview-settings-{uuid4().hex}"
         self._temp_dir.mkdir()
-        self._settings = SettingsService(
-            self._temp_dir / "preview-settings.json"
-        )
+        self._settings = SettingsService(self._temp_dir / "preview-settings.json")
         self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:

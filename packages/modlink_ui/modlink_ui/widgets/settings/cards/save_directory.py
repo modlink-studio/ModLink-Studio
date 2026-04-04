@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PyQt6.QtWidgets import QFileDialog, QWidget
-from qfluentwidgets import FluentIcon as FIF, PushSettingCard
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import PushSettingCard
 
 from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY
 from modlink_qt_bridge import QtSettingsBridge

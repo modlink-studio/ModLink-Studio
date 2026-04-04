@@ -6,10 +6,8 @@ from importlib.resources import files
 from pathlib import Path
 
 import pyqtgraph as pg
-from PyQt6.QtGui import QIcon
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QMessageBox
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from qfluentwidgets import Theme, setTheme
 
 from modlink_core import ModLinkEngine

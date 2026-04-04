@@ -4,7 +4,7 @@ import base64
 import time
 
 import numpy as np
-from PyQt6.QtCore import QByteArray, QBuffer, QIODevice
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice
 from PyQt6.QtGui import QImage
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor

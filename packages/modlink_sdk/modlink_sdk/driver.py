@@ -198,9 +198,7 @@ class LoopDriver(Driver):
             while not stop_event.wait(interval_seconds):
                 self.loop()
         except Exception as exc:
-            self.emit_connection_lost(
-                f"LOOP_FAILED: {type(exc).__name__}: {exc}"
-            )
+            self.emit_connection_lost(f"LOOP_FAILED: {type(exc).__name__}: {exc}")
         finally:
             with self._loop_lock:
                 if self._loop_stop is stop_event:

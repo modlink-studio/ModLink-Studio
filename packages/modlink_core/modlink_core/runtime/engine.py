@@ -121,8 +121,7 @@ class ModLinkEngine:
             self._acquisition.shutdown()
         except Exception as exc:
             cleanup_failures.append(
-                "cleanup failed while shutting down acquisition: "
-                f"{type(exc).__name__}: {exc}"
+                f"cleanup failed while shutting down acquisition: {type(exc).__name__}: {exc}"
             )
 
         for note in cleanup_failures:
