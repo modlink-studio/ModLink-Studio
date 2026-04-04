@@ -9,19 +9,20 @@ Rectangle {
     property string subtitle: ""
     default property alias contentData: contentColumn.data
 
-    radius: 22
-    color: "#fbfdff"
-    border.width: 1
-    border.color: "#d8e4f0"
+    UiTokens { id: ui }
 
     implicitWidth: 360
-    implicitHeight: contentColumn.implicitHeight + 36
+    implicitHeight: contentColumn.implicitHeight + ui.cardPadding * 2
+    radius: ui.radiusLg
+    color: ui.surface
+    border.width: 1
+    border.color: ui.borderSoft
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 12
+        anchors.margins: ui.cardPadding
+        spacing: 14
 
         Item {
             Layout.fillWidth: true
@@ -35,18 +36,18 @@ Rectangle {
 
                 Label {
                     text: root.title
-                    font.pixelSize: 18
-                    font.weight: Font.DemiBold
-                    color: "#102235"
                     visible: text.length > 0
+                    font.pixelSize: 17
+                    font.weight: Font.DemiBold
+                    color: ui.textPrimary
                 }
 
                 Label {
                     text: root.subtitle
-                    color: "#5f7288"
-                    font.pixelSize: 13
-                    wrapMode: Text.Wrap
                     visible: text.length > 0
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                    color: ui.textSecondary
                 }
             }
         }

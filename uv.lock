@@ -398,6 +398,7 @@ dependencies = [
     { name = "modlink-sdk" },
     { name = "numpy" },
     { name = "pyqt6" },
+    { name = "scipy" },
 ]
 
 [package.metadata]
@@ -407,6 +408,7 @@ requires-dist = [
     { name = "modlink-sdk", editable = "packages/modlink_sdk" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "scipy", specifier = ">=1.15.2" },
 ]
 
 [[package]]

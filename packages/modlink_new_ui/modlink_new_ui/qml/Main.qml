@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Universal
 import QtQuick.Layouts
 import "components"
 import "pages"
@@ -7,179 +8,239 @@ import "pages"
 ApplicationWindow {
     id: root
 
-    width: 1460
-    height: 920
+    UiTokens { id: ui }
+
+    width: 1480
+    height: 960
     visible: true
-    title: appController.applicationTitle
-    color: "#edf3f8"
+    title: "ModLink Studio"
+    color: ui.windowBg
+
+    Universal.theme: Universal.Light
+    Universal.accent: Universal.Teal
 
     property int currentPageIndex: 0
     property string flashMessage: ""
 
     function showFlash(message) {
-        if (!message || message.length === 0) {
-            return;
-        }
+        if (!message || message.length === 0) return;
         flashMessage = message;
         flashTimer.restart();
     }
 
     Timer {
         id: flashTimer
-        interval: 3600
+        interval: 4000
         repeat: false
         onTriggered: root.flashMessage = ""
     }
 
     Connections {
-        target: appController.mainPage
+        target: appController ? appController.mainPage : null
         function onMessageRaised(message) { root.showFlash(message); }
     }
-
     Connections {
-        target: appController.devicePage
+        target: appController ? appController.devicePage : null
         function onMessageRaised(message) { root.showFlash(message); }
     }
-
     Connections {
-        target: appController.settingsPage
+        target: appController ? appController.settingsPage : null
         function onMessageRaised(message) { root.showFlash(message); }
-    }
-
-    header: Rectangle {
-        height: 72
-        color: "#f9fbfd"
-        border.width: 1
-        border.color: "#d8e4f0"
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 18
-            spacing: 12
-
-            ColumnLayout {
-                spacing: 2
-
-                Label {
-                    text: "ModLink Studio"
-                    font.pixelSize: 24
-                    font.weight: Font.Bold
-                    color: "#102235"
-                }
-
-                Label {
-                    text: "QML 迁移线"
-                    color: "#5f7288"
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Rectangle {
-                Layout.preferredWidth: 380
-                Layout.preferredHeight: 42
-                radius: 16
-                color: root.flashMessage.length > 0 ? "#d7ebff" : "#eef3f7"
-                border.width: 1
-                border.color: root.flashMessage.length > 0 ? "#9fc5ef" : "#d8e4f0"
-
-                Label {
-                    anchors.centerIn: parent
-                    width: parent.width - 24
-                    text: root.flashMessage.length > 0
-                        ? root.flashMessage
-                        : "共享 core/sdk/settings，逐步替换旧 UI。"
-                    horizontalAlignment: Text.AlignHCenter
-                    color: root.flashMessage.length > 0 ? "#0f5cab" : "#5f7288"
-                    elide: Text.ElideRight
-                }
-            }
-        }
     }
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 18
+        spacing: 0
 
         Rectangle {
-            Layout.preferredWidth: 220
+            Layout.preferredWidth: 252
             Layout.fillHeight: true
-            radius: 26
-            color: "#f9fbfd"
-            border.width: 1
-            border.color: "#d8e4f0"
+            color: ui.sidebarBg
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 18
+                anchors.margins: 20
                 spacing: 12
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    radius: ui.radiusLg
+                    color: ui.sidebarSurface
+                    border.width: 1
+                    border.color: ui.sidebarBorder
+                    implicitHeight: 110
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 18
+                        spacing: 5
+
+                        Label {
+                            text: "ModLink Studio"
+                            font.pixelSize: 22
+                            font.weight: Font.DemiBold
+                            color: ui.textOnDark
+                        }
+
+                        Label {
+                            text: "实时采集 · 设备联动 · 可视化工作台"
+                            wrapMode: Text.Wrap
+                            font.pixelSize: 12
+                            color: ui.textOnDarkMuted
+                        }
+                    }
+                }
+
                 Label {
-                    text: "导航"
-                    font.pixelSize: 18
+                    text: "Workspace"
+                    font.pixelSize: 11
                     font.weight: Font.DemiBold
-                    color: "#102235"
+                    color: ui.textOnDarkMuted
+                    Layout.topMargin: 8
+                    Layout.leftMargin: 8
                 }
 
-                NavButton {
-                    text: "实时展示"
-                    active: root.currentPageIndex === 0
-                    onClicked: root.currentPageIndex = 0
-                }
+                Repeater {
+                    model: [
+                        { label: "实时展示", caption: "预览流与录制控制", idx: 0 },
+                        { label: "设备", caption: "连接、搜索与运行状态", idx: 1 },
+                        { label: "设置", caption: "路径、刷新率与标签", idx: 2 }
+                    ]
 
-                NavButton {
-                    text: "设备"
-                    active: root.currentPageIndex === 1
-                    onClicked: root.currentPageIndex = 1
-                }
+                    delegate: ItemDelegate {
+                        Layout.fillWidth: true
+                        implicitHeight: 70
+                        hoverEnabled: true
+                        highlighted: root.currentPageIndex === modelData.idx
+                        padding: 0
 
-                NavButton {
-                    text: "设置"
-                    active: root.currentPageIndex === 2
-                    onClicked: root.currentPageIndex = 2
+                        background: Rectangle {
+                            radius: ui.radiusMd
+                            color: root.currentPageIndex === modelData.idx
+                                ? ui.sidebarSurface
+                                : (parent.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
+                            border.width: root.currentPageIndex === modelData.idx ? 1 : 0
+                            border.color: ui.sidebarBorder
+                        }
+
+                        contentItem: RowLayout {
+                            spacing: 14
+
+                            Rectangle {
+                                width: 4
+                                height: 34
+                                radius: 2
+                                color: root.currentPageIndex === modelData.idx ? ui.accent : "transparent"
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Label {
+                                    text: modelData.label
+                                    font.pixelSize: 14
+                                    font.weight: root.currentPageIndex === modelData.idx ? Font.DemiBold : Font.Medium
+                                    color: ui.textOnDark
+                                }
+
+                                Label {
+                                    text: modelData.caption
+                                    wrapMode: Text.Wrap
+                                    font.pixelSize: 11
+                                    color: ui.textOnDarkMuted
+                                }
+                            }
+                        }
+
+                        onClicked: root.currentPageIndex = modelData.idx
+                    }
                 }
 
                 Item { Layout.fillHeight: true }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    radius: 18
-                    color: "#eef5fb"
+                    radius: ui.radiusLg
+                    color: ui.sidebarSurface
                     border.width: 1
-                    border.color: "#d7e3ef"
-                    implicitHeight: 120
+                    border.color: ui.sidebarBorder
+                    implicitHeight: 84
 
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 14
-                        spacing: 6
+                        spacing: 4
 
                         Label {
-                            text: "迁移状态"
-                            font.pixelSize: 16
+                            text: "v0.2.0"
+                            font.pixelSize: 12
                             font.weight: Font.DemiBold
-                            color: "#102235"
+                            color: ui.textOnDark
                         }
 
                         Label {
-                            text: "旧 UI 继续交付，新 UI 用 QML 重建三页骨架。"
+                            text: "QML 工作台入口仍是实验态，但预览、设备与设置已经收进同一套桌面壳层。"
                             wrapMode: Text.Wrap
-                            color: "#5f7288"
+                            font.pixelSize: 11
+                            color: ui.textOnDarkMuted
                         }
                     }
                 }
             }
         }
 
-        StackLayout {
+        Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: root.currentPageIndex
+            color: ui.contentBg
 
-            MainPage { controller: appController.mainPage }
-            DevicePage { controller: appController.devicePage }
-            SettingsPage { controller: appController.settingsPage }
+            Item {
+                anchors.fill: parent
+
+                Item {
+                    id: contentFrame
+                    width: Math.max(0, Math.min(parent.width - 40, 1280))
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+
+                    StackLayout {
+                        anchors.fill: parent
+                        currentIndex: root.currentPageIndex
+
+                        MainPage { controller: appController ? appController.mainPage : null }
+                        DevicePage { controller: appController ? appController.devicePage : null }
+                        SettingsPage { controller: appController ? appController.settingsPage : null }
+                    }
+                }
+            }
+        }
+    }
+
+    Frame {
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 20
+        width: Math.min(540, parent.width - 48)
+        visible: root.flashMessage.length > 0
+        z: 10
+
+        background: Rectangle {
+            radius: ui.radiusLg
+            color: ui.surface
+            border.width: 1
+            border.color: ui.borderSoft
+        }
+
+        Label {
+            width: parent.width - 28
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            text: root.flashMessage
+            font.pixelSize: 13
+            font.weight: Font.Medium
+            color: ui.textPrimary
         }
     }
 }
