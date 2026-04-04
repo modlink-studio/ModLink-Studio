@@ -1,0 +1,38 @@
+name: Publish Plugin Scaffold npm Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build scaffold package
+        run: npm --workspace @modlink-studio/plugin-scaffold run build
+
+      - name: Test scaffold package
+        run: npm --workspace @modlink-studio/plugin-scaffold run test
+
+      - name: Publish to npm
+        run: npm --workspace @modlink-studio/plugin-scaffold publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

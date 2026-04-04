@@ -27,7 +27,6 @@ default-groups = ["dev"]
 modlink-studio = { workspace = true }
 modlink-studio-qml = { workspace = true }
 modlink-server = { workspace = true }
-modlink-plugin-scaffold = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
 modlink-qt-bridge = { workspace = true }
@@ -47,13 +46,11 @@ members = [
     "packages/modlink_qt_bridge",
     "packages/modlink_ui",
     "packages/modlink_new_ui",
-    "tools/modlink_plugin_scaffold",
 ]
 
 [dependency-groups]
 dev = [
     "black>=26.3.1",
-    "modlink-plugin-scaffold",
     "pdoc>=16.0.0",
     "pytest>=8.4.1",
     "pyinstaller>=6.16.0",
