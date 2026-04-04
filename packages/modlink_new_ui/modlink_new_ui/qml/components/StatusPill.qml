@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: root
@@ -6,30 +7,41 @@ Rectangle {
     property string text: ""
     property string tone: "neutral"
 
-    radius: 999
-    implicitHeight: 28
-    implicitWidth: label.implicitWidth + 24
+    UiTokens { id: ui }
 
-    color: tone === "success" ? "#dff7e8"
-        : tone === "info" ? "#e0efff"
-        : tone === "warning" ? "#fff2cf"
-        : "#eef3f7"
+    radius: height / 2
+    implicitHeight: 26
+    implicitWidth: label.implicitWidth + 22
+
+    color: {
+        if (tone === "success") return ui.successBg;
+        if (tone === "info") return ui.infoBg;
+        if (tone === "warning") return ui.warningBg;
+        if (tone === "danger") return ui.dangerBg;
+        return ui.surfaceAlt;
+    }
 
     border.width: 1
-    border.color: tone === "success" ? "#9ed7b3"
-        : tone === "info" ? "#a7c8ee"
-        : tone === "warning" ? "#e5c677"
-        : "#d1dbe5"
+    border.color: {
+        if (tone === "success") return Qt.darker(ui.successBg, 1.08);
+        if (tone === "info") return Qt.darker(ui.infoBg, 1.08);
+        if (tone === "warning") return Qt.darker(ui.warningBg, 1.08);
+        if (tone === "danger") return Qt.darker(ui.dangerBg, 1.08);
+        return ui.borderSoft;
+    }
 
-    Text {
+    Label {
         id: label
         anchors.centerIn: parent
         text: root.text
-        font.pixelSize: 13
+        font.pixelSize: 12
         font.weight: Font.DemiBold
-        color: tone === "success" ? "#14532d"
-            : tone === "info" ? "#0f5cab"
-            : tone === "warning" ? "#7c5a00"
-            : "#445769"
+        color: {
+            if (root.tone === "success") return ui.successFg;
+            if (root.tone === "info") return ui.infoFg;
+            if (root.tone === "warning") return ui.warningFg;
+            if (root.tone === "danger") return ui.dangerFg;
+            return ui.textSecondary;
+        }
     }
 }

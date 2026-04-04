@@ -8,45 +8,65 @@ ScrollView {
 
     property var controller
 
+    UiTokens { id: ui }
+
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
     ColumnLayout {
-        width: root.availableWidth
-        spacing: 16
+        x: ui.pageGutter
+        y: ui.pageGutter
+        width: Math.max(root.availableWidth - ui.pageGutter * 2, 0)
+        spacing: ui.sectionGap
 
-        Label {
-            text: controller.portals.length > 0 ? "设备管理" : "当前没有可用 driver"
-            font.pixelSize: 22
-            font.weight: Font.DemiBold
-            color: "#102235"
+        PageHeader {
+            Layout.fillWidth: true
+            title: "设备"
+            subtitle: (controller && controller.portals && controller.portals.length > 0)
+                ? "搜索、连接、断开和启停流都集中在这里完成。"
+                : "当前没有可用 driver。"
         }
 
         Repeater {
-            model: controller.portals
+            model: controller ? controller.portals : []
 
             delegate: CardPanel {
                 id: portalCard
                 Layout.fillWidth: true
-                width: root.availableWidth
+
                 property string driverId: modelData.driverId
                 property bool portalBusy: modelData.busy
+
                 title: modelData.title
                 subtitle: modelData.description
 
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 10
 
                     StatusPill {
                         text: modelData.statusText
                         tone: modelData.statusTone
                     }
 
-                    Item { Layout.fillWidth: true }
+                    Label {
+                        Layout.fillWidth: true
+                        text: modelData.connectedSubtitle
+                        visible: text.length > 0
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        color: ui.textSecondary
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: modelData.hasProviders && !modelData.isConnected
+                    spacing: 10
 
                     ComboBox {
-                        Layout.preferredWidth: 180
-                        enabled: modelData.hasProviders && !modelData.busy && !modelData.isConnected
+                        Layout.preferredWidth: 220
+                        enabled: !modelData.busy
                         model: modelData.providers
                         currentIndex: Math.max(0, modelData.providers.indexOf(modelData.selectedProvider))
                         onActivated: controller.setSelectedProvider(portalCard.driverId, currentText)
@@ -54,27 +74,23 @@ ScrollView {
 
                     Button {
                         text: modelData.searchButtonText
-                        enabled: modelData.hasProviders && !modelData.busy && !modelData.isConnected
+                        highlighted: true
+                        enabled: modelData.hasProviders && !modelData.busy
                         onClicked: controller.search(portalCard.driverId)
                     }
-                }
 
-                Label {
-                    Layout.fillWidth: true
-                    text: modelData.connectedSubtitle
-                    color: "#5f7288"
-                    wrapMode: Text.Wrap
-                    visible: text.length > 0
+                    Item { Layout.fillWidth: true }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
                     visible: modelData.isConnected
+                    spacing: 10
 
                     Button {
                         text: modelData.streamButtonText
+                        highlighted: !modelData.isStreaming
                         enabled: !modelData.busy
-                        highlighted: modelData.isStreaming
                         onClicked: controller.toggleStreaming(portalCard.driverId)
                     }
 
@@ -83,6 +99,8 @@ ScrollView {
                         enabled: !modelData.busy
                         onClicked: controller.disconnectDevice(portalCard.driverId)
                     }
+
+                    Item { Layout.fillWidth: true }
                 }
 
                 ColumnLayout {
@@ -93,39 +111,43 @@ ScrollView {
                     Repeater {
                         model: modelData.searchResults
 
-                        delegate: Rectangle {
+                        delegate: Frame {
                             Layout.fillWidth: true
-                            radius: 16
-                            color: "#f4f8fc"
-                            border.width: 1
-                            border.color: "#d8e4f0"
-                            implicitHeight: 74
+                            padding: 16
+
+                            background: Rectangle {
+                                radius: ui.radiusMd
+                                color: ui.surfaceAlt
+                                border.width: 1
+                                border.color: ui.borderSoft
+                            }
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: 14
                                 spacing: 12
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
-                                    spacing: 2
+                                    spacing: 3
 
                                     Label {
                                         text: modelData.title
-                                        font.pixelSize: 15
+                                        font.pixelSize: 14
                                         font.weight: Font.DemiBold
-                                        color: "#102235"
+                                        color: ui.textPrimary
                                     }
 
                                     Label {
                                         text: modelData.subtitle
-                                        color: "#5f7288"
+                                        font.pixelSize: 12
                                         wrapMode: Text.Wrap
+                                        color: ui.textSecondary
                                     }
                                 }
 
                                 Button {
                                     text: "连接"
+                                    highlighted: true
                                     enabled: !portalCard.portalBusy
                                     onClicked: controller.connectDevice(portalCard.driverId, index)
                                 }
@@ -137,11 +159,14 @@ ScrollView {
                 Label {
                     Layout.fillWidth: true
                     text: modelData.errorText
-                    color: "#b42318"
-                    wrapMode: Text.Wrap
                     visible: text.length > 0
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                    color: ui.dangerFg
                 }
             }
         }
+
+        Item { Layout.fillHeight: true }
     }
 }
