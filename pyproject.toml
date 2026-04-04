@@ -42,12 +42,12 @@ members = [
     "apps/modlink_studio",
     "apps/modlink_studio_qml",
     "apps/modlink_server",
-    "apps/modlink_plugin_scaffold",
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_qt_bridge",
     "packages/modlink_ui",
     "packages/modlink_new_ui",
+    "tools/modlink_plugin_scaffold",
 ]
 
 [dependency-groups]

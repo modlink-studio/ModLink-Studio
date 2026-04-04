@@ -95,10 +95,10 @@
 
 ## 用脚手架起步
 
-安装 `modlink-studio` 后，`modlink-plugin-scaffold` 会一起进入同一个 Python 环境。
+`modlink-plugin-scaffold` 现在作为独立开发工具维护，位于仓库的 `tools/` 目录中；它不再作为 `modlink-studio` 的运行时依赖自动安装。
 
 ```bash
-modlink-plugin-scaffold --zh
+uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
 ```
 
 这个脚手架适合“新建一个独立 driver 项目”的场景。它会交互式生成：

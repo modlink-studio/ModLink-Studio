@@ -1,13 +1,13 @@
 # Plugin Scaffold CLI
 
-`modlink-plugin-scaffold` 是官方提供的 driver 脚手架工具，会随 `modlink-studio` 一起安装。
+`modlink-plugin-scaffold` 是官方提供的独立 driver 脚手架工具。它位于仓库的 `tools/` 目录中，不再作为 `modlink-studio` 的运行时依赖自动安装。
 
 当前脚手架默认生成的是 `0.2.0` 风格 driver：宿主契约以纯 Python runtime 为准，不再依赖 Qt-style `sig_frame` / `QTimer` 写法。
 
 在仓库里运行：
 
 ```bash
-uv run modlink-plugin-scaffold --zh
+uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
 ```
 
 安装后的正式入口：

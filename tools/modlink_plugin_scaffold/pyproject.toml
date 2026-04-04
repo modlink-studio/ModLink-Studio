@@ -6,8 +6,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
-    "readchar>=4.2.1",
-    "rich>=14.3.3",
+    "textual>=0.79.1",
 ]
 
 [project.urls]
