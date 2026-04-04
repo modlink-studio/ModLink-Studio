@@ -1,9 +1,8 @@
 import React, {useEffect, useMemo, useReducer, useState} from "react";
 import {Box, Text, useApp, useInput, useStdout} from "ink";
-import TextInput from "ink-text-input";
 
 import {writeProjectFiles, ScaffoldExistsError} from "./lib/fs.js";
-import {getCopy} from "./lib/i18n.js";
+import {getCopy, sectionOrder} from "./lib/i18n.js";
 import {buildPreviewBundle} from "./templates/render.js";
 import {
   addStream,
@@ -11,10 +10,7 @@ import {
   cycleDataArrival,
   cycleDriverKind,
   cyclePayloadType,
-  cycleSelectedStream,
   deleteStream,
-  duplicateStream,
-  moveStream,
   reducer,
   setSelectedStream,
   updateDraftField,
@@ -22,9 +18,9 @@ import {
 } from "./lib/state.js";
 import {createDefaultDraft, validateDraft} from "./lib/spec.js";
 import type {Draft, GeneratedProject, Language} from "./lib/types.js";
+import {Banner} from "./ui/Banner.js";
 import {EditorPane} from "./ui/EditorPane.js";
 import {OverwriteDialog} from "./ui/OverwriteDialog.js";
-import {PreviewPane} from "./ui/PreviewPane.js";
 import {ResultScreen} from "./ui/ResultScreen.js";
 import {getRowsForSection} from "./ui/rows.js";
 
@@ -50,22 +46,40 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
   const [busy, setBusy] = useState(false);
   const copy = getCopy(language);
   const validation = useMemo(() => validateDraft(language, state.draft), [language, state.draft]);
-  const rows = useMemo(() => getRowsForSection(language, state.section, state.draft, validation), [language, state.section, state.draft, validation]);
+  const rows = useMemo(
+    () => getRowsForSection(language, state.section, state.draft, validation, state.editingKey, state.editBuffer),
+    [language, state.section, state.draft, validation, state.editingKey, state.editBuffer],
+  );
   const preview = useMemo(
     () => buildPreviewBundle(validation.spec, cwd, language, uniqueErrors(validation.fieldErrors)),
     [validation, cwd, language],
   );
-  const previewLines = Math.max(10, Math.floor((stdout.rows ?? process.stdout.rows ?? 30) - 10));
+  const screenWidth = Math.max(80, stdout.columns ?? process.stdout.columns ?? 100);
+  const screenHeight = Math.max(24, stdout.rows ?? process.stdout.rows ?? 30);
+  const bannerHeight = 5;
+  const footerHeight = 2;
+  const contentHeight = Math.max(9, screenHeight - 12);
+  const editorRows = Math.max(6, contentHeight - (state.section === "streams" ? Math.min(8, state.draft.streams.length + 5) : 6));
   const ready = validation.spec !== null;
+  const errorCount = Object.keys(validation.fieldErrors).length;
 
   useEffect(() => {
     dispatch({type: "row.clamp", rowCount: rows.length});
   }, [rows.length, state.section]);
 
   const currentRow = rows[state.rowIndex];
+  const shortStatus = ready ? copy.readyShort : `${errorCount} ${copy.issuesShort}`;
 
   const setStatus = (message: string | null, tone: "info" | "error" | "success" = "info"): void => {
     dispatch({type: "status", message, tone});
+  };
+
+  const commitEdit = (): void => {
+    if (!state.editingKey) {
+      return;
+    }
+    applyEdit(state.editingKey, state.editBuffer);
+    dispatch({type: "edit.cancel"});
   };
 
   const applyEdit = (key: string, value: string): void => {
@@ -84,7 +98,7 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     if (key.startsWith("streams.")) {
       const field = key.replace("streams.", "") as Parameters<typeof updateSelectedStreamField>[1];
-      if (field !== "selectedStream" && field !== "add" && field !== "duplicate" && field !== "delete" && field !== "moveUp" && field !== "moveDown") {
+      if (field !== "add" && field !== "delete" && !field.startsWith("select.")) {
         dispatch({type: "draft.set", draft: updateSelectedStreamField(state.draft, field, value)});
       }
     }
@@ -122,24 +136,17 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       dispatch({type: "edit.start", key: currentRow.key, value: currentRow.value === "<empty>" ? "" : currentRow.value});
       return;
     }
+    if (currentRow.key.startsWith("streams.select.")) {
+      const index = Number.parseInt(currentRow.key.split(".").at(-1) ?? "-1", 10);
+      dispatch({type: "draft.set", draft: setSelectedStream(state.draft, index)});
+      return;
+    }
     if (currentRow.key === "streams.add") {
       dispatch({type: "draft.set", draft: addStream(state.draft)});
       return;
     }
-    if (currentRow.key === "streams.duplicate") {
-      dispatch({type: "draft.set", draft: duplicateStream(state.draft)});
-      return;
-    }
     if (currentRow.key === "streams.delete") {
       dispatch({type: "draft.set", draft: deleteStream(state.draft)});
-      return;
-    }
-    if (currentRow.key === "streams.moveUp") {
-      dispatch({type: "draft.set", draft: moveStream(state.draft, -1)});
-      return;
-    }
-    if (currentRow.key === "streams.moveDown") {
-      dispatch({type: "draft.set", draft: moveStream(state.draft, 1)});
       return;
     }
     if (currentRow.kind === "choice") {
@@ -157,10 +164,6 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     if (currentRow.key === "driver.driverKind") {
       dispatch({type: "draft.set", draft: cycleDriverKind(state.draft, delta)});
-      return;
-    }
-    if (currentRow.key === "streams.selectedStream") {
-      dispatch({type: "draft.set", draft: cycleSelectedStream(state.draft, delta)});
       return;
     }
     if (currentRow.key === "streams.payloadType") {
@@ -198,8 +201,20 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
 
     if (state.editingKey) {
+      if (key.return) {
+        commitEdit();
+        return;
+      }
       if (key.escape) {
         dispatch({type: "edit.cancel"});
+        return;
+      }
+      if (key.backspace || key.delete) {
+        dispatch({type: "edit.change", value: state.editBuffer.slice(0, -1)});
+        return;
+      }
+      if (input && !key.ctrl && !key.meta && !key.tab) {
+        dispatch({type: "edit.change", value: state.editBuffer + input});
       }
       return;
     }
@@ -214,14 +229,6 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     if (input === "g") {
       void performGenerate(false);
-      return;
-    }
-    if (input === "[") {
-      dispatch({type: "preview.delta", delta: -1});
-      return;
-    }
-    if (input === "]") {
-      dispatch({type: "preview.delta", delta: 1});
       return;
     }
     if (key.tab) {
@@ -255,42 +262,63 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
   });
 
   if (state.result) {
-    return <ResultScreen language={language} result={state.result} />;
+    return <ResultScreen language={language} result={state.result} width={screenWidth} height={screenHeight} />;
   }
 
   if (state.overwritePath) {
-    return <OverwriteDialog language={language} projectPath={state.overwritePath} focus={state.overwriteFocus} />;
+    return <OverwriteDialog language={language} projectPath={state.overwritePath} focus={state.overwriteFocus} width={screenWidth} height={screenHeight} />;
   }
 
   return (
-    <Box flexDirection="column">
-      <Text bold color="green">
-        {copy.appTitle}
-      </Text>
-      <Text dimColor>{copy.appSubtitle}</Text>
-      <Text dimColor>{copy.helpLine}</Text>
-      <Box marginTop={1}>
-        <EditorPane language={language} state={state} rows={rows} validation={validation} ready={ready} />
-        <PreviewPane language={language} previewTab={state.previewTab} preview={preview} maxLines={previewLines} />
-      </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Text>
-          {copy.currentPreviewLabel}: {copy.previewTabs[state.previewTab]} {busy ? "· generating..." : ""}
+    <Box width={screenWidth} height={screenHeight} borderStyle="round" borderColor="green" flexDirection="column" paddingX={1}>
+      <Box justifyContent="space-between">
+        <Text bold color="green">
+          {copy.appTitle}
         </Text>
-        {state.editingKey ? (
-          <Box>
-            <Text color="yellow">edit&gt; </Text>
-            <TextInput
-              value={state.editBuffer}
-              onChange={(value) => dispatch({type: "edit.change", value})}
-              onSubmit={(value) => {
-                applyEdit(state.editingKey as string, value);
-                dispatch({type: "edit.cancel"});
-              }}
-            />
+        <Text color={ready ? "green" : "red"}>
+          {shortStatus} {busy ? "| generating" : ""}
+        </Text>
+      </Box>
+      <Box>
+        {sectionOrder.map((section) => (
+          <Box key={section} flexGrow={1} justifyContent="center">
+            <Text color={section === state.section ? "cyan" : "gray"} bold={section === state.section}>
+              {section === state.section ? `[${copy.sections[section]}]` : copy.sections[section]}
+            </Text>
           </Box>
+        ))}
+      </Box>
+      <Text dimColor wrap="truncate-end">
+        {copy.sectionDescriptions[state.section]}
+      </Text>
+      <Box height={bannerHeight}>
+        <Banner language={language} summary={preview.summary} width={screenWidth - 4} />
+      </Box>
+      <Box flexGrow={1} height={contentHeight} borderTop borderBottom borderColor="gray">
+        <Box flexGrow={1} paddingRight={1}>
+          <EditorPane language={language} state={state} rows={rows} validation={validation} maxRows={editorRows} width={screenWidth - 6} />
+        </Box>
+      </Box>
+      <Box flexDirection="column" height={footerHeight} justifyContent="center">
+        {state.editingKey ? (
+          <>
+            <Text color="yellow" wrap="truncate-end">
+              {copy.editingLabel}&gt; {state.editBuffer}
+              <Text color="white">█</Text>
+            </Text>
+            <Text dimColor wrap="truncate-end">
+              {copy.controlsLabel}: {copy.footerEditHint}
+            </Text>
+          </>
         ) : (
-          <Text dimColor>{cwd}</Text>
+          <>
+            <Text dimColor wrap="truncate-middle">
+              {copy.locationLabel}: {state.statusMessage ?? cwd}
+            </Text>
+            <Text dimColor wrap="truncate-end">
+              {copy.controlsLabel}: {copy.footerIdleHint}
+            </Text>
+          </>
         )}
       </Box>
     </Box>

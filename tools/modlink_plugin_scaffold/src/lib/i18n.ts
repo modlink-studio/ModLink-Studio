@@ -1,4 +1,4 @@
-import type {DataArrival, DriverKind, Language, PayloadType, PreviewTab, SectionId} from "./types.js";
+import type {DataArrival, DriverKind, Language, PayloadType, SectionId} from "./types.js";
 
 type Copy = {
   appTitle: string;
@@ -16,6 +16,9 @@ type Copy = {
   confirmOverwriteConfirm: string;
   completionTitle: string;
   completionHint: string;
+  locationLabel: string;
+  controlsLabel: string;
+  editingLabel: string;
   currentSectionLabel: string;
   currentPreviewLabel: string;
   identitySection: string;
@@ -50,10 +53,23 @@ type Copy = {
   streamFieldWidthLabel: string;
   streamVideoHeightLabel: string;
   streamVideoWidthLabel: string;
-  previewTabs: Record<PreviewTab, string>;
+  choiceSwitchHint: string;
+  streamListTitle: string;
+  streamListDescription: string;
+  streamActionsDescription: string;
+  streamDetailsTitle: string;
+  streamBasicGroupTitle: string;
+  streamBasicGroupDescription: string;
+  streamTimingGroupTitle: string;
+  streamTimingGroupDescription: string;
+  streamPayloadGroupTitle: string;
+  streamPayloadGroupDescription: string;
   sections: Record<SectionId, string>;
+  sectionDescriptions: Record<SectionId, string>;
+  rowDescriptions: Record<string, string>;
   payloadOptions: Record<PayloadType, string>;
   dataArrivalOptions: Record<DataArrival, string>;
+  dataArrivalSummaryOptions: Record<DataArrival, string>;
   driverKindOptions: Record<DriverKind, string>;
   invalidPreviewPlaceholder: string;
   validationErrorsHeader: string;
@@ -62,6 +78,14 @@ type Copy = {
   commandsLabel: string;
   summaryTitle: string;
   statusPrefix: string;
+  outputDirLabel: string;
+  streamCountLabel: string;
+  payloadMixLabel: string;
+  footerEditHint: string;
+  footerIdleHint: string;
+  readyShort: string;
+  issuesShort: string;
+  invalidSummaryMessage: string;
   pluginNameError: string;
   deviceIdError: string;
   providersError: string;
@@ -86,7 +110,7 @@ type Copy = {
 const en: Copy = {
   appTitle: "ModLink Plugin Scaffold",
   appSubtitle: "React + Ink developer tool for Python driver plugins",
-  helpLine: "Tab: next section | Up/Down: rows | Left/Right: choices | Enter: edit or run | [: prev preview | ]: next preview | g: generate | q: quit",
+  helpLine: "Tab: next section | Up/Down: rows | Left/Right: choices | Enter: edit or run | g: generate | q: quit",
   previewHeader: "Preview",
   previewTruncated: "Preview truncated to fit the current terminal height.",
   readyToGenerate: "Draft is valid and ready to generate.",
@@ -99,6 +123,9 @@ const en: Copy = {
   confirmOverwriteConfirm: "Overwrite",
   completionTitle: "Scaffold generated",
   completionHint: "Press Enter, Esc, or q to exit.",
+  locationLabel: "Location",
+  controlsLabel: "Controls",
+  editingLabel: "Edit",
   currentSectionLabel: "Section",
   currentPreviewLabel: "Preview tab",
   identitySection: "Identity",
@@ -133,18 +160,55 @@ const en: Copy = {
   streamFieldWidthLabel: "Field width",
   streamVideoHeightLabel: "Frame height",
   streamVideoWidthLabel: "Frame width",
-  previewTabs: {
-    summary: "Summary",
-    driver: "driver.py",
-    pyproject: "pyproject.toml",
-    readme: "README.md"
-  },
+  choiceSwitchHint: "[←/→ switch]",
+  streamListTitle: "Streams",
+  streamListDescription: "Select which stream to edit.",
+  streamActionsDescription: "Use Enter to add or delete.",
+  streamDetailsTitle: "Current stream details",
+  streamBasicGroupTitle: "Basics",
+  streamBasicGroupDescription: "Name the stream and choose its payload type.",
+  streamTimingGroupTitle: "Timing",
+  streamTimingGroupDescription: "Set the nominal rate and chunk size.",
+  streamPayloadGroupTitle: "Payload",
+  streamPayloadGroupDescription: "Fill in the fields required by the selected payload type.",
   sections: {
     identity: "Identity",
     connection: "Connection",
     driver: "Driver Type",
     streams: "Streams",
     dependencies: "Dependencies"
+  },
+  sectionDescriptions: {
+    identity: "Define the generated package name, device label, and stable device ID.",
+    connection: "Describe how the host discovers the plugin and how the device produces data.",
+    driver: "Choose the runtime base class that best matches the device behavior.",
+    streams: "Describe every stream the driver will publish, including shape and metadata.",
+    dependencies: "List extra Python packages that the generated driver project should install."
+  },
+  rowDescriptions: {
+    "identity.pluginName": "Python package name used for the plugin folder and entry point key.",
+    "identity.displayName": "Human-readable device name shown in the host UI.",
+    "identity.deviceId": "Stable identifier used by descriptors, recordings, and saved sessions.",
+    "connection.providersText": "Comma-separated provider tokens, such as serial or ble.",
+    "connection.dataArrival": "Whether the SDK pushes frames into your code or your code polls on its own loop.",
+    "driver.driverKind": "Choose Driver for push-style runtimes, or LoopDriver for poll-style runtimes.",
+    "dependencies.dependenciesText": "Extra pip dependencies to include in the generated pyproject.toml.",
+    "streams.select": "Select which stream definition is currently shown on the right.",
+    "streams.add": "Append a brand-new stream using the default values for its payload type.",
+    "streams.delete": "Remove the selected stream from the generated driver project.",
+    "streams.modality": "Short stream key, for example eeg, imu, camera, or temperature.",
+    "streams.displayName": "Visible stream name shown in the host UI and metadata.",
+    "streams.payloadType": "Shape family for the emitted payload: signal, raster, field, or video.",
+    "streams.sampleRateHz": "Nominal sample rate or frame rate written into the stream descriptor.",
+    "streams.chunkSize": "How many samples or frames each emitted chunk should contain.",
+    "streams.channelCount": "Number of logical channels carried by this stream.",
+    "streams.channelNames": "Comma-separated channel labels in descriptor order.",
+    "streams.unit": "Measurement unit, such as V, m/s^2, or degC.",
+    "streams.rasterLength": "Samples per raster line for raster payloads.",
+    "streams.fieldHeight": "Spatial height for field payloads.",
+    "streams.fieldWidth": "Spatial width for field payloads.",
+    "streams.videoHeight": "Frame height in pixels for video payloads.",
+    "streams.videoWidth": "Frame width in pixels for video payloads."
   },
   payloadOptions: {
     signal: "signal",
@@ -157,6 +221,11 @@ const en: Copy = {
     poll: "Your code polls on its own loop",
     unsure: "You are still not sure"
   },
+  dataArrivalSummaryOptions: {
+    push: "SDK push",
+    poll: "Self polling",
+    unsure: "Unclear"
+  },
   driverKindOptions: {
     driver: "Driver",
     loop: "LoopDriver"
@@ -168,6 +237,14 @@ const en: Copy = {
   commandsLabel: "Next commands",
   summaryTitle: "Scaffold summary",
   statusPrefix: "Status",
+  outputDirLabel: "Output dir",
+  streamCountLabel: "Streams",
+  payloadMixLabel: "Payload mix",
+  footerEditHint: "Enter submit | Esc cancel | Backspace delete",
+  footerIdleHint: "[tab] section  [↑/↓] move  [←/→] switch  [enter] edit  [g] generate  [q] quit",
+  readyShort: "ready",
+  issuesShort: "issues",
+  invalidSummaryMessage: "Complete the required fields to unlock the scaffold summary.",
   pluginNameError: "Plugin name must contain at least one letter or number.",
   deviceIdError: "Device ID must match name.XX, for example my_driver.01.",
   providersError: "Provide at least one provider token.",
@@ -192,7 +269,7 @@ const en: Copy = {
 const zh: Copy = {
   appTitle: "ModLink 插件脚手架",
   appSubtitle: "基于 React + Ink 的 Python driver 开发工具",
-  helpLine: "Tab: 下一分区 | 上下: 行切换 | 左右: 切换选项 | Enter: 编辑或执行 | [: 上一个预览 | ]: 下一个预览 | g: 生成 | q: 退出",
+  helpLine: "Tab: 下一分区 | 上下: 行切换 | 左右: 切换选项 | Enter: 编辑或执行 | g: 生成 | q: 退出",
   previewHeader: "预览",
   previewTruncated: "预览内容已按当前终端高度截断。",
   readyToGenerate: "当前草稿已通过校验，可以生成。",
@@ -205,6 +282,9 @@ const zh: Copy = {
   confirmOverwriteConfirm: "覆盖",
   completionTitle: "脚手架已生成",
   completionHint: "按 Enter、Esc 或 q 退出。",
+  locationLabel: "位置",
+  controlsLabel: "操作",
+  editingLabel: "编辑",
   currentSectionLabel: "当前分区",
   currentPreviewLabel: "当前预览",
   identitySection: "基本信息",
@@ -239,18 +319,55 @@ const zh: Copy = {
   streamFieldWidthLabel: "Field 宽度",
   streamVideoHeightLabel: "帧高度",
   streamVideoWidthLabel: "帧宽度",
-  previewTabs: {
-    summary: "摘要",
-    driver: "driver.py",
-    pyproject: "pyproject.toml",
-    readme: "README.md"
-  },
+  choiceSwitchHint: "[←/→ 切换]",
+  streamListTitle: "已有 streams",
+  streamListDescription: "选择要编辑的 stream。",
+  streamActionsDescription: "按 Enter 新增或删除。",
+  streamDetailsTitle: "当前 stream 详情",
+  streamBasicGroupTitle: "基础",
+  streamBasicGroupDescription: "设置 stream 名称、显示名和 payload 类型。",
+  streamTimingGroupTitle: "采样",
+  streamTimingGroupDescription: "设置采样率/帧率和每个 chunk 的大小。",
+  streamPayloadGroupTitle: "Payload",
+  streamPayloadGroupDescription: "根据 payload 类型填写对应字段。",
   sections: {
     identity: "基本信息",
     connection: "连接方式",
     driver: "Driver 类型",
     streams: "Streams",
     dependencies: "依赖"
+  },
+  sectionDescriptions: {
+    identity: "定义生成项目的包名、显示名和稳定的 Device ID。",
+    connection: "说明宿主如何发现插件，以及设备数据是如何到达驱动的。",
+    driver: "选择最适合当前设备运行方式的 Driver 基类。",
+    streams: "配置驱动会发布的每一个 stream，包括形状和元数据。",
+    dependencies: "列出生成后的 Python driver 项目需要额外安装的依赖。"
+  },
+  rowDescriptions: {
+    "identity.pluginName": "Python 包名，会用于插件目录名和 entry point 键名。",
+    "identity.displayName": "面向用户显示的设备名称，会出现在宿主界面里。",
+    "identity.deviceId": "稳定的设备标识，会写入 descriptor、录制文件和 session 元数据。",
+    "connection.providersText": "用逗号分隔的 provider token，例如 serial、ble。",
+    "connection.dataArrival": "描述是 SDK 主动推送数据，还是你的代码自己轮询采集。",
+    "driver.driverKind": "push 型通常选 Driver，轮询或定时器模型通常选 LoopDriver。",
+    "dependencies.dependenciesText": "额外的 pip 依赖，会写进生成项目的 pyproject.toml。",
+    "streams.select": "选择当前正在右侧编辑的 stream 定义。",
+    "streams.add": "按当前默认配置新增一个 stream。",
+    "streams.delete": "从生成项目里移除当前选中的 stream。",
+    "streams.modality": "简短的 stream key，例如 eeg、imu、camera、temperature。",
+    "streams.displayName": "显示在宿主界面和元数据里的 stream 名称。",
+    "streams.payloadType": "输出数据的形状类型：signal、raster、field 或 video。",
+    "streams.sampleRateHz": "写入 stream descriptor 的标称采样率或帧率。",
+    "streams.chunkSize": "每次发出一个 chunk 时包含多少样本或帧。",
+    "streams.channelCount": "当前 stream 包含的逻辑 channel 数量。",
+    "streams.channelNames": "按 descriptor 顺序填写的 channel 名称，使用逗号分隔。",
+    "streams.unit": "测量单位，例如 V、m/s^2 或 degC。",
+    "streams.rasterLength": "raster payload 每一行包含的样本数。",
+    "streams.fieldHeight": "field payload 的空间高度。",
+    "streams.fieldWidth": "field payload 的空间宽度。",
+    "streams.videoHeight": "video payload 的帧高，单位像素。",
+    "streams.videoWidth": "video payload 的帧宽，单位像素。"
   },
   payloadOptions: {
     signal: "signal",
@@ -263,6 +380,11 @@ const zh: Copy = {
     poll: "你的代码自己轮询设备",
     unsure: "现在还不确定"
   },
+  dataArrivalSummaryOptions: {
+    push: "SDK 推送",
+    poll: "主动轮询",
+    unsure: "暂未确定"
+  },
   driverKindOptions: {
     driver: "Driver",
     loop: "LoopDriver"
@@ -274,6 +396,14 @@ const zh: Copy = {
   commandsLabel: "后续命令",
   summaryTitle: "脚手架摘要",
   statusPrefix: "状态",
+  outputDirLabel: "输出目录",
+  streamCountLabel: "Streams",
+  payloadMixLabel: "Payload 组合",
+  footerEditHint: "Enter 提交 | Esc 取消 | Backspace 删除",
+  footerIdleHint: "[tab] 分区  [↑/↓] 移动  [←/→] 切换  [enter] 编辑  [g] 生成  [q] 退出",
+  readyShort: "可生成",
+  issuesShort: "问题",
+  invalidSummaryMessage: "先补齐必填字段，顶部才会显示可生成的脚手架摘要。",
   pluginNameError: "插件名至少要包含一个字母或数字。",
   deviceIdError: "Device ID 必须符合 name.XX，例如 my_driver.01。",
   providersError: "至少提供一个 provider token。",
@@ -298,7 +428,6 @@ const zh: Copy = {
 const copyByLanguage: Record<Language, Copy> = {en, zh};
 
 export const sectionOrder: SectionId[] = ["identity", "connection", "driver", "streams", "dependencies"];
-export const previewOrder: PreviewTab[] = ["summary", "driver", "pyproject", "readme"];
 export const payloadOrder: PayloadType[] = ["signal", "raster", "field", "video"];
 export const dataArrivalOrder: DataArrival[] = ["push", "poll", "unsure"];
 export const driverKindOrder: DriverKind[] = ["driver", "loop"];

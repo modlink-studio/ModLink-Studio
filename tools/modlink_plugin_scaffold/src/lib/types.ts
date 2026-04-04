@@ -1,10 +1,10 @@
 export type Language = "en" | "zh";
-export type PreviewTab = "summary" | "driver" | "pyproject" | "readme";
 export type DriverKind = "driver" | "loop";
 export type DataArrival = "push" | "poll" | "unsure";
 export type PayloadType = "signal" | "raster" | "field" | "video";
 export type SectionId = "identity" | "connection" | "driver" | "streams" | "dependencies";
 export type ModalFocus = "cancel" | "overwrite";
+export type UiRowZone = "default" | "stream-list" | "stream-action" | "stream-basic" | "stream-timing" | "stream-payload";
 
 export interface StreamDraft {
   modality: string;
@@ -70,8 +70,33 @@ export interface ValidationResult {
   recommendedReason: string;
 }
 
+export interface SummaryHero {
+  displayName: string;
+  pluginName: string;
+  deviceId: string;
+}
+
+export interface SummaryMetric {
+  label: string;
+  value: string;
+}
+
+export type SummaryViewModel =
+  | {
+      kind: "ready";
+      title: string;
+      hero: SummaryHero;
+      metrics: SummaryMetric[];
+    }
+  | {
+      kind: "invalid";
+      title: string;
+      message: string;
+      errors: string[];
+    };
+
 export interface PreviewBundle {
-  summary: string;
+  summary: SummaryViewModel;
   driver: string;
   pyproject: string;
   readme: string;
@@ -92,7 +117,6 @@ export interface AppState {
   draft: Draft;
   section: SectionId;
   rowIndex: number;
-  previewTab: PreviewTab;
   editingKey: string | null;
   editBuffer: string;
   statusMessage: string | null;

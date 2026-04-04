@@ -52,7 +52,16 @@ describe("template rendering", () => {
 
     const preview = buildPreviewBundle(spec, path.resolve("C:/tmp"), "en", []);
 
-    expect(preview.summary).toContain("plugin: my_device");
+    expect(preview.summary.kind).toBe("ready");
+    if (preview.summary.kind !== "ready") {
+      throw new Error("expected ready summary");
+    }
+    expect(preview.summary.hero.pluginName).toBe("my_device");
+    expect(preview.summary.title).toBe("Scaffold summary");
+    expect(preview.summary.metrics).toHaveLength(5);
+    expect(preview.summary.metrics.map((metric) => metric.label)).toEqual(
+      expect.arrayContaining(["Device ID", "Providers", "Driver base class", "Data arrival", "Streams"]),
+    );
     expect(preview.driver).toContain("class MyDeviceDriver");
     expect(preview.pyproject).toContain('license = "MIT"');
     expect(preview.readme).toContain("# MyDevice Driver Plugin");
@@ -61,7 +70,11 @@ describe("template rendering", () => {
   test("renders placeholder previews when validation fails", () => {
     const preview = buildPreviewBundle(null, path.resolve("C:/tmp"), "en", ["bad plugin"]);
 
-    expect(preview.summary).toContain("Validation errors");
+    expect(preview.summary.kind).toBe("invalid");
+    if (preview.summary.kind !== "invalid") {
+      throw new Error("expected invalid summary");
+    }
+    expect(preview.summary.errors).toContain("bad plugin");
     expect(preview.driver).toContain("Preview is unavailable");
   });
 
