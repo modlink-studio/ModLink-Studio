@@ -1,8 +1,8 @@
 import React from "react";
 
-import type {Draft, Language, SectionId, ValidationResult} from "../lib/types.js";
-import {EditorPane} from "./EditorPane.js";
-import type {UiRow} from "./rows.js";
+import type { Draft, Language, SectionId, ValidationResult } from "../lib/types.js";
+import { EditorPane } from "./EditorPane.js";
+import type { UiRow } from "./rows.js";
 
 type EditorSurfaceProps = {
   language: Language;
@@ -17,6 +17,8 @@ type EditorSurfaceProps = {
   editingValue: string;
 };
 
-export const EditorSurface = React.memo(function EditorSurface(props: EditorSurfaceProps): React.JSX.Element {
+export const EditorSurface = React.memo(function EditorSurface(
+  props: EditorSurfaceProps,
+): React.JSX.Element {
   return <EditorPane {...props} />;
 });

@@ -1,6 +1,6 @@
-import {describe, expect, test} from "vitest";
+import { describe, expect, test } from "vitest";
 
-import {scaffoldRenderOptions} from "../src/render-app.js";
+import { scaffoldRenderOptions } from "../src/render-app.js";
 
 describe("renderScaffoldApp", () => {
   test("uses bounded incremental terminal rendering", () => {

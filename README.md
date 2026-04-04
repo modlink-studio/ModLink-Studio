@@ -201,6 +201,43 @@ uv run --extra official-host-camera modlink-studio
 uv run --extra official-host-camera --extra official-host-microphone modlink-studio
 ```
 
+### 代码风格与提交检查
+
+当前仓库把 Python 和 `tools/modlink_plugin_scaffold` 的 TypeScript 工具链分开治理：
+
+- Python 代码统一使用 `ruff` 负责 lint、import sorting 和 format，配置位于根 [pyproject.toml](pyproject.toml)。
+- 提交前检查使用根 [`.pre-commit-config.yaml`](.pre-commit-config.yaml)，会运行 `ruff`、`ruff-format`、YAML 检查、尾空格清理和文件末尾换行修复。
+- 编辑器基础约束写在根 [`.editorconfig`](.editorconfig)，统一了缩进、编码和换行。
+- Git 行尾策略写在根 [`.gitattributes`](.gitattributes)，大多数文本文件强制使用 `LF`。
+- `tools/modlink_plugin_scaffold/` 这条 React + Ink + TypeScript 工具链使用 `Biome`，并且已经接入 pre-commit 的本地 hook。
+
+首次使用建议安装 pre-commit：
+
+```bash
+uv run pre-commit install
+```
+
+手动运行整套提交前检查：
+
+```bash
+uv run pre-commit run --all-files
+```
+
+只跑 Python 这一层的检查与格式化：
+
+```bash
+uv run ruff check . --fix
+uv run ruff format .
+```
+
+只跑 `plugin_scaffold` 这条 TypeScript 工具链：
+
+```bash
+npm run scaffold:lint
+npm run scaffold:lint:fix
+npm run scaffold:format
+```
+
 ## 文档与版本
 
 项目文档使用 VitePress，源码位于 `vpdocs/`，站点发布到 `https://modlink-studio.github.io`。

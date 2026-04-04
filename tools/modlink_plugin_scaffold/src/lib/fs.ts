@@ -1,8 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import {renderDriverPy, renderFactoryPy, renderGitIgnore, renderInitPy, renderLicense, renderPyprojectToml, renderReadme, renderSmokeTest} from "../templates/render.js";
-import type {DriverSpec, GeneratedProject, Language} from "./types.js";
+import {
+  renderDriverPy,
+  renderFactoryPy,
+  renderGitIgnore,
+  renderInitPy,
+  renderLicense,
+  renderPyprojectToml,
+  renderReadme,
+  renderSmokeTest,
+} from "../templates/render.js";
+import type { DriverSpec, GeneratedProject, Language } from "./types.js";
 
 export class ScaffoldExistsError extends Error {
   readonly projectDir: string;
@@ -32,12 +41,18 @@ export function getGeneratedProject(spec: DriverSpec, cwd: string): GeneratedPro
       install: "python -m pip install -e .",
       test: "python -m pytest",
       runHost: "python -m modlink_studio",
-      checkEntryPoints: 'python -c "from importlib.metadata import entry_points; print(sorted(ep.name for ep in entry_points(group=\'modlink.drivers\')))"',
+      checkEntryPoints:
+        "python -c \"from importlib.metadata import entry_points; print(sorted(ep.name for ep in entry_points(group='modlink.drivers')))\"",
     },
   };
 }
 
-export async function writeProjectFiles(spec: DriverSpec, cwd: string, language: Language, overwrite: boolean): Promise<GeneratedProject> {
+export async function writeProjectFiles(
+  spec: DriverSpec,
+  cwd: string,
+  language: Language,
+  overwrite: boolean,
+): Promise<GeneratedProject> {
   const generated = getGeneratedProject(spec, cwd);
   const exists = await fs
     .access(generated.projectDir)
@@ -49,13 +64,13 @@ export async function writeProjectFiles(spec: DriverSpec, cwd: string, language:
   }
 
   if (exists) {
-    await fs.rm(generated.projectDir, {recursive: true, force: true});
+    await fs.rm(generated.projectDir, { recursive: true, force: true });
   }
 
   const packageDir = path.join(generated.projectDir, spec.pluginName);
   const testsDir = path.join(generated.projectDir, "tests");
-  await fs.mkdir(packageDir, {recursive: true});
-  await fs.mkdir(testsDir, {recursive: true});
+  await fs.mkdir(packageDir, { recursive: true });
+  await fs.mkdir(testsDir, { recursive: true });
 
   const fileMap = new Map<string, string>([
     [path.join(generated.projectDir, "pyproject.toml"), renderPyprojectToml(spec)],

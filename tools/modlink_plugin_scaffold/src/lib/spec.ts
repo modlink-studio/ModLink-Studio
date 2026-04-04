@@ -1,7 +1,17 @@
-import {z} from "zod";
+import { z } from "zod";
 
-import {dataArrivalOrder, driverKindOrder, getCopy, payloadOrder} from "./i18n.js";
-import type {DataArrival, Draft, DriverKind, DriverSpec, Language, PayloadType, StreamDraft, StreamSpec, ValidationResult} from "./types.js";
+import { dataArrivalOrder, driverKindOrder, getCopy, payloadOrder } from "./i18n.js";
+import type {
+  DataArrival,
+  Draft,
+  DriverKind,
+  DriverSpec,
+  Language,
+  PayloadType,
+  StreamDraft,
+  StreamSpec,
+  ValidationResult,
+} from "./types.js";
 
 const deviceIdPattern = /^[a-z0-9_]+\.[0-9]{2,}$/;
 const stringSchema = z.string();
@@ -103,7 +113,11 @@ export function recommendedDriverKind(dataArrival: DataArrival): DriverKind {
   return dataArrival === "poll" ? "loop" : "driver";
 }
 
-export function driverReason(language: Language, dataArrival: DataArrival, driverKind: DriverKind): string {
+export function driverReason(
+  language: Language,
+  dataArrival: DataArrival,
+  driverKind: DriverKind,
+): string {
   const copy = getCopy(language);
   if (dataArrival === "push") {
     return driverKind === "driver" ? copy.reasonPushDriver : copy.reasonPushLoop;
@@ -116,7 +130,9 @@ export function driverReason(language: Language, dataArrival: DataArrival, drive
 
 export function applyPluginName(draft: Draft, value: string): Draft {
   const previousPluginName = draft.pluginName;
-  const previousDefaultDisplay = toPascalCase(sanitizeIdentifier(previousPluginName) || previousPluginName);
+  const previousDefaultDisplay = toPascalCase(
+    sanitizeIdentifier(previousPluginName) || previousPluginName,
+  );
   const previousDefaultDeviceId = makeDeviceId(previousPluginName);
   const normalized = sanitizeIdentifier(value);
 
@@ -125,7 +141,9 @@ export function applyPluginName(draft: Draft, value: string): Draft {
     pluginName: value,
     displayName:
       !draft.displayName.trim() || draft.displayName === previousDefaultDisplay
-        ? (normalized ? toPascalCase(normalized) : "")
+        ? normalized
+          ? toPascalCase(normalized)
+          : ""
         : draft.displayName,
     deviceId:
       !draft.deviceId.trim() || draft.deviceId === previousDefaultDeviceId
@@ -142,7 +160,8 @@ export function applyDataArrival(draft: Draft, value: DataArrival): Draft {
   return {
     ...draft,
     dataArrival: value,
-    driverKind: draft.driverKind === previousRecommended ? recommendedDriverKind(value) : draft.driverKind,
+    driverKind:
+      draft.driverKind === previousRecommended ? recommendedDriverKind(value) : draft.driverKind,
   };
 }
 
@@ -193,7 +212,12 @@ export function applyPayloadDefaults(stream: StreamDraft, payloadType: PayloadTy
   };
 }
 
-function validateStream(language: Language, stream: StreamDraft, index: number, fieldErrors: Record<string, string>): StreamSpec | null {
+function validateStream(
+  language: Language,
+  stream: StreamDraft,
+  index: number,
+  fieldErrors: Record<string, string>,
+): StreamSpec | null {
   const copy = getCopy(language);
   const prefix = `streams.${index}`;
   const modality = normalizeToken(stream.modality);
@@ -264,7 +288,9 @@ function validateStream(language: Language, stream: StreamDraft, index: number, 
 
   return {
     modality,
-    displayName: stringSchema.parse(stream.displayName).trim() || `${toTitleWords(modality)} ${copy.defaultStreamName}`,
+    displayName:
+      stringSchema.parse(stream.displayName).trim() ||
+      `${toTitleWords(modality)} ${copy.defaultStreamName}`,
     payloadType: stream.payloadType,
     sampleRateHz: sampleRateHz ?? 1,
     chunkSize: chunkSize ?? 1,
@@ -287,7 +313,10 @@ export function validateDraft(language: Language, draft: Draft): ValidationResul
     fieldErrors.pluginName = copy.pluginNameError;
   }
 
-  const deviceId = (draft.deviceId.trim() || makeDeviceId(draft.pluginName)).trim().toLowerCase().replace(/-/g, "_");
+  const deviceId = (draft.deviceId.trim() || makeDeviceId(draft.pluginName))
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
   if (!deviceIdPattern.test(deviceId)) {
     fieldErrors.deviceId = copy.deviceIdError;
   }
@@ -317,7 +346,9 @@ export function validateDraft(language: Language, draft: Draft): ValidationResul
       driverKind: driverKindOrder.includes(draft.driverKind) ? draft.driverKind : "driver",
       driverReason: driverReason(language, draft.dataArrival, draft.driverKind),
       dataArrival: draft.dataArrival,
-      dependencies: Array.from(new Set(["modlink-sdk", "numpy>=2.3.3", ...splitCsv(draft.dependenciesText)])),
+      dependencies: Array.from(
+        new Set(["modlink-sdk", "numpy>=2.3.3", ...splitCsv(draft.dependenciesText)]),
+      ),
       streams: streamSpecs,
     };
   }
@@ -326,7 +357,11 @@ export function validateDraft(language: Language, draft: Draft): ValidationResul
     spec,
     fieldErrors,
     recommendedDriverKind: recommendedDriverKind(draft.dataArrival),
-    recommendedReason: driverReason(language, draft.dataArrival, recommendedDriverKind(draft.dataArrival)),
+    recommendedReason: driverReason(
+      language,
+      draft.dataArrival,
+      recommendedDriverKind(draft.dataArrival),
+    ),
   };
 }
 

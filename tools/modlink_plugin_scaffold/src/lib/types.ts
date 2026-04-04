@@ -4,7 +4,13 @@ export type DataArrival = "push" | "poll" | "unsure";
 export type PayloadType = "signal" | "raster" | "field" | "video";
 export type SectionId = "identity" | "connection" | "driver" | "streams" | "dependencies";
 export type ModalFocus = "cancel" | "overwrite";
-export type UiRowZone = "default" | "stream-list" | "stream-action" | "stream-basic" | "stream-timing" | "stream-payload";
+export type UiRowZone =
+  | "default"
+  | "stream-list"
+  | "stream-action"
+  | "stream-basic"
+  | "stream-timing"
+  | "stream-payload";
 
 export interface StreamDraft {
   modality: string;

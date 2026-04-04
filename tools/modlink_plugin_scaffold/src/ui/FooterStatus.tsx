@@ -1,8 +1,8 @@
+import { Box, Text } from "ink";
 import React from "react";
-import {Box, Text} from "ink";
 
-import {getCopy} from "../lib/i18n.js";
-import type {Language} from "../lib/types.js";
+import { getCopy } from "../lib/i18n.js";
+import type { Language } from "../lib/types.js";
 
 type FooterStatusProps = {
   language: Language;

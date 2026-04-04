@@ -1,13 +1,11 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { cleanup, render } from "ink-testing-library";
+import { afterEach, describe, expect, test } from "vitest";
 
-import React from "react";
-import {cleanup, render} from "ink-testing-library";
-import {afterEach, describe, expect, test} from "vitest";
-
-import {ScaffoldApp} from "../src/app.js";
-import {createDefaultDraft} from "../src/lib/spec.js";
+import { ScaffoldApp } from "../src/app.js";
+import { createDefaultDraft } from "../src/lib/spec.js";
 
 const tempDirs: string[] = [];
 
@@ -21,7 +19,10 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
-function pressArrow(stdin: {write: (data: string) => void}, direction: "up" | "down" | "left" | "right"): void {
+function pressArrow(
+  stdin: { write: (data: string) => void },
+  direction: "up" | "down" | "left" | "right",
+): void {
   const map = {
     up: "\u001B[A",
     down: "\u001B[B",
@@ -31,7 +32,7 @@ function pressArrow(stdin: {write: (data: string) => void}, direction: "up" | "d
   stdin.write(map[direction]);
 }
 
-function pressBackspace(stdin: {write: (data: string) => void}, count: number): void {
+function pressBackspace(stdin: { write: (data: string) => void }, count: number): void {
   for (let index = 0; index < count; index += 1) {
     stdin.write("\u007F");
   }
@@ -39,7 +40,9 @@ function pressBackspace(stdin: {write: (data: string) => void}, count: number): 
 
 afterEach(async () => {
   cleanup();
-  await Promise.all(tempDirs.splice(0).map(async (dir) => fs.rm(dir, {recursive: true, force: true})));
+  await Promise.all(
+    tempDirs.splice(0).map(async (dir) => fs.rm(dir, { recursive: true, force: true })),
+  );
 });
 
 describe("ScaffoldApp", () => {
@@ -183,12 +186,12 @@ describe("ScaffoldApp", () => {
     await flush();
 
     expect(app.lastFrame()).toContain("Raw EEG");
-    expect(app.lastFrame()).toContain("[Current stream details]  Stream 1");
+    expect(app.lastFrame()).toContain("[Current stream details] Stream 1 · signal");
 
     app.stdin.write("\r");
     await flush();
 
-    expect(app.lastFrame()).toContain("[Current stream details]  Raw EEG");
+    expect(app.lastFrame()).toContain("[Current stream details] Raw EEG · signal");
   });
 
   test("renders global section tabs and the top banner", async () => {
@@ -225,7 +228,7 @@ describe("ScaffoldApp", () => {
 
   test("confirms overwrite and generates files", async () => {
     const cwd = await makeTempDir();
-    await fs.mkdir(path.join(cwd, "my_device"), {recursive: true});
+    await fs.mkdir(path.join(cwd, "my_device"), { recursive: true });
     const app = render(<ScaffoldApp language="en" cwd={cwd} />);
     await flush();
 
@@ -239,6 +242,8 @@ describe("ScaffoldApp", () => {
     await flush();
 
     expect(app.lastFrame()).toContain("Scaffold generated");
-    await expect(fs.readFile(path.join(cwd, "my_device", "pyproject.toml"), "utf8")).resolves.toContain('license = "MIT"');
+    await expect(
+      fs.readFile(path.join(cwd, "my_device", "pyproject.toml"), "utf8"),
+    ).resolves.toContain('license = "MIT"');
   });
 });

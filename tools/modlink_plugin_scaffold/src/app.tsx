@@ -1,9 +1,11 @@
-import React, {useEffect, useMemo, useReducer, useState} from "react";
-import {Box, useApp, useInput, useStdout} from "ink";
+import { Box, useApp, useInput, useStdout } from "ink";
+import type React from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 
-import {useLineEditor} from "./hooks/useLineEditor.js";
-import {writeProjectFiles, ScaffoldExistsError} from "./lib/fs.js";
-import {getCopy} from "./lib/i18n.js";
+import { useLineEditor } from "./hooks/useLineEditor.js";
+import { ScaffoldExistsError, writeProjectFiles } from "./lib/fs.js";
+import { getCopy } from "./lib/i18n.js";
+import { createDefaultDraft, validateDraft } from "./lib/spec.js";
 import {
   addStream,
   createInitialState,
@@ -16,17 +18,16 @@ import {
   updateDraftField,
   updateSelectedStreamField,
 } from "./lib/state.js";
-import {createDefaultDraft, validateDraft} from "./lib/spec.js";
-import type {Draft, GeneratedProject, Language} from "./lib/types.js";
-import {buildPreviewBundle} from "./templates/render.js";
-import {AppShell} from "./ui/AppShell.js";
-import {Banner} from "./ui/Banner.js";
-import {EditorSurface} from "./ui/EditorSurface.js";
-import {FooterStatus} from "./ui/FooterStatus.js";
-import {OverwriteDialog} from "./ui/OverwriteDialog.js";
-import {ResultScreen} from "./ui/ResultScreen.js";
-import {SectionTabs} from "./ui/SectionTabs.js";
-import {getRowsForSection} from "./ui/rows.js";
+import type { Draft, GeneratedProject, Language } from "./lib/types.js";
+import { buildPreviewBundle } from "./templates/render.js";
+import { AppShell } from "./ui/AppShell.js";
+import { Banner } from "./ui/Banner.js";
+import { EditorSurface } from "./ui/EditorSurface.js";
+import { FooterStatus } from "./ui/FooterStatus.js";
+import { OverwriteDialog } from "./ui/OverwriteDialog.js";
+import { ResultScreen } from "./ui/ResultScreen.js";
+import { getRowsForSection } from "./ui/rows.js";
+import { SectionTabs } from "./ui/SectionTabs.js";
 
 export type ScaffoldAppProps = {
   language: Language;
@@ -39,14 +40,18 @@ function uniqueErrors(errors: Record<string, string>): string[] {
   return Array.from(new Set(Object.values(errors)));
 }
 
-export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: ScaffoldAppProps): React.JSX.Element {
-  const {exit} = useApp();
-  const {stdout} = useStdout();
-  const [state, dispatch] = useReducer(
-    reducer,
-    undefined,
-    () => ({...createInitialState(), draft: initialDraft ?? createDefaultDraft()}),
-  );
+export function ScaffoldApp({
+  language,
+  cwd,
+  initialDraft,
+  onDidGenerate,
+}: ScaffoldAppProps): React.JSX.Element {
+  const { exit } = useApp();
+  const { stdout } = useStdout();
+  const [state, dispatch] = useReducer(reducer, undefined, () => ({
+    ...createInitialState(),
+    draft: initialDraft ?? createDefaultDraft(),
+  }));
   const [busy, setBusy] = useState(false);
   const lineEditor = useLineEditor();
   const copy = getCopy(language);
@@ -75,36 +80,42 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
   const statusColor = ready ? "green" : "red";
 
   useEffect(() => {
-    dispatch({type: "row.clamp", rowCount: rows.length});
-  }, [rows.length, state.section]);
+    dispatch({ type: "row.clamp", rowCount: rows.length });
+  }, [rows.length]);
 
   const setStatus = (message: string | null, tone: "info" | "error" | "success" = "info"): void => {
-    dispatch({type: "status", message, tone});
+    dispatch({ type: "status", message, tone });
   };
 
   const cancelEdit = (): void => {
     lineEditor.clear();
-    dispatch({type: "edit.cancel"});
+    dispatch({ type: "edit.cancel" });
   };
 
   const applyEdit = (key: string, value: string): void => {
     if (key.startsWith("identity.")) {
       const field = key.replace("identity.", "") as "pluginName" | "displayName" | "deviceId";
-      dispatch({type: "draft.set", draft: updateDraftField(state.draft, field, value)});
+      dispatch({ type: "draft.set", draft: updateDraftField(state.draft, field, value) });
       return;
     }
     if (key === "connection.providersText") {
-      dispatch({type: "draft.set", draft: updateDraftField(state.draft, "providersText", value)});
+      dispatch({ type: "draft.set", draft: updateDraftField(state.draft, "providersText", value) });
       return;
     }
     if (key === "dependencies.dependenciesText") {
-      dispatch({type: "draft.set", draft: updateDraftField(state.draft, "dependenciesText", value)});
+      dispatch({
+        type: "draft.set",
+        draft: updateDraftField(state.draft, "dependenciesText", value),
+      });
       return;
     }
     if (key.startsWith("streams.")) {
       const field = key.replace("streams.", "") as Parameters<typeof updateSelectedStreamField>[1];
       if (field !== "add" && field !== "delete" && !field.startsWith("select.")) {
-        dispatch({type: "draft.set", draft: updateSelectedStreamField(state.draft, field, value)});
+        dispatch({
+          type: "draft.set",
+          draft: updateSelectedStreamField(state.draft, field, value),
+        });
       }
     }
   };
@@ -115,7 +126,7 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     applyEdit(state.editingKey, lineEditor.value);
     lineEditor.clear();
-    dispatch({type: "edit.cancel"});
+    dispatch({ type: "edit.cancel" });
   };
 
   const performGenerate = async (overwrite: boolean): Promise<void> => {
@@ -126,12 +137,12 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     setBusy(true);
     try {
       const result = await writeProjectFiles(validation.spec, cwd, language, overwrite);
-      dispatch({type: "result.set", result});
+      dispatch({ type: "result.set", result });
       setStatus(copy.generationSucceeded, "success");
       onDidGenerate?.(result);
     } catch (error) {
       if (error instanceof ScaffoldExistsError) {
-        dispatch({type: "overwrite.open", path: error.projectDir});
+        dispatch({ type: "overwrite.open", path: error.projectDir });
         setStatus(copy.outputExists, "error");
       } else {
         const message = error instanceof Error ? error.message : String(error);
@@ -148,20 +159,20 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     if (currentRow.kind === "text") {
       lineEditor.begin(currentRow.value === "<empty>" ? "" : currentRow.value);
-      dispatch({type: "edit.start", key: currentRow.key});
+      dispatch({ type: "edit.start", key: currentRow.key });
       return;
     }
     if (currentRow.key.startsWith("streams.select.")) {
       const index = Number.parseInt(currentRow.key.split(".").at(-1) ?? "-1", 10);
-      dispatch({type: "draft.set", draft: setSelectedStream(state.draft, index)});
+      dispatch({ type: "draft.set", draft: setSelectedStream(state.draft, index) });
       return;
     }
     if (currentRow.key === "streams.add") {
-      dispatch({type: "draft.set", draft: addStream(state.draft)});
+      dispatch({ type: "draft.set", draft: addStream(state.draft) });
       return;
     }
     if (currentRow.key === "streams.delete") {
-      dispatch({type: "draft.set", draft: deleteStream(state.draft)});
+      dispatch({ type: "draft.set", draft: deleteStream(state.draft) });
       return;
     }
     if (currentRow.kind === "choice") {
@@ -174,15 +185,15 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       return;
     }
     if (currentRow.key === "connection.dataArrival") {
-      dispatch({type: "draft.set", draft: cycleDataArrival(state.draft, delta)});
+      dispatch({ type: "draft.set", draft: cycleDataArrival(state.draft, delta) });
       return;
     }
     if (currentRow.key === "driver.driverKind") {
-      dispatch({type: "draft.set", draft: cycleDriverKind(state.draft, delta)});
+      dispatch({ type: "draft.set", draft: cycleDriverKind(state.draft, delta) });
       return;
     }
     if (currentRow.key === "streams.payloadType") {
-      dispatch({type: "draft.set", draft: cyclePayloadType(state.draft, delta)});
+      dispatch({ type: "draft.set", draft: cyclePayloadType(state.draft, delta) });
     }
   };
 
@@ -196,11 +207,14 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
 
     if (state.overwritePath) {
       if (key.leftArrow || key.rightArrow || key.tab) {
-        dispatch({type: "overwrite.focus", focus: state.overwriteFocus === "cancel" ? "overwrite" : "cancel"});
+        dispatch({
+          type: "overwrite.focus",
+          focus: state.overwriteFocus === "cancel" ? "overwrite" : "cancel",
+        });
         return;
       }
       if (key.escape || input === "q") {
-        dispatch({type: "overwrite.close"});
+        dispatch({ type: "overwrite.close" });
         setStatus(copy.overwriteCancelled, "info");
         return;
       }
@@ -208,7 +222,7 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
         if (state.overwriteFocus === "overwrite") {
           void performGenerate(true);
         } else {
-          dispatch({type: "overwrite.close"});
+          dispatch({ type: "overwrite.close" });
           setStatus(copy.overwriteCancelled, "info");
         }
       }
@@ -247,15 +261,15 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       return;
     }
     if (key.tab) {
-      dispatch({type: "section.delta", delta: 1});
+      dispatch({ type: "section.delta", delta: 1 });
       return;
     }
     if (key.upArrow) {
-      dispatch({type: "row.delta", delta: -1, rowCount: rows.length});
+      dispatch({ type: "row.delta", delta: -1, rowCount: rows.length });
       return;
     }
     if (key.downArrow) {
-      dispatch({type: "row.delta", delta: 1, rowCount: rows.length});
+      dispatch({ type: "row.delta", delta: 1, rowCount: rows.length });
       return;
     }
     if (key.leftArrow) {
@@ -272,12 +286,19 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     }
     if (input >= "1" && input <= "9" && state.section === "streams") {
       const index = Number.parseInt(input, 10) - 1;
-      dispatch({type: "draft.set", draft: setSelectedStream(state.draft, index)});
+      dispatch({ type: "draft.set", draft: setSelectedStream(state.draft, index) });
     }
   });
 
   if (state.result) {
-    return <ResultScreen language={language} result={state.result} width={screenWidth} height={screenHeight} />;
+    return (
+      <ResultScreen
+        language={language}
+        result={state.result}
+        width={screenWidth}
+        height={screenHeight}
+      />
+    );
   }
 
   if (state.overwritePath) {
@@ -302,11 +323,9 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       tabs={<SectionTabs language={language} currentSection={state.section} />}
       description={copy.sectionDescriptions[state.section]}
       banner={
-        <React.Fragment>
-          <Box height={bannerHeight}>
-            <Banner language={language} summary={preview.summary} width={screenWidth - 4} />
-          </Box>
-        </React.Fragment>
+        <Box height={bannerHeight}>
+          <Banner language={language} summary={preview.summary} width={screenWidth - 4} />
+        </Box>
       }
       content={
         <EditorSurface

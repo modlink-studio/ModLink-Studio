@@ -1,7 +1,6 @@
-import React from "react";
-import {render, type Instance, type RenderOptions} from "ink";
+import { type Instance, type RenderOptions, render } from "ink";
 
-import {ScaffoldApp, type ScaffoldAppProps} from "./app.js";
+import { ScaffoldApp, type ScaffoldAppProps } from "./app.js";
 
 export const scaffoldRenderOptions: RenderOptions = {
   patchConsole: true,
