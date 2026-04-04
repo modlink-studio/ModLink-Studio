@@ -118,7 +118,6 @@ export interface AppState {
   section: SectionId;
   rowIndex: number;
   editingKey: string | null;
-  editBuffer: string;
   statusMessage: string | null;
   statusTone: "info" | "error" | "success";
   overwritePath: string | null;

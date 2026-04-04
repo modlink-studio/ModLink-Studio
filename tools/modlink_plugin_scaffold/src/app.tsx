@@ -1,9 +1,9 @@
 import React, {useEffect, useMemo, useReducer, useState} from "react";
-import {Box, Text, useApp, useInput, useStdout} from "ink";
+import {Box, useApp, useInput, useStdout} from "ink";
 
+import {useLineEditor} from "./hooks/useLineEditor.js";
 import {writeProjectFiles, ScaffoldExistsError} from "./lib/fs.js";
-import {getCopy, sectionOrder} from "./lib/i18n.js";
-import {buildPreviewBundle} from "./templates/render.js";
+import {getCopy} from "./lib/i18n.js";
 import {
   addStream,
   createInitialState,
@@ -18,10 +18,14 @@ import {
 } from "./lib/state.js";
 import {createDefaultDraft, validateDraft} from "./lib/spec.js";
 import type {Draft, GeneratedProject, Language} from "./lib/types.js";
+import {buildPreviewBundle} from "./templates/render.js";
+import {AppShell} from "./ui/AppShell.js";
 import {Banner} from "./ui/Banner.js";
-import {EditorPane} from "./ui/EditorPane.js";
+import {EditorSurface} from "./ui/EditorSurface.js";
+import {FooterStatus} from "./ui/FooterStatus.js";
 import {OverwriteDialog} from "./ui/OverwriteDialog.js";
 import {ResultScreen} from "./ui/ResultScreen.js";
+import {SectionTabs} from "./ui/SectionTabs.js";
 import {getRowsForSection} from "./ui/rows.js";
 
 export type ScaffoldAppProps = {
@@ -44,41 +48,42 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
     () => ({...createInitialState(), draft: initialDraft ?? createDefaultDraft()}),
   );
   const [busy, setBusy] = useState(false);
+  const lineEditor = useLineEditor();
   const copy = getCopy(language);
+
   const validation = useMemo(() => validateDraft(language, state.draft), [language, state.draft]);
   const rows = useMemo(
-    () => getRowsForSection(language, state.section, state.draft, validation, state.editingKey, state.editBuffer),
-    [language, state.section, state.draft, validation, state.editingKey, state.editBuffer],
+    () => getRowsForSection(language, state.section, state.draft, validation),
+    [language, state.section, state.draft, validation],
   );
   const preview = useMemo(
     () => buildPreviewBundle(validation.spec, cwd, language, uniqueErrors(validation.fieldErrors)),
     [validation, cwd, language],
   );
+  const currentRow = rows[state.rowIndex];
   const screenWidth = Math.max(80, stdout.columns ?? process.stdout.columns ?? 100);
   const screenHeight = Math.max(24, stdout.rows ?? process.stdout.rows ?? 30);
   const bannerHeight = 5;
-  const footerHeight = 2;
   const contentHeight = Math.max(9, screenHeight - 12);
-  const editorRows = Math.max(6, contentHeight - (state.section === "streams" ? Math.min(8, state.draft.streams.length + 5) : 6));
+  const editorRows = Math.max(
+    6,
+    contentHeight - (state.section === "streams" ? Math.min(8, state.draft.streams.length + 5) : 6),
+  );
   const ready = validation.spec !== null;
   const errorCount = Object.keys(validation.fieldErrors).length;
+  const statusText = `${ready ? copy.readyShort : `${errorCount} ${copy.issuesShort}`}${busy ? " | generating" : ""}`;
+  const statusColor = ready ? "green" : "red";
 
   useEffect(() => {
     dispatch({type: "row.clamp", rowCount: rows.length});
   }, [rows.length, state.section]);
 
-  const currentRow = rows[state.rowIndex];
-  const shortStatus = ready ? copy.readyShort : `${errorCount} ${copy.issuesShort}`;
-
   const setStatus = (message: string | null, tone: "info" | "error" | "success" = "info"): void => {
     dispatch({type: "status", message, tone});
   };
 
-  const commitEdit = (): void => {
-    if (!state.editingKey) {
-      return;
-    }
-    applyEdit(state.editingKey, state.editBuffer);
+  const cancelEdit = (): void => {
+    lineEditor.clear();
     dispatch({type: "edit.cancel"});
   };
 
@@ -102,6 +107,15 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
         dispatch({type: "draft.set", draft: updateSelectedStreamField(state.draft, field, value)});
       }
     }
+  };
+
+  const commitEdit = (): void => {
+    if (!state.editingKey) {
+      return;
+    }
+    applyEdit(state.editingKey, lineEditor.value);
+    lineEditor.clear();
+    dispatch({type: "edit.cancel"});
   };
 
   const performGenerate = async (overwrite: boolean): Promise<void> => {
@@ -133,7 +147,8 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       return;
     }
     if (currentRow.kind === "text") {
-      dispatch({type: "edit.start", key: currentRow.key, value: currentRow.value === "<empty>" ? "" : currentRow.value});
+      lineEditor.begin(currentRow.value === "<empty>" ? "" : currentRow.value);
+      dispatch({type: "edit.start", key: currentRow.key});
       return;
     }
     if (currentRow.key.startsWith("streams.select.")) {
@@ -206,15 +221,15 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
         return;
       }
       if (key.escape) {
-        dispatch({type: "edit.cancel"});
+        cancelEdit();
         return;
       }
       if (key.backspace || key.delete) {
-        dispatch({type: "edit.change", value: state.editBuffer.slice(0, -1)});
+        lineEditor.backspace();
         return;
       }
       if (input && !key.ctrl && !key.meta && !key.tab) {
-        dispatch({type: "edit.change", value: state.editBuffer + input});
+        lineEditor.append(input);
       }
       return;
     }
@@ -223,7 +238,7 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
       return;
     }
 
-    if (input === "q" || (key.escape && !state.editingKey)) {
+    if (input === "q" || key.escape) {
       exit();
       return;
     }
@@ -266,61 +281,56 @@ export function ScaffoldApp({language, cwd, initialDraft, onDidGenerate}: Scaffo
   }
 
   if (state.overwritePath) {
-    return <OverwriteDialog language={language} projectPath={state.overwritePath} focus={state.overwriteFocus} width={screenWidth} height={screenHeight} />;
+    return (
+      <OverwriteDialog
+        language={language}
+        projectPath={state.overwritePath}
+        focus={state.overwriteFocus}
+        width={screenWidth}
+        height={screenHeight}
+      />
+    );
   }
 
   return (
-    <Box width={screenWidth} height={screenHeight} borderStyle="round" borderColor="green" flexDirection="column" paddingX={1}>
-      <Box justifyContent="space-between">
-        <Text bold color="green">
-          {copy.appTitle}
-        </Text>
-        <Text color={ready ? "green" : "red"}>
-          {shortStatus} {busy ? "| generating" : ""}
-        </Text>
-      </Box>
-      <Box>
-        {sectionOrder.map((section) => (
-          <Box key={section} flexGrow={1} justifyContent="center">
-            <Text color={section === state.section ? "cyan" : "gray"} bold={section === state.section}>
-              {section === state.section ? `[${copy.sections[section]}]` : copy.sections[section]}
-            </Text>
+    <AppShell
+      width={screenWidth}
+      height={screenHeight}
+      title={copy.appTitle}
+      status={statusText}
+      statusColor={statusColor}
+      tabs={<SectionTabs language={language} currentSection={state.section} />}
+      description={copy.sectionDescriptions[state.section]}
+      banner={
+        <React.Fragment>
+          <Box height={bannerHeight}>
+            <Banner language={language} summary={preview.summary} width={screenWidth - 4} />
           </Box>
-        ))}
-      </Box>
-      <Text dimColor wrap="truncate-end">
-        {copy.sectionDescriptions[state.section]}
-      </Text>
-      <Box height={bannerHeight}>
-        <Banner language={language} summary={preview.summary} width={screenWidth - 4} />
-      </Box>
-      <Box flexGrow={1} height={contentHeight} borderTop borderBottom borderColor="gray">
-        <Box flexGrow={1} paddingRight={1}>
-          <EditorPane language={language} state={state} rows={rows} validation={validation} maxRows={editorRows} width={screenWidth - 6} />
-        </Box>
-      </Box>
-      <Box flexDirection="column" height={footerHeight} justifyContent="center">
-        {state.editingKey ? (
-          <>
-            <Text color="yellow" wrap="truncate-end">
-              {copy.editingLabel}&gt; {state.editBuffer}
-              <Text color="white">█</Text>
-            </Text>
-            <Text dimColor wrap="truncate-end">
-              {copy.controlsLabel}: {copy.footerEditHint}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text dimColor wrap="truncate-middle">
-              {copy.locationLabel}: {state.statusMessage ?? cwd}
-            </Text>
-            <Text dimColor wrap="truncate-end">
-              {copy.controlsLabel}: {copy.footerIdleHint}
-            </Text>
-          </>
-        )}
-      </Box>
-    </Box>
+        </React.Fragment>
+      }
+      content={
+        <EditorSurface
+          language={language}
+          section={state.section}
+          draft={state.draft}
+          rowIndex={state.rowIndex}
+          rows={rows}
+          validation={validation}
+          maxRows={editorRows}
+          width={screenWidth - 6}
+          editingKey={state.editingKey}
+          editingValue={lineEditor.value}
+        />
+      }
+      footer={
+        <FooterStatus
+          language={language}
+          cwd={cwd}
+          statusMessage={state.statusMessage}
+          editingValue={lineEditor.value}
+          isEditing={state.editingKey !== null}
+        />
+      }
+    />
   );
 }

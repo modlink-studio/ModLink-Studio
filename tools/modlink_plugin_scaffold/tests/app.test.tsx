@@ -160,6 +160,37 @@ describe("ScaffoldApp", () => {
     expect(app.lastFrame()).toContain("Stream 2");
   });
 
+  test("keeps stream headers stable until the edit is committed", async () => {
+    const cwd = await makeTempDir();
+    const app = render(<ScaffoldApp language="en" cwd={cwd} />);
+    await flush();
+
+    app.stdin.write("\t");
+    app.stdin.write("\t");
+    app.stdin.write("\t");
+    await flush();
+
+    pressArrow(app.stdin, "down");
+    pressArrow(app.stdin, "down");
+    pressArrow(app.stdin, "down");
+    pressArrow(app.stdin, "down");
+    await flush();
+
+    app.stdin.write("\r");
+    await flush();
+    pressBackspace(app.stdin, 8);
+    app.stdin.write("Raw EEG");
+    await flush();
+
+    expect(app.lastFrame()).toContain("Raw EEG");
+    expect(app.lastFrame()).toContain("[Current stream details]  Stream 1");
+
+    app.stdin.write("\r");
+    await flush();
+
+    expect(app.lastFrame()).toContain("[Current stream details]  Raw EEG");
+  });
+
   test("renders global section tabs and the top banner", async () => {
     const cwd = await makeTempDir();
     const app = render(<ScaffoldApp language="zh" cwd={cwd} />);

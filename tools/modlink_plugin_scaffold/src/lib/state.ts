@@ -7,8 +7,7 @@ export type Action =
   | {type: "row.delta"; delta: number; rowCount: number}
   | {type: "row.clamp"; rowCount: number}
   | {type: "status"; message: string | null; tone: "info" | "error" | "success"}
-  | {type: "edit.start"; key: string; value: string}
-  | {type: "edit.change"; value: string}
+  | {type: "edit.start"; key: string}
   | {type: "edit.cancel"}
   | {type: "draft.set"; draft: Draft}
   | {type: "overwrite.open"; path: string}
@@ -23,7 +22,6 @@ export function createInitialState(): AppState {
     section: "identity",
     rowIndex: 0,
     editingKey: null,
-    editBuffer: "",
     statusMessage: null,
     statusTone: "info",
     overwritePath: null,
@@ -37,7 +35,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case "section.delta": {
       const index = sectionOrder.indexOf(state.section);
       const nextIndex = (index + action.delta + sectionOrder.length) % sectionOrder.length;
-      return {...state, section: sectionOrder[nextIndex], rowIndex: 0, editingKey: null, editBuffer: ""};
+      return {...state, section: sectionOrder[nextIndex], rowIndex: 0, editingKey: null};
     }
     case "row.delta":
       return {
@@ -49,11 +47,9 @@ export function reducer(state: AppState, action: Action): AppState {
     case "status":
       return {...state, statusMessage: action.message, statusTone: action.tone};
     case "edit.start":
-      return {...state, editingKey: action.key, editBuffer: action.value};
-    case "edit.change":
-      return {...state, editBuffer: action.value};
+      return {...state, editingKey: action.key};
     case "edit.cancel":
-      return {...state, editingKey: null, editBuffer: ""};
+      return {...state, editingKey: null};
     case "draft.set":
       return {...state, draft: action.draft};
     case "overwrite.open":
@@ -63,7 +59,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case "overwrite.focus":
       return {...state, overwriteFocus: action.focus};
     case "result.set":
-      return {...state, result: action.result, overwritePath: null, editingKey: null, editBuffer: ""};
+      return {...state, result: action.result, overwritePath: null, editingKey: null};
     case "result.clear":
       return {...state, result: null};
     default:

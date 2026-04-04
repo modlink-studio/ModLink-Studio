@@ -12,7 +12,13 @@ type OverwriteDialogProps = {
   height?: number;
 };
 
-export function OverwriteDialog({language, projectPath, focus, width, height}: OverwriteDialogProps): React.JSX.Element {
+export const OverwriteDialog = React.memo(function OverwriteDialog({
+  language,
+  projectPath,
+  focus,
+  width,
+  height,
+}: OverwriteDialogProps): React.JSX.Element {
   const copy = getCopy(language);
 
   return (
@@ -31,4 +37,4 @@ export function OverwriteDialog({language, projectPath, focus, width, height}: O
       </Box>
     </Box>
   );
-}
+});

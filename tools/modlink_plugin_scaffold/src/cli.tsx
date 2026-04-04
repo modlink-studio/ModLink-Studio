@@ -1,10 +1,8 @@
 import path from "node:path";
 
-import {render} from "ink";
-import React from "react";
 import {Command} from "commander";
 
-import {ScaffoldApp} from "./app.js";
+import {renderScaffoldApp} from "./render-app.js";
 
 const program = new Command();
 
@@ -24,4 +22,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.exit(1);
 }
 
-render(<ScaffoldApp language={options.zh ? "zh" : "en"} cwd={path.resolve(options.cwd)} />);
+renderScaffoldApp({language: options.zh ? "zh" : "en", cwd: path.resolve(options.cwd)});
