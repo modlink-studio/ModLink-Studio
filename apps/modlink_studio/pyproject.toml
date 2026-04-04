@@ -7,7 +7,6 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
-    "modlink-plugin-scaffold",
     "modlink-ui",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
@@ -30,7 +29,6 @@ modlink-studio = "modlink_studio.app:main"
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
-modlink-plugin-scaffold = { workspace = true }
 modlink-ui = { workspace = true }
 modlink-plugin-host-camera = { path = "../../plugins/host-camera", editable = true }
 modlink-plugin-host-microphone = { path = "../../plugins/host-microphone", editable = true }

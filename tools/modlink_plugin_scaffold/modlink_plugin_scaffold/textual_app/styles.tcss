@@ -1,0 +1,121 @@
+Screen {
+    layout: vertical;
+}
+
+#body {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#editor-column {
+    width: 44;
+    min-width: 38;
+    padding: 1 2;
+    overflow-y: auto;
+    border-right: solid $panel;
+}
+
+#preview-column {
+    width: 1fr;
+    padding: 1 2;
+}
+
+.section-card,
+.preview-card {
+    border: round $panel;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.section-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.section-hint {
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+.field-row {
+    layout: vertical;
+    margin-bottom: 1;
+}
+
+.recommendation-box {
+    border: round $accent;
+    padding: 1;
+    margin-top: 1;
+}
+
+#streams-layout {
+    layout: horizontal;
+    height: auto;
+}
+
+.stream-list {
+    width: 24;
+    margin-right: 1;
+}
+
+.stream-detail {
+    width: 1fr;
+}
+
+.stream-actions {
+    margin-top: 1;
+}
+
+#preview-tab-bar {
+    margin-bottom: 1;
+}
+
+#preview-tab-bar Button {
+    margin-right: 1;
+}
+
+#preview-tab-bar Button.active-tab {
+    background: $accent;
+    color: $text;
+    text-style: bold;
+}
+
+.preview-content {
+    border: round $panel;
+    padding: 1;
+    height: 1fr;
+    overflow: auto;
+}
+
+#validation-banner {
+    border: round $panel;
+    padding: 1;
+    margin: 1 0;
+}
+
+#validation-banner.ok {
+    color: $success;
+}
+
+#validation-banner.error {
+    color: $error;
+}
+
+.invalid {
+    border: tall $error;
+}
+
+#confirm-dialog,
+#completion-layout {
+    align: center middle;
+    padding: 2 4;
+}
+
+.dialog-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.dialog-actions {
+    margin-top: 1;
+}

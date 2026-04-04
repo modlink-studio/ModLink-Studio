@@ -108,10 +108,10 @@ python -m modlink_studio
 
 只有在确实需要运行时服务时，才额外依赖 `modlink-core`。driver 安装到与宿主相同的 Python 环境后，会通过 `modlink.drivers` entry point 被宿主发现。
 
-如果是新建 driver 项目，可以直接使用随 `modlink-studio` 一起安装的脚手架工具：
+如果是新建 driver 项目，可以使用独立的脚手架工具。它位于仓库的 `tools/` 目录中，不再作为 `modlink-studio` 的运行时依赖自动安装。
 
 ```bash
-modlink-plugin-scaffold --zh
+uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
 ```
 
 这个工具会交互式生成一个可启动的 driver 项目骨架，通常会包括：
@@ -148,12 +148,14 @@ modlink-studio/
 ├─ apps/
 │  ├─ modlink_studio/
 │  ├─ modlink_studio_qml/
-│  └─ modlink_plugin_scaffold/
+│  └─ modlink_server/
 ├─ packages/
 │  ├─ modlink_sdk/
 │  ├─ modlink_core/
 │  ├─ modlink_ui/
 │  └─ modlink_new_ui/
+├─ tools/
+│  └─ modlink_plugin_scaffold/
 ├─ plugins/
 ├─ vpdocs/
 └─ deprecated/
@@ -161,11 +163,12 @@ modlink-studio/
 
 - `apps/modlink_studio/`: 主应用入口
 - `apps/modlink_studio_qml/`: QML 应用入口
-- `apps/modlink_plugin_scaffold/`: driver 脚手架工具
+- `apps/modlink_server/`: 服务端入口
 - `packages/modlink_sdk/`: 对外稳定的最小 SDK 契约
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: Qt UI 组件和页面
 - `packages/modlink_new_ui/`: QML UI
+- `tools/modlink_plugin_scaffold/`: 独立 driver 脚手架工具
 - `plugins/`: 官方插件源目录
 - `vpdocs/`: VitePress 文档站源码
 

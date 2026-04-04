@@ -5,28 +5,23 @@ from __future__ import annotations
 import argparse
 import sys
 
-from rich.console import Console
-
-from .core.context import create_project_context
-from .core.generator import create_plugin_scaffold
 from .i18n import Language, t
-from .tui import prompt_for_driver_spec
+from .textual_app import ScaffoldTextualApp
 
 
 def main() -> None:
     language = _parse_language()
-    console = Console()
 
     if not sys.stdin.isatty() or not sys.stdout.isatty():
-        Console(stderr=True).print(f"[bold red]{t(language, 'tty_required')}[/bold red]")
+        print(t(language, "tty_required"), file=sys.stderr)
         raise SystemExit(2)
 
     try:
-        context = create_project_context()
-        spec = prompt_for_driver_spec(console, context, language)
-        create_plugin_scaffold(console, context, spec, language)
+        app = ScaffoldTextualApp(language=language)
+        result = app.run()
+        raise SystemExit(0 if result is None else int(result))
     except KeyboardInterrupt:
-        console.print(f"\n[yellow]{t(language, 'cancelled')}[/yellow]")
+        print(t(language, "cancelled"))
         raise SystemExit(0)
 
 
