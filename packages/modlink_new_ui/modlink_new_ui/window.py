@@ -34,6 +34,7 @@ def create_application(argv: Sequence[str] | None = None) -> QApplication:
     if existing is not None:
         return existing
 
+    os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Universal")
     os.environ.setdefault("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Fusion")
 
     app = QApplication(list(argv) if argv is not None else sys.argv)

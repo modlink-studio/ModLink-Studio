@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
-import numpy as np
+from dataclasses import dataclass
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal
 
 from modlink_qt_bridge import QtModLinkBridge
@@ -15,11 +13,6 @@ from .constants import (
     normalize_preview_refresh_rate_hz,
 )
 from .helpers import format_timestamp_ns
-from .preview.models import (
-    PreviewSettings,
-    default_preview_settings,
-    normalize_preview_settings,
-)
 from .preview.store import PreviewStreamSettingsStore
 from .preview.stream_controller_factory import (
     StreamController,
@@ -32,10 +25,71 @@ from .preview.stream_controller_factory import (
 class _StreamState:
     descriptor: StreamDescriptor
     controller: StreamController
-    frame_count: int = 0
+    preview_item: "_PreviewItem"
     last_timestamp_ns: int | None = None
-    summary_text: str = "等待数据"
     dirty: bool = False
+    hydrating: bool = False
+
+
+class _PreviewItem(QObject):
+    summaryTextChanged = pyqtSignal()
+    frameCountChanged = pyqtSignal()
+
+    def __init__(
+        self,
+        descriptor: StreamDescriptor,
+        controller: StreamController,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._descriptor = descriptor
+        self._controller = controller
+        self._summary_text = "等待数据"
+        self._frame_count = 0
+        self.setObjectName(
+            "streamPreviewCard_"
+            + "".join(ch if ch.isalnum() else "_" for ch in descriptor.stream_id)
+        )
+
+    @pyqtProperty(str, constant=True)
+    def streamId(self) -> str:
+        return self._descriptor.stream_id
+
+    @pyqtProperty(str, constant=True)
+    def displayName(self) -> str:
+        return self._descriptor.display_name or self._descriptor.stream_id
+
+    @pyqtProperty(str, constant=True)
+    def payloadType(self) -> str:
+        return self._descriptor.payload_type
+
+    @pyqtProperty(str, notify=summaryTextChanged)
+    def summaryText(self) -> str:
+        return self._summary_text
+
+    @pyqtProperty(int, notify=frameCountChanged)
+    def frameCount(self) -> int:
+        return self._frame_count
+
+    @pyqtProperty(str, constant=True)
+    def channelSummary(self) -> str:
+        return ", ".join(self._descriptor.channel_names) or "无 channel 标签"
+
+    @pyqtProperty(str, constant=True)
+    def sampleRateText(self) -> str:
+        return f"{self._descriptor.nominal_sample_rate_hz:g} Hz"
+
+    @pyqtProperty(QObject, constant=True)
+    def controller(self) -> QObject:
+        return self._controller
+
+    def set_frame_status(self, frame_count: int, summary_text: str) -> None:
+        if frame_count != self._frame_count:
+            self._frame_count = frame_count
+            self.frameCountChanged.emit()
+        if summary_text != self._summary_text:
+            self._summary_text = summary_text
+            self.summaryTextChanged.emit()
 
 
 class MainPageController(QObject):
@@ -67,24 +121,12 @@ class MainPageController(QObject):
         return self._acquisition
 
     @pyqtProperty("QVariantList", notify=previewsChanged)
-    def previews(self) -> list[dict[str, object]]:
-        result = []
+    def previews(self) -> list[QObject]:
+        result: list[QObject] = []
         for stream_id in self._stream_order:
             state = self._streams.get(stream_id)
-            if state is None:
-                continue
-            desc = state.descriptor
-            ctrl = state.controller
-            result.append({
-                "streamId": desc.stream_id,
-                "displayName": desc.display_name or desc.stream_id,
-                "payloadType": desc.payload_type,
-                "summaryText": state.summary_text,
-                "frameCount": state.frame_count,
-                "channelSummary": ", ".join(desc.channel_names) or "无 channel 标签",
-                "sampleRateText": f"{desc.nominal_sample_rate_hz:g} Hz",
-                "controller": ctrl,
-            })
+            if state is not None:
+                result.append(state.preview_item)
         return result
 
     def _ensure_stream(self, descriptor: StreamDescriptor) -> _StreamState:
@@ -93,11 +135,23 @@ class MainPageController(QObject):
             return existing
 
         controller = create_stream_controller(descriptor, parent=self)
-        state = _StreamState(descriptor=descriptor, controller=controller)
+        preview_item = _PreviewItem(descriptor, controller, parent=self)
+        state = _StreamState(
+            descriptor=descriptor,
+            controller=controller,
+            preview_item=preview_item,
+        )
         self._streams[descriptor.stream_id] = state
+        controller.settingsChanged.connect(
+            lambda stream_id=descriptor.stream_id: self._on_stream_settings_changed(
+                stream_id
+            )
+        )
 
+        state.hydrating = True
         settings = self._store.load(descriptor)
         apply_settings_to_controller(controller, settings)
+        state.hydrating = False
 
         self._stream_order = sorted(
             self._streams.keys(),
@@ -115,25 +169,29 @@ class MainPageController(QObject):
             return
         state = self._ensure_stream(descriptor)
         state.controller.push_frame(frame)
-        state.frame_count += 1
+        next_count = state.preview_item.frameCount + 1
         state.last_timestamp_ns = frame.timestamp_ns
-        state.summary_text = (
-            f"已接收 {state.frame_count} 帧 · 最近 "
-            f"{format_timestamp_ns(frame.timestamp_ns)}"
+        state.preview_item.set_frame_status(
+            next_count,
+            f"已接收 {next_count} 帧 · 最近 {format_timestamp_ns(frame.timestamp_ns)}",
         )
         state.dirty = True
 
     def _flush_previews(self) -> None:
-        any_flushed = False
         for state in self._streams.values():
             if not state.dirty:
                 continue
             state.dirty = False
             state.controller.flush()
-            any_flushed = True
 
-        if any_flushed:
-            self.previewsChanged.emit()
+    def _on_stream_settings_changed(self, stream_id: str) -> None:
+        state = self._streams.get(stream_id)
+        if state is None or state.hydrating:
+            return
+        self._store.save(
+            state.descriptor,
+            state.controller.export_settings(),  # type: ignore[attr-defined]
+        )
 
     def _on_setting_changed(self, event: object) -> None:
         key = getattr(event, "key", None)

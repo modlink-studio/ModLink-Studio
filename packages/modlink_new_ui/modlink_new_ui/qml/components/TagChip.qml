@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Rectangle {
     id: root
@@ -7,42 +8,31 @@ Rectangle {
     property string text: ""
     signal removeRequested()
 
-    radius: 12
-    color: Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.08)
+    UiTokens { id: ui }
+
+    radius: height / 2
+    implicitHeight: 34
+    implicitWidth: chipRow.implicitWidth + 18
+    color: ui.surfaceAlt
     border.width: 1
-    border.color: Qt.rgba(palette.highlight.r, palette.highlight.g, palette.highlight.b, 0.2)
-    implicitHeight: 30
-    implicitWidth: label.implicitWidth + removeBtn.implicitWidth + 20
+    border.color: ui.borderSoft
 
-    Row {
+    RowLayout {
+        id: chipRow
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 6
 
-        Text {
-            id: label
+        Label {
             text: root.text
-            color: palette.windowText
             font.pixelSize: 12
-            anchors.verticalCenter: parent.verticalCenter
+            font.weight: Font.Medium
+            color: ui.textPrimary
         }
 
-        Button {
-            id: removeBtn
+        ToolButton {
             text: "\u00d7"
-            flat: true
-            padding: 0
-            implicitWidth: 20
-            implicitHeight: 20
+            focusPolicy: Qt.NoFocus
             onClicked: root.removeRequested()
-            anchors.verticalCenter: parent.verticalCenter
-            contentItem: Text {
-                text: parent.text
-                color: palette.placeholderText
-                font.pixelSize: 14
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
-            background: Rectangle { color: "transparent" }
         }
     }
 }

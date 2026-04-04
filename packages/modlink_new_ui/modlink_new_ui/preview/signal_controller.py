@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QImage
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from .models import SignalFilterSettings, SignalPreviewSettings
+from .models import SignalFilterSettings, SignalPreviewSettings, normalize_preview_settings
 from .signal_filter import SignalFilterPipeline, SignalFilterSpec
 from .signal_ring_buffer import SignalRingBuffer
 
@@ -61,6 +63,10 @@ class SignalStreamController(QObject):
     def layoutMode(self) -> str:
         return self._settings.layout_mode
 
+    @pyqtProperty(int, notify=settingsChanged)
+    def windowSeconds(self) -> int:
+        return self._settings.window_seconds
+
     @pyqtProperty(str, notify=settingsChanged)
     def yRangeMode(self) -> str:
         return self._settings.y_range_mode
@@ -73,7 +79,29 @@ class SignalStreamController(QObject):
     def manualYMax(self) -> float:
         return self._settings.manual_y_max
 
+    @pyqtProperty(str, notify=settingsChanged)
+    def filterMode(self) -> str:
+        return self._settings.filter.mode
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def lowCutoffHz(self) -> float:
+        return self._settings.filter.low_cutoff_hz
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def highCutoffHz(self) -> float:
+        return self._settings.filter.high_cutoff_hz
+
+    @pyqtProperty(bool, notify=settingsChanged)
+    def notchEnabled(self) -> bool:
+        return self._settings.filter.notch_enabled
+
     def apply_settings(self, settings: SignalPreviewSettings) -> None:
+        settings = normalize_preview_settings(
+            "signal",
+            settings,
+            self._sample_rate_hz,
+            tuple(self._descriptor.channel_names),
+        )
         old_filter = self._to_filter_spec(self._settings.filter)
         self._settings = settings
         new_max = self._compute_max_samples(settings.window_seconds)
@@ -89,9 +117,14 @@ class SignalStreamController(QObject):
             self._pipeline.reset_states()
             if self._ring_buffer is not None:
                 self._ring_buffer.clear()
+            self._channel_data = []
+            self.dataChanged.emit()
 
         self._channel_names = list(self._descriptor.channel_names)
         self.settingsChanged.emit()
+        if self._has_frame and not self.flush():
+            self._channel_data = []
+            self.dataChanged.emit()
 
     def push_frame(self, frame: FrameEnvelope) -> None:
         data = np.asarray(frame.data)
@@ -119,6 +152,87 @@ class SignalStreamController(QObject):
         self._channel_data = [linear[i].copy() for i in vci]
         self.dataChanged.emit()
         return True
+
+    def export_settings(self) -> SignalPreviewSettings:
+        return self._settings
+
+    @pyqtSlot(int)
+    def setWindowSeconds(self, value: int) -> None:
+        self.apply_settings(replace(self._settings, window_seconds=max(1, int(value))))
+
+    @pyqtSlot(str)
+    def setLayoutMode(self, value: str) -> None:
+        if value not in ("stacked", "expanded"):
+            return
+        self.apply_settings(replace(self._settings, layout_mode=value))
+
+    @pyqtSlot(str)
+    def setYRangeMode(self, value: str) -> None:
+        if value not in ("auto", "manual"):
+            return
+        self.apply_settings(replace(self._settings, y_range_mode=value))
+
+    @pyqtSlot(float)
+    def setManualYMin(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_y_min=normalized))
+
+    @pyqtSlot(float)
+    def setManualYMax(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_y_max=normalized))
+
+    @pyqtSlot(str)
+    def setFilterMode(self, value: str) -> None:
+        if value not in ("none", "low_pass", "high_pass", "band_pass", "band_stop"):
+            return
+        self.apply_settings(
+            replace(
+                self._settings,
+                filter=replace(self._settings.filter, mode=value),
+            )
+        )
+
+    @pyqtSlot(float)
+    def setLowCutoffHz(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(
+            replace(
+                self._settings,
+                filter=replace(self._settings.filter, low_cutoff_hz=normalized),
+            )
+        )
+
+    @pyqtSlot(float)
+    def setHighCutoffHz(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(
+            replace(
+                self._settings,
+                filter=replace(self._settings.filter, high_cutoff_hz=normalized),
+            )
+        )
+
+    @pyqtSlot(bool)
+    def setNotchEnabled(self, value: bool) -> None:
+        self.apply_settings(
+            replace(
+                self._settings,
+                filter=replace(self._settings.filter, notch_enabled=bool(value)),
+            )
+        )
 
     def _ensure_ring_buffer(self, ch_count: int) -> None:
         if self._ring_buffer is not None and self._ring_buffer.channels == ch_count:
