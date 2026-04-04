@@ -130,10 +130,17 @@ modlink-studio
 python -m modlink_studio
 ```
 
-如果目标是开发独立 driver，脚手架工具现在作为独立开发工具提供：
+如果目标是开发独立 driver，脚手架工具现在作为独立 npm 开发工具提供：
 
 ```bash
-uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
+npx @modlink-studio/plugin-scaffold --zh
+```
+
+仓库内联调脚手架时：
+
+```bash
+npm install
+npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 ```
 
 更完整的 driver 开发说明见 [SDK 开发者指南](/sdk)。

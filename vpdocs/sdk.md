@@ -95,20 +95,30 @@
 
 ## 用脚手架起步
 
-`modlink-plugin-scaffold` 现在作为独立开发工具维护，位于仓库的 `tools/` 目录中；它不再作为 `modlink-studio` 的运行时依赖自动安装。
+`modlink-plugin-scaffold` 现在作为独立 npm 开发工具维护，位于仓库的 `tools/` 目录中；它不再作为 `modlink-studio` 的运行时依赖自动安装。
 
 ```bash
-uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
+npx @modlink-studio/plugin-scaffold --zh
+```
+
+如果你正在仓库里联调脚手架本身：
+
+```bash
+npm install
+npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 ```
 
 这个脚手架适合“新建一个独立 driver 项目”的场景。它会交互式生成：
 
 - 基础包结构
 - `pyproject.toml`
-- `driver.py`
-- `factory.py`
+- `README.md`
+- `LICENSE`
+- `.gitignore`
+- `<plugin_name>/driver.py`
+- `<plugin_name>/factory.py`
 - `modlink.drivers` entry point
-- 一份可继续完善的 README
+- `tests/test_smoke.py`
 
 脚手架只负责把项目骨架和 SDK 契约接好，不会替代真实设备协议实现。生成项目后，通常还需要你继续补完：
 

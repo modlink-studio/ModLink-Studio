@@ -1,31 +1,38 @@
-# Plugin Scaffold CLI
+# @modlink-studio/plugin-scaffold
 
-`modlink-plugin-scaffold` 是官方提供的独立 driver 脚手架工具。它位于仓库的 `tools/` 目录中，不再作为 `modlink-studio` 的运行时依赖自动安装。
+`@modlink-studio/plugin-scaffold` 是独立发布的 React + Ink CLI，用来生成 ModLink Python driver 项目模板。
 
-当前脚手架默认生成的是 `0.2.0` 风格 driver：宿主契约以纯 Python runtime 为准，不再依赖 Qt-style `sig_frame` / `QTimer` 写法。
+## Usage
 
-在仓库里运行：
+公开使用：
 
 ```bash
-uv run --package modlink-plugin-scaffold modlink-plugin-scaffold --zh
+npx @modlink-studio/plugin-scaffold --zh
 ```
 
-安装后的正式入口：
+仓库内开发：
 
 ```bash
+npm install
+npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
+```
+
+全局安装后也可以直接运行：
+
+```bash
+npm install -g @modlink-studio/plugin-scaffold
 modlink-plugin-scaffold --zh
 ```
 
-生成出的 driver 项目应当最小依赖 `modlink-sdk`，然后通过常规 `pip` 安装到和宿主相同的环境：
+## What It Generates
 
-```bash
-python -m pip install -e ./my_driver
-python -m modlink_studio
-```
+- `pyproject.toml`
+- `README.md`
+- `LICENSE`
+- `.gitignore`
+- `<plugin_name>/__init__.py`
+- `<plugin_name>/driver.py`
+- `<plugin_name>/factory.py`
+- `tests/test_smoke.py`
 
-生成后的 `driver.py` 会直接给出 `emit_frame()` 等 helper，建议在真实设备接入时沿着这套 callback/context 模型继续补完。
-
-生成项目对外发布前，建议补齐两类项目元数据：
-
-- 该 driver 自己的 README
-- 该 driver 自己的 LICENSE 与项目链接
+生成目标仍然是独立的 Python driver 包，面向 `modlink-sdk` 与 `modlink.drivers` entry point 契约。
