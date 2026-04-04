@@ -1,8 +1,8 @@
 import path from "node:path";
 
-import {Command} from "commander";
+import { Command } from "commander";
 
-import {renderScaffoldApp} from "./render-app.js";
+import { renderScaffoldApp } from "./render-app.js";
 
 const program = new Command();
 
@@ -15,11 +15,11 @@ program
 
 program.parse();
 
-const options = program.opts<{zh?: boolean; cwd: string}>();
+const options = program.opts<{ zh?: boolean; cwd: string }>();
 
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   console.error("modlink-plugin-scaffold requires an interactive terminal.");
   process.exit(1);
 }
 
-renderScaffoldApp({language: options.zh ? "zh" : "en", cwd: path.resolve(options.cwd)});
+renderScaffoldApp({ language: options.zh ? "zh" : "en", cwd: path.resolve(options.cwd) });

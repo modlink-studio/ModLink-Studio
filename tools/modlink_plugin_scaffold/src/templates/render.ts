@@ -1,5 +1,12 @@
-import {getCopy} from "../lib/i18n.js";
-import type {DriverSpec, Language, PreviewBundle, StreamSpec, SummaryMetric, SummaryViewModel} from "../lib/types.js";
+import { getCopy } from "../lib/i18n.js";
+import type {
+  DriverSpec,
+  Language,
+  PreviewBundle,
+  StreamSpec,
+  SummaryMetric,
+  SummaryViewModel,
+} from "../lib/types.js";
 
 function renderExpectedShape(stream: StreamSpec): string {
   if (stream.payloadType === "signal") {
@@ -43,7 +50,9 @@ function renderMetadata(stream: StreamSpec): string | null {
 
 function renderDescriptor(stream: StreamSpec): string {
   const metadata = renderMetadata(stream);
-  const metadataLine = metadata ? `,\n                metadata=${metadata.replace(/\n/g, "\n                ")}` : "";
+  const metadataLine = metadata
+    ? `,\n                metadata=${metadata.replace(/\n/g, "\n                ")}`
+    : "";
   return `StreamDescriptor(
                 device_id=self.device_id,
                 modality="${stream.modality}",
@@ -59,7 +68,11 @@ function renderDriverMethods(spec: DriverSpec): string {
   if (spec.driverKind === "loop") {
     const loopInterval = Math.max(
       1,
-      Math.min(...spec.streams.map((stream) => Math.round((1000 * stream.chunkSize) / stream.sampleRateHz))),
+      Math.min(
+        ...spec.streams.map((stream) =>
+          Math.round((1000 * stream.chunkSize) / stream.sampleRateHz),
+        ),
+      ),
     );
     return `
     loop_interval_ms = ${loopInterval}
@@ -94,7 +107,9 @@ function renderDriverMethods(spec: DriverSpec): string {
 export function renderDriverPy(spec: DriverSpec): string {
   const descriptors = spec.streams.map(renderDescriptor).join(",\n");
   const shapeLines = spec.streams
-    .map((stream) => `# - ${stream.modality} (${stream.payloadType}): ${renderExpectedShape(stream)}`)
+    .map(
+      (stream) => `# - ${stream.modality} (${stream.payloadType}): ${renderExpectedShape(stream)}`,
+    )
     .join("\n");
 
   return `"""${spec.displayName} driver implementation.
@@ -244,7 +259,10 @@ addopts = "-q"
 
 export function renderReadme(spec: DriverSpec, language: Language): string {
   const streamLines = spec.streams
-    .map((stream) => `- **${stream.displayName}**: modality=\`${stream.modality}\` | payload=\`${stream.payloadType}\` | rate=\`${stream.sampleRateHz}\` | chunk=\`${stream.chunkSize}\` | shape=\`${renderExpectedShape(stream)}\``)
+    .map(
+      (stream) =>
+        `- **${stream.displayName}**: modality=\`${stream.modality}\` | payload=\`${stream.payloadType}\` | rate=\`${stream.sampleRateHz}\` | chunk=\`${stream.chunkSize}\` | shape=\`${renderExpectedShape(stream)}\``,
+    )
     .join("\n");
 
   if (language === "zh") {
@@ -403,11 +421,11 @@ def test_create_driver_returns_ready_instance() -> None:
 function summarizeMetrics(spec: DriverSpec, language: Language): SummaryMetric[] {
   const copy = getCopy(language);
   return [
-    {label: copy.deviceIdLabel, value: spec.deviceId},
-    {label: copy.providersLabel, value: spec.providers.join(", ")},
-    {label: copy.driverKindLabel, value: spec.driverKind === "loop" ? "LoopDriver" : "Driver"},
-    {label: copy.dataArrivalLabel, value: copy.dataArrivalSummaryOptions[spec.dataArrival]},
-    {label: copy.streamCountLabel, value: String(spec.streams.length)},
+    { label: copy.deviceIdLabel, value: spec.deviceId },
+    { label: copy.providersLabel, value: spec.providers.join(", ") },
+    { label: copy.driverKindLabel, value: spec.driverKind === "loop" ? "LoopDriver" : "Driver" },
+    { label: copy.dataArrivalLabel, value: copy.dataArrivalSummaryOptions[spec.dataArrival] },
+    { label: copy.streamCountLabel, value: String(spec.streams.length) },
   ];
 }
 
@@ -425,7 +443,12 @@ export function renderSummary(spec: DriverSpec, language: Language): SummaryView
   };
 }
 
-export function buildPreviewBundle(spec: DriverSpec | null, cwd: string, language: Language, errors: string[]): PreviewBundle {
+export function buildPreviewBundle(
+  spec: DriverSpec | null,
+  _cwd: string,
+  language: Language,
+  errors: string[],
+): PreviewBundle {
   const copy = getCopy(language);
   if (spec === null) {
     return {
@@ -441,7 +464,7 @@ export function buildPreviewBundle(spec: DriverSpec | null, cwd: string, languag
     };
   }
   return {
-      summary: renderSummary(spec, language),
+    summary: renderSummary(spec, language),
     driver: renderDriverPy(spec),
     pyproject: renderPyprojectToml(spec),
     readme: renderReadme(spec, language),

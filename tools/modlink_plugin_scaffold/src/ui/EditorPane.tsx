@@ -1,9 +1,9 @@
+import { Box, Text } from "ink";
 import React from "react";
-import {Box, Text} from "ink";
 
-import {getCopy} from "../lib/i18n.js";
-import type {Draft, Language, SectionId, ValidationResult} from "../lib/types.js";
-import type {UiRow} from "./rows.js";
+import { getCopy } from "../lib/i18n.js";
+import type { Draft, Language, SectionId, ValidationResult } from "../lib/types.js";
+import type { UiRow } from "./rows.js";
 
 type EditorPaneProps = {
   language: Language;
@@ -54,7 +54,7 @@ function activeGroupInfo(
   copy: ReturnType<typeof getCopy>,
   section: SectionId,
   row: UiRow | undefined,
-): {title: string; description: string} {
+): { title: string; description: string } {
   if (section !== "streams" || !row) {
     return {
       title: copy.sections[section],
@@ -64,17 +64,20 @@ function activeGroupInfo(
 
   switch (row.zone) {
     case "stream-list":
-      return {title: copy.streamListTitle, description: copy.streamListDescription};
+      return { title: copy.streamListTitle, description: copy.streamListDescription };
     case "stream-action":
-      return {title: copy.controlsLabel, description: copy.streamActionsDescription};
+      return { title: copy.controlsLabel, description: copy.streamActionsDescription };
     case "stream-basic":
-      return {title: copy.streamBasicGroupTitle, description: copy.streamBasicGroupDescription};
+      return { title: copy.streamBasicGroupTitle, description: copy.streamBasicGroupDescription };
     case "stream-timing":
-      return {title: copy.streamTimingGroupTitle, description: copy.streamTimingGroupDescription};
+      return { title: copy.streamTimingGroupTitle, description: copy.streamTimingGroupDescription };
     case "stream-payload":
-      return {title: copy.streamPayloadGroupTitle, description: copy.streamPayloadGroupDescription};
+      return {
+        title: copy.streamPayloadGroupTitle,
+        description: copy.streamPayloadGroupDescription,
+      };
     default:
-      return {title: copy.sections[section], description: copy.sectionDescriptions[section]};
+      return { title: copy.sections[section], description: copy.sectionDescriptions[section] };
   }
 }
 
@@ -206,7 +209,7 @@ const StreamListPane = React.memo(function StreamListPane({
           return (
             <Text key={row.key} color={color} wrap="truncate-end">
               {prefix} {row.label}
-              <Text dimColor>  {row.value}</Text>
+              <Text dimColor> {row.value}</Text>
             </Text>
           );
         })}
@@ -269,12 +272,36 @@ const StreamDetailsPane = React.memo(function StreamDetailsPane({
         <Text color="yellow" bold>
           [{copy.streamDetailsTitle}]
         </Text>
-        <Text dimColor>  {currentStream.displayName || currentStream.modality}</Text>
+        <Text dimColor> {currentStream.displayName || currentStream.modality}</Text>
         <Text dimColor> · {copy.payloadOptions[currentStream.payloadType]}</Text>
       </Text>
-      {renderGroup(copy.streamBasicGroupTitle, basicRows, activeRowKey, rightLabelWidth, copy.choiceSwitchHint, editingKey, editingValue)}
-      {renderGroup(copy.streamTimingGroupTitle, timingRows, activeRowKey, rightLabelWidth, copy.choiceSwitchHint, editingKey, editingValue)}
-      {renderGroup(copy.streamPayloadGroupTitle, payloadRows, activeRowKey, rightLabelWidth, copy.choiceSwitchHint, editingKey, editingValue)}
+      {renderGroup(
+        copy.streamBasicGroupTitle,
+        basicRows,
+        activeRowKey,
+        rightLabelWidth,
+        copy.choiceSwitchHint,
+        editingKey,
+        editingValue,
+      )}
+      {renderGroup(
+        copy.streamTimingGroupTitle,
+        timingRows,
+        activeRowKey,
+        rightLabelWidth,
+        copy.choiceSwitchHint,
+        editingKey,
+        editingValue,
+      )}
+      {renderGroup(
+        copy.streamPayloadGroupTitle,
+        payloadRows,
+        activeRowKey,
+        rightLabelWidth,
+        copy.choiceSwitchHint,
+        editingKey,
+        editingValue,
+      )}
     </Box>
   );
 });
@@ -298,7 +325,14 @@ const DefaultLayout = React.memo(function DefaultLayout({
   const labelWidth = Math.max(12, Math.min(22, ...rows.map((row) => visualWidth(row.label))));
   return (
     <Box flexDirection="column">
-      {renderAlignedRows(rows, activeKey, labelWidth, copy.choiceSwitchHint, editingKey, editingValue)}
+      {renderAlignedRows(
+        rows,
+        activeKey,
+        labelWidth,
+        copy.choiceSwitchHint,
+        editingKey,
+        editingValue,
+      )}
     </Box>
   );
 });
@@ -361,7 +395,7 @@ export const EditorPane = React.memo(function EditorPane({
             <Text bold>{groupInfo.title}</Text>: {groupInfo.description}
             {currentRow ? (
               <>
-                <Text dimColor>  |  </Text>
+                <Text dimColor> | </Text>
                 <Text bold>{currentRow.label}</Text>: {currentRow.description}
               </>
             ) : null}
@@ -383,7 +417,8 @@ export const EditorPane = React.memo(function EditorPane({
       {section === "driver" ? (
         <Box marginTop={1}>
           <Text color="yellow">
-            {copy.recommendedDriverLabel}: {copy.driverKindOptions[validation.recommendedDriverKind]}
+            {copy.recommendedDriverLabel}:{" "}
+            {copy.driverKindOptions[validation.recommendedDriverKind]}
           </Text>
         </Box>
       ) : null}
@@ -393,7 +428,7 @@ export const EditorPane = React.memo(function EditorPane({
           <Text bold>{groupInfo.title}</Text>: {groupInfo.description}
           {currentRow ? (
             <>
-              <Text dimColor>  |  </Text>
+              <Text dimColor> | </Text>
               <Text bold>{currentRow.label}</Text>: {currentRow.description}
             </>
           ) : null}

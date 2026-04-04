@@ -21,6 +21,9 @@
     "dev": "tsx src/cli.tsx",
     "build": "tsup",
     "start": "node dist/cli.js",
+    "lint": "biome check src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
+    "lint:fix": "biome check --write src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
+    "format": "biome format --write src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
     "test": "vitest run",
     "pack:check": "npm pack",
     "publish:dry-run": "npm publish --dry-run --access public"
@@ -32,6 +35,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
     "ink-testing-library": "^4.0.0",

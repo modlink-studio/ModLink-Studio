@@ -1,8 +1,8 @@
+import { Box, Text } from "ink";
 import React from "react";
-import {Box, Text} from "ink";
 
-import {getCopy} from "../lib/i18n.js";
-import type {GeneratedProject, Language} from "../lib/types.js";
+import { getCopy } from "../lib/i18n.js";
+import type { GeneratedProject, Language } from "../lib/types.js";
 
 type ResultScreenProps = {
   language: Language;
@@ -21,7 +21,13 @@ export const ResultScreen = React.memo(function ResultScreen({
 
   return (
     <Box width={width} height={height} justifyContent="center" alignItems="center">
-      <Box flexDirection="column" borderStyle="round" borderColor="green" padding={1} width={Math.max(48, Math.min((width ?? 80) - 4, 84))}>
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor="green"
+        padding={1}
+        width={Math.max(48, Math.min((width ?? 80) - 4, 84))}
+      >
         <Text color="green" bold>
           {copy.completionTitle}
         </Text>

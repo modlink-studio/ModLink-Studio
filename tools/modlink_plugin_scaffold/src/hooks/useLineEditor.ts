@@ -1,4 +1,4 @@
-import {useCallback, useState} from "react";
+import { useCallback, useState } from "react";
 
 type LineEditorApi = {
   value: string;
@@ -27,5 +27,5 @@ export function useLineEditor(): LineEditorApi {
     setValue("");
   }, []);
 
-  return {value, begin, append, backspace, clear};
+  return { value, begin, append, backspace, clear };
 }

@@ -1,4 +1,4 @@
-import type {DataArrival, DriverKind, Language, PayloadType, SectionId} from "./types.js";
+import type { DataArrival, DriverKind, Language, PayloadType, SectionId } from "./types.js";
 
 type Copy = {
   appTitle: string;
@@ -110,7 +110,8 @@ type Copy = {
 const en: Copy = {
   appTitle: "ModLink Plugin Scaffold",
   appSubtitle: "React + Ink developer tool for Python driver plugins",
-  helpLine: "Tab: next section | Up/Down: rows | Left/Right: choices | Enter: edit or run | g: generate | q: quit",
+  helpLine:
+    "Tab: next section | Up/Down: rows | Left/Right: choices | Enter: edit or run | g: generate | q: quit",
   previewHeader: "Preview",
   previewTruncated: "Preview truncated to fit the current terminal height.",
   readyToGenerate: "Draft is valid and ready to generate.",
@@ -176,23 +177,26 @@ const en: Copy = {
     connection: "Connection",
     driver: "Driver Type",
     streams: "Streams",
-    dependencies: "Dependencies"
+    dependencies: "Dependencies",
   },
   sectionDescriptions: {
     identity: "Define the generated package name, device label, and stable device ID.",
     connection: "Describe how the host discovers the plugin and how the device produces data.",
     driver: "Choose the runtime base class that best matches the device behavior.",
     streams: "Describe every stream the driver will publish, including shape and metadata.",
-    dependencies: "List extra Python packages that the generated driver project should install."
+    dependencies: "List extra Python packages that the generated driver project should install.",
   },
   rowDescriptions: {
     "identity.pluginName": "Python package name used for the plugin folder and entry point key.",
     "identity.displayName": "Human-readable device name shown in the host UI.",
     "identity.deviceId": "Stable identifier used by descriptors, recordings, and saved sessions.",
     "connection.providersText": "Comma-separated provider tokens, such as serial or ble.",
-    "connection.dataArrival": "Whether the SDK pushes frames into your code or your code polls on its own loop.",
-    "driver.driverKind": "Choose Driver for push-style runtimes, or LoopDriver for poll-style runtimes.",
-    "dependencies.dependenciesText": "Extra pip dependencies to include in the generated pyproject.toml.",
+    "connection.dataArrival":
+      "Whether the SDK pushes frames into your code or your code polls on its own loop.",
+    "driver.driverKind":
+      "Choose Driver for push-style runtimes, or LoopDriver for poll-style runtimes.",
+    "dependencies.dependenciesText":
+      "Extra pip dependencies to include in the generated pyproject.toml.",
     "streams.select": "Select which stream definition is currently shown on the right.",
     "streams.add": "Append a brand-new stream using the default values for its payload type.",
     "streams.delete": "Remove the selected stream from the generated driver project.",
@@ -208,27 +212,27 @@ const en: Copy = {
     "streams.fieldHeight": "Spatial height for field payloads.",
     "streams.fieldWidth": "Spatial width for field payloads.",
     "streams.videoHeight": "Frame height in pixels for video payloads.",
-    "streams.videoWidth": "Frame width in pixels for video payloads."
+    "streams.videoWidth": "Frame width in pixels for video payloads.",
   },
   payloadOptions: {
     signal: "signal",
     raster: "raster",
     field: "field",
-    video: "video"
+    video: "video",
   },
   dataArrivalOptions: {
     push: "SDK pushes data into your code",
     poll: "Your code polls on its own loop",
-    unsure: "You are still not sure"
+    unsure: "You are still not sure",
   },
   dataArrivalSummaryOptions: {
     push: "SDK push",
     poll: "Self polling",
-    unsure: "Unclear"
+    unsure: "Unclear",
   },
   driverKindOptions: {
     driver: "Driver",
-    loop: "LoopDriver"
+    loop: "LoopDriver",
   },
   invalidPreviewPlaceholder: "Preview is unavailable until the draft passes validation.",
   validationErrorsHeader: "Validation errors",
@@ -259,11 +263,16 @@ const en: Copy = {
   generationSucceeded: "Scaffold generated successfully.",
   outputExists: "Target directory already exists.",
   reasonPushDriver: "The SDK pushes data into your code, so Driver is the natural default.",
-  reasonPushLoop: "The SDK pushes data, but LoopDriver was kept manually for a polling-style design.",
-  reasonPollDriver: "Your code polls on its own schedule, but Driver is still valid if you want to own the lifecycle.",
-  reasonPollLoop: "Your code polls on its own loop or timer, so LoopDriver is the recommended base class.",
-  reasonUnsureDriver: "Driver is the safer starting point until the device runtime pattern is clear.",
-  reasonUnsureLoop: "LoopDriver was kept manually even though the runtime pattern is still uncertain."
+  reasonPushLoop:
+    "The SDK pushes data, but LoopDriver was kept manually for a polling-style design.",
+  reasonPollDriver:
+    "Your code polls on its own schedule, but Driver is still valid if you want to own the lifecycle.",
+  reasonPollLoop:
+    "Your code polls on its own loop or timer, so LoopDriver is the recommended base class.",
+  reasonUnsureDriver:
+    "Driver is the safer starting point until the device runtime pattern is clear.",
+  reasonUnsureLoop:
+    "LoopDriver was kept manually even though the runtime pattern is still uncertain.",
 };
 
 const zh: Copy = {
@@ -335,14 +344,14 @@ const zh: Copy = {
     connection: "连接方式",
     driver: "Driver 类型",
     streams: "Streams",
-    dependencies: "依赖"
+    dependencies: "依赖",
   },
   sectionDescriptions: {
     identity: "定义生成项目的包名、显示名和稳定的 Device ID。",
     connection: "说明宿主如何发现插件，以及设备数据是如何到达驱动的。",
     driver: "选择最适合当前设备运行方式的 Driver 基类。",
     streams: "配置驱动会发布的每一个 stream，包括形状和元数据。",
-    dependencies: "列出生成后的 Python driver 项目需要额外安装的依赖。"
+    dependencies: "列出生成后的 Python driver 项目需要额外安装的依赖。",
   },
   rowDescriptions: {
     "identity.pluginName": "Python 包名，会用于插件目录名和 entry point 键名。",
@@ -367,27 +376,27 @@ const zh: Copy = {
     "streams.fieldHeight": "field payload 的空间高度。",
     "streams.fieldWidth": "field payload 的空间宽度。",
     "streams.videoHeight": "video payload 的帧高，单位像素。",
-    "streams.videoWidth": "video payload 的帧宽，单位像素。"
+    "streams.videoWidth": "video payload 的帧宽，单位像素。",
   },
   payloadOptions: {
     signal: "signal",
     raster: "raster",
     field: "field",
-    video: "video"
+    video: "video",
   },
   dataArrivalOptions: {
     push: "SDK 主动把数据推到你的代码里",
     poll: "你的代码自己轮询设备",
-    unsure: "现在还不确定"
+    unsure: "现在还不确定",
   },
   dataArrivalSummaryOptions: {
     push: "SDK 推送",
     poll: "主动轮询",
-    unsure: "暂未确定"
+    unsure: "暂未确定",
   },
   driverKindOptions: {
     driver: "Driver",
-    loop: "LoopDriver"
+    loop: "LoopDriver",
   },
   invalidPreviewPlaceholder: "当前草稿还未通过校验，因此暂时无法预览生成文件。",
   validationErrorsHeader: "校验问题",
@@ -422,12 +431,18 @@ const zh: Copy = {
   reasonPollDriver: "你的代码会自己轮询设备，但如果你想手动掌控生命周期，Driver 依然成立。",
   reasonPollLoop: "你的代码本身是轮询或定时器模型，因此更推荐 LoopDriver。",
   reasonUnsureDriver: "在设备运行模式还不完全明确时，Driver 是更稳妥的起点。",
-  reasonUnsureLoop: "虽然运行模式还不明确，但你手动保留了 LoopDriver。"
+  reasonUnsureLoop: "虽然运行模式还不明确，但你手动保留了 LoopDriver。",
 };
 
-const copyByLanguage: Record<Language, Copy> = {en, zh};
+const copyByLanguage: Record<Language, Copy> = { en, zh };
 
-export const sectionOrder: SectionId[] = ["identity", "connection", "driver", "streams", "dependencies"];
+export const sectionOrder: SectionId[] = [
+  "identity",
+  "connection",
+  "driver",
+  "streams",
+  "dependencies",
+];
 export const payloadOrder: PayloadType[] = ["signal", "raster", "field", "video"];
 export const dataArrivalOrder: DataArrival[] = ["push", "poll", "unsure"];
 export const driverKindOrder: DriverKind[] = ["driver", "loop"];

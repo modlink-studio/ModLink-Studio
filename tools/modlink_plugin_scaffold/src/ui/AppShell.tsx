@@ -1,5 +1,5 @@
-import React from "react";
-import {Box, Text} from "ink";
+import { Box, Text } from "ink";
+import type React from "react";
 
 type AppShellProps = {
   width: number;
@@ -27,7 +27,14 @@ export function AppShell({
   footer,
 }: AppShellProps): React.JSX.Element {
   return (
-    <Box width={width} height={height} borderStyle="round" borderColor="green" flexDirection="column" paddingX={1}>
+    <Box
+      width={width}
+      height={height}
+      borderStyle="round"
+      borderColor="green"
+      flexDirection="column"
+      paddingX={1}
+    >
       <Box justifyContent="space-between">
         <Text bold color="green">
           {title}

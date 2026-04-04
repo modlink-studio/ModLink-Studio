@@ -13,3 +13,12 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: biome-plugin-scaffold
+        name: biome (plugin scaffold)
+        entry: npm --workspace @modlink-studio/plugin-scaffold run lint:fix
+        language: system
+        pass_filenames: false
+        files: ^tools/modlink_plugin_scaffold/

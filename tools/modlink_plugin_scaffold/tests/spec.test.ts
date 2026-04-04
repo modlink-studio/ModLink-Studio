@@ -1,9 +1,20 @@
 import path from "node:path";
 
-import {describe, expect, test} from "vitest";
-
-import {buildPreviewBundle, renderLicense, renderPyprojectToml, renderReadme} from "../src/templates/render.js";
-import {applyPayloadDefaults, createDefaultDraft, makeDeviceId, sanitizeIdentifier, toPascalCase, validateDraft} from "../src/lib/spec.js";
+import { describe, expect, test } from "vitest";
+import {
+  applyPayloadDefaults,
+  createDefaultDraft,
+  makeDeviceId,
+  sanitizeIdentifier,
+  toPascalCase,
+  validateDraft,
+} from "../src/lib/spec.js";
+import {
+  buildPreviewBundle,
+  renderLicense,
+  renderPyprojectToml,
+  renderReadme,
+} from "../src/templates/render.js";
 
 describe("spec helpers", () => {
   test("normalizes plugin identity and derives defaults", () => {
@@ -41,7 +52,9 @@ describe("spec helpers", () => {
     const validation = validateDraft("zh", invalid);
 
     expect(validation.spec).toBeNull();
-    expect(Object.keys(validation.fieldErrors)).toEqual(expect.arrayContaining(["pluginName", "providersText", "streams.0.channelNames"]));
+    expect(Object.keys(validation.fieldErrors)).toEqual(
+      expect.arrayContaining(["pluginName", "providersText", "streams.0.channelNames"]),
+    );
   });
 });
 
@@ -60,7 +73,13 @@ describe("template rendering", () => {
     expect(preview.summary.title).toBe("Scaffold summary");
     expect(preview.summary.metrics).toHaveLength(5);
     expect(preview.summary.metrics.map((metric) => metric.label)).toEqual(
-      expect.arrayContaining(["Device ID", "Providers", "Driver base class", "Data arrival", "Streams"]),
+      expect.arrayContaining([
+        "Device ID",
+        "Providers",
+        "Driver base class",
+        "Data arrival",
+        "Streams",
+      ]),
     );
     expect(preview.driver).toContain("class MyDeviceDriver");
     expect(preview.pyproject).toContain('license = "MIT"');
@@ -81,9 +100,12 @@ describe("template rendering", () => {
   test("renders stable project files", () => {
     const spec = validateDraft("en", createDefaultDraft()).spec;
     expect(spec).not.toBeNull();
+    if (!spec) {
+      throw new Error("expected valid spec");
+    }
 
-    expect(renderPyprojectToml(spec!)).toContain('[project.entry-points."modlink.drivers"]');
-    expect(renderReadme(spec!, "zh")).toContain("Driver 插件");
+    expect(renderPyprojectToml(spec)).toContain('[project.entry-points."modlink.drivers"]');
+    expect(renderReadme(spec, "zh")).toContain("Driver 插件");
     expect(renderLicense()).toContain("MIT License");
   });
 });

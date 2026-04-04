@@ -1,6 +1,6 @@
-import {getCopy} from "../lib/i18n.js";
-import {visibleStreamFieldKeys} from "../lib/spec.js";
-import type {Draft, Language, SectionId, UiRowZone, ValidationResult} from "../lib/types.js";
+import { getCopy } from "../lib/i18n.js";
+import { visibleStreamFieldKeys } from "../lib/spec.js";
+import type { Draft, Language, SectionId, UiRowZone, ValidationResult } from "../lib/types.js";
 
 export type RowKind = "text" | "choice" | "action";
 
@@ -131,7 +131,10 @@ export function getRowsForSection(
     ...draft.streams.map((stream, index) => {
       const defaultName = `${copy.defaultStreamName} ${index + 1}`;
       const streamName = stream.displayName.trim();
-      const meta = streamName && streamName !== defaultName ? streamName : copy.payloadOptions[stream.payloadType];
+      const meta =
+        streamName && streamName !== defaultName
+          ? streamName
+          : copy.payloadOptions[stream.payloadType];
       return {
         key: `streams.select.${index}`,
         kind: "action" as const,
@@ -141,8 +144,22 @@ export function getRowsForSection(
         zone: "stream-list" as const,
       };
     }),
-    {key: "streams.add", kind: "action", label: copy.streamAddAction, value: "", description: descriptionFor("streams.add"), zone: "stream-action"},
-    {key: "streams.delete", kind: "action", label: copy.streamDeleteAction, value: "", description: descriptionFor("streams.delete"), zone: "stream-action"},
+    {
+      key: "streams.add",
+      kind: "action",
+      label: copy.streamAddAction,
+      value: "",
+      description: descriptionFor("streams.add"),
+      zone: "stream-action",
+    },
+    {
+      key: "streams.delete",
+      kind: "action",
+      label: copy.streamDeleteAction,
+      value: "",
+      description: descriptionFor("streams.delete"),
+      zone: "stream-action",
+    },
     {
       key: "streams.modality",
       kind: "text",
