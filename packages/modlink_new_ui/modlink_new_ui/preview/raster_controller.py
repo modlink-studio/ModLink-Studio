@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import replace
 
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QImage
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from .models import RasterPreviewSettings, TransformMode, ValueRangeMode
+from .models import (
+    RasterPreviewSettings,
+    TransformMode,
+    ValueRangeMode,
+    VideoPreviewSettings,
+    normalize_preview_settings,
+)
 
 RASTER_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
 DEFAULT_RASTER_WINDOW_SECONDS = 8
@@ -27,6 +34,7 @@ class RasterStreamController(QObject):
         self._line_buffer: deque[np.ndarray] = deque(maxlen=self._max_lines)
         self._line_length = 0
         self._has_frame = False
+        self._current_image = QImage()
 
     @property
     def descriptor(self) -> StreamDescriptor:
@@ -44,7 +52,41 @@ class RasterStreamController(QObject):
     def fillMode(self) -> str:
         return "stretch"
 
+    @pyqtProperty(QImage, notify=imageChanged)
+    def currentImage(self) -> QImage:
+        return self._current_image
+
+    @pyqtProperty(int, notify=settingsChanged)
+    def windowSeconds(self) -> int:
+        return self._settings.window_seconds
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def interpolation(self) -> str:
+        return self._settings.interpolation
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def transformMode(self) -> str:
+        return self._settings.transform
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def valueRangeMode(self) -> str:
+        return self._settings.value_range_mode
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def manualMin(self) -> float:
+        return self._settings.manual_min
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def manualMax(self) -> float:
+        return self._settings.manual_max
+
     def apply_settings(self, settings: RasterPreviewSettings) -> None:
+        settings = normalize_preview_settings(
+            "raster",
+            settings,
+            self._sample_rate_hz,
+            tuple(self._descriptor.channel_names),
+        )
         old_ws = self._settings.window_seconds
         self._settings = settings
         if settings.window_seconds != old_ws:
@@ -53,6 +95,8 @@ class RasterStreamController(QObject):
                 self._max_lines = new_max
                 self._line_buffer = deque(list(self._line_buffer)[-new_max:], maxlen=new_max)
         self.settingsChanged.emit()
+        if self._has_frame:
+            self.flush()
 
     def push_frame(self, frame: FrameEnvelope) -> None:
         data = np.asarray(frame.data)
@@ -75,9 +119,58 @@ class RasterStreamController(QObject):
         image = _apply_levels(image, self._settings.value_range_mode, self._settings.manual_min, self._settings.manual_max)
         qimage = _to_qimage_gray(image)
         if qimage is not None:
+            self._current_image = qimage
             self.imageChanged.emit(qimage)
             return True
         return False
+
+    def export_settings(self) -> RasterPreviewSettings:
+        return self._settings
+
+    @pyqtSlot(int)
+    def setWindowSeconds(self, value: int) -> None:
+        self.apply_settings(replace(self._settings, window_seconds=max(1, int(value))))
+
+    @pyqtSlot(str)
+    def setInterpolation(self, value: str) -> None:
+        if value not in ("nearest", "bilinear", "bicubic"):
+            return
+        self.apply_settings(replace(self._settings, interpolation=value))
+
+    @pyqtSlot(str)
+    def setTransformMode(self, value: str) -> None:
+        if value not in (
+            "none",
+            "flip_horizontal",
+            "flip_vertical",
+            "rotate_90",
+            "rotate_180",
+            "rotate_270",
+        ):
+            return
+        self.apply_settings(replace(self._settings, transform=value))
+
+    @pyqtSlot(str)
+    def setValueRangeMode(self, value: str) -> None:
+        if value not in ("auto", "zero_to_one", "zero_to_255", "manual"):
+            return
+        self.apply_settings(replace(self._settings, value_range_mode=value))
+
+    @pyqtSlot(float)
+    def setManualMin(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_min=normalized))
+
+    @pyqtSlot(float)
+    def setManualMax(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_max=normalized))
 
     def _compute_max_lines(self, window_seconds: int) -> int:
         return max(int(self._sample_rate_hz * window_seconds), 128)
@@ -94,6 +187,7 @@ class VideoStreamController(QObject):
         self._settings = VideoPreviewSettings()
         self._latest_data: np.ndarray | None = None
         self._has_frame = False
+        self._current_image = QImage()
 
     @property
     def descriptor(self) -> StreamDescriptor:
@@ -116,11 +210,37 @@ class VideoStreamController(QObject):
             return "fill"
         return "fit"
 
+    @pyqtProperty(QImage, notify=imageChanged)
+    def currentImage(self) -> QImage:
+        return self._current_image
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def colorFormat(self) -> str:
+        return self._settings.color_format
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def scaleMode(self) -> str:
+        return self._settings.scale_mode
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def aspectMode(self) -> str:
+        return self._settings.aspect_mode
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def transformMode(self) -> str:
+        return self._settings.transform
+
     def apply_settings(self, settings: object) -> None:
-        from .models import VideoPreviewSettings
         if isinstance(settings, VideoPreviewSettings):
-            self._settings = settings
+            self._settings = normalize_preview_settings(
+                "video",
+                settings,
+                float(self._descriptor.nominal_sample_rate_hz or 1.0),
+                tuple(self._descriptor.channel_names),
+            )
         self.settingsChanged.emit()
+        if self._has_frame:
+            self.flush()
 
     def push_frame(self, frame: FrameEnvelope) -> None:
         data = np.asarray(frame.data)
@@ -142,9 +262,44 @@ class VideoStreamController(QObject):
         image = _apply_transform(image, self._settings.transform)
         qimage = _ndarray_to_qimage(image)
         if qimage is not None:
+            self._current_image = qimage
             self.imageChanged.emit(qimage)
             return True
         return False
+
+    def export_settings(self) -> VideoPreviewSettings:
+        return self._settings
+
+    @pyqtSlot(str)
+    def setColorFormat(self, value: str) -> None:
+        if value not in ("rgb", "bgr", "gray", "yuv"):
+            return
+        self.apply_settings(replace(self._settings, color_format=value))
+
+    @pyqtSlot(str)
+    def setScaleMode(self, value: str) -> None:
+        if value not in ("fit", "fill"):
+            return
+        self.apply_settings(replace(self._settings, scale_mode=value))
+
+    @pyqtSlot(str)
+    def setAspectMode(self, value: str) -> None:
+        if value not in ("keep", "stretch"):
+            return
+        self.apply_settings(replace(self._settings, aspect_mode=value))
+
+    @pyqtSlot(str)
+    def setTransformMode(self, value: str) -> None:
+        if value not in (
+            "none",
+            "flip_horizontal",
+            "flip_vertical",
+            "rotate_90",
+            "rotate_180",
+            "rotate_270",
+        ):
+            return
+        self.apply_settings(replace(self._settings, transform=value))
 
     def _compose_image(self, data: np.ndarray) -> np.ndarray | None:
         fmt = self._settings.color_format

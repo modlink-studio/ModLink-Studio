@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Effects
 
 Rectangle {
     id: root
@@ -10,53 +9,45 @@ Rectangle {
     property string subtitle: ""
     default property alias contentData: contentColumn.data
 
-    radius: 8
-    color: palette.base
-    border.width: 1
-    border.color: palette.mid
+    UiTokens { id: ui }
 
     implicitWidth: 360
-    implicitHeight: contentColumn.implicitHeight + 32
-
-    layer.enabled: true
-    layer.effect: MultiEffect {
-        shadowEnabled: true
-        shadowColor: Qt.rgba(0, 0, 0, 0.06)
-        shadowBlur: 0.3
-        shadowVerticalOffset: 2
-        shadowHorizontalOffset: 0
-    }
+    implicitHeight: contentColumn.implicitHeight + ui.cardPadding * 2
+    radius: ui.radiusLg
+    color: ui.surface
+    border.width: 1
+    border.color: ui.borderSoft
 
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 10
+        anchors.margins: ui.cardPadding
+        spacing: 14
 
         Item {
             Layout.fillWidth: true
             visible: root.title.length > 0 || root.subtitle.length > 0
-            implicitHeight: headerCol.implicitHeight
+            implicitHeight: headerColumn.implicitHeight
 
             ColumnLayout {
-                id: headerCol
+                id: headerColumn
                 anchors.fill: parent
-                spacing: 2
+                spacing: 4
 
                 Label {
                     text: root.title
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
-                    color: palette.windowText
                     visible: text.length > 0
+                    font.pixelSize: 17
+                    font.weight: Font.DemiBold
+                    color: ui.textPrimary
                 }
 
                 Label {
                     text: root.subtitle
-                    color: palette.placeholderText
+                    visible: text.length > 0
                     font.pixelSize: 12
                     wrapMode: Text.Wrap
-                    visible: text.length > 0
+                    color: ui.textSecondary
                 }
             }
         }

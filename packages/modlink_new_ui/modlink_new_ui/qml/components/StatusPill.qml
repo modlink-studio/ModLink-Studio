@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: root
@@ -6,36 +7,41 @@ Rectangle {
     property string text: ""
     property string tone: "neutral"
 
-    radius: 12
-    implicitHeight: 24
-    implicitWidth: label.implicitWidth + 20
+    UiTokens { id: ui }
+
+    radius: height / 2
+    implicitHeight: 26
+    implicitWidth: label.implicitWidth + 22
 
     color: {
-        if (tone === "success") return Qt.rgba(0.0, 0.6, 0.3, 0.12);
-        if (tone === "info")    return Qt.rgba(0.0, 0.4, 0.8, 0.12);
-        if (tone === "warning") return Qt.rgba(0.8, 0.6, 0.0, 0.12);
-        return Qt.rgba(0.5, 0.5, 0.5, 0.08);
+        if (tone === "success") return ui.successBg;
+        if (tone === "info") return ui.infoBg;
+        if (tone === "warning") return ui.warningBg;
+        if (tone === "danger") return ui.dangerBg;
+        return ui.surfaceAlt;
     }
 
     border.width: 1
     border.color: {
-        if (tone === "success") return Qt.rgba(0.0, 0.6, 0.3, 0.25);
-        if (tone === "info")    return Qt.rgba(0.0, 0.4, 0.8, 0.25);
-        if (tone === "warning") return Qt.rgba(0.8, 0.6, 0.0, 0.25);
-        return Qt.rgba(0.5, 0.5, 0.5, 0.15);
+        if (tone === "success") return Qt.darker(ui.successBg, 1.08);
+        if (tone === "info") return Qt.darker(ui.infoBg, 1.08);
+        if (tone === "warning") return Qt.darker(ui.warningBg, 1.08);
+        if (tone === "danger") return Qt.darker(ui.dangerBg, 1.08);
+        return ui.borderSoft;
     }
 
-    Text {
+    Label {
         id: label
         anchors.centerIn: parent
         text: root.text
         font.pixelSize: 12
         font.weight: Font.DemiBold
         color: {
-            if (root.tone === "success") return "#0d6832";
-            if (root.tone === "info")    return "#0a5caa";
-            if (root.tone === "warning") return "#7a5200";
-            return palette.windowText;
+            if (root.tone === "success") return ui.successFg;
+            if (root.tone === "info") return ui.infoFg;
+            if (root.tone === "warning") return ui.warningFg;
+            if (root.tone === "danger") return ui.dangerFg;
+            return ui.textSecondary;
         }
     }
 }

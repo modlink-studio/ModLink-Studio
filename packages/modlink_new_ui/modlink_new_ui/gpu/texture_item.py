@@ -29,6 +29,13 @@ class TextureItem(QQuickPaintedItem):
         self._source_image: QImage | None = None
         self._fill_mode: Literal["fit", "fill", "stretch"] = "fit"
 
+    @pyqtProperty(QImage, notify=sourceImageChanged)
+    def sourceImage(self) -> QImage:
+        image = self._source_image
+        if image is None:
+            return QImage()
+        return image
+
     @pyqtProperty(str, notify=fillModeChanged)
     def fillMode(self) -> str:
         return self._fill_mode
@@ -40,14 +47,18 @@ class TextureItem(QQuickPaintedItem):
             self.fillModeChanged.emit()
             self.update()
 
-    @pyqtSlot(QImage)
-    def setSourceImage(self, image: QImage) -> None:
+    @sourceImage.setter  # type: ignore[attr-defined]
+    def sourceImage(self, image: QImage | None) -> None:
         if image is None or image.isNull():
             self._source_image = None
         else:
             self._source_image = image
         self.sourceImageChanged.emit()
         self.update()
+
+    @pyqtSlot(QImage)
+    def setSourceImage(self, image: QImage) -> None:
+        self.sourceImage = image
 
     def paint(self, painter: QPainter) -> None:
         width = self.width()

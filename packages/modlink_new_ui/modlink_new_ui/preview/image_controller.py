@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
-from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QImage
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from .models import FieldPreviewSettings, TransformMode, ValueRangeMode
+from .models import (
+    FieldPreviewSettings,
+    TransformMode,
+    ValueRangeMode,
+    normalize_preview_settings,
+)
 
 _COLORMAPS: dict[str, np.ndarray | None] = {"gray": None}
 
@@ -22,7 +29,7 @@ class ImageStreamController(QObject):
         self._descriptor = descriptor
         self._settings = FieldPreviewSettings()
         self._latest_image: np.ndarray | None = None
-        self._qimage: QImage | None = None
+        self._current_image = QImage()
         self._has_frame = False
 
     @property
@@ -41,9 +48,40 @@ class ImageStreamController(QObject):
     def fillMode(self) -> str:
         return "fit"
 
+    @pyqtProperty(QImage, notify=imageChanged)
+    def currentImage(self) -> QImage:
+        return self._current_image
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def interpolation(self) -> str:
+        return self._settings.interpolation
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def transformMode(self) -> str:
+        return self._settings.transform
+
+    @pyqtProperty(str, notify=settingsChanged)
+    def valueRangeMode(self) -> str:
+        return self._settings.value_range_mode
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def manualMin(self) -> float:
+        return self._settings.manual_min
+
+    @pyqtProperty(float, notify=settingsChanged)
+    def manualMax(self) -> float:
+        return self._settings.manual_max
+
     def apply_settings(self, settings: FieldPreviewSettings) -> None:
-        self._settings = settings
+        self._settings = normalize_preview_settings(
+            "field",
+            settings,
+            float(self._descriptor.nominal_sample_rate_hz or 1.0),
+            tuple(self._descriptor.channel_names),
+        )
         self.settingsChanged.emit()
+        if self._has_frame:
+            self.flush()
 
     def push_frame(self, frame: FrameEnvelope) -> None:
         data = np.asarray(frame.data)
@@ -63,10 +101,54 @@ class ImageStreamController(QObject):
         image = self._apply_levels(image, self._settings.value_range_mode, self._settings.manual_min, self._settings.manual_max)
         qimage = self._to_qimage(image)
         if qimage is not None:
-            self._qimage = qimage
+            self._current_image = qimage
             self.imageChanged.emit(qimage)
             return True
         return False
+
+    def export_settings(self) -> FieldPreviewSettings:
+        return self._settings
+
+    @pyqtSlot(str)
+    def setInterpolation(self, value: str) -> None:
+        if value not in ("nearest", "bilinear", "bicubic"):
+            return
+        self.apply_settings(replace(self._settings, interpolation=value))
+
+    @pyqtSlot(str)
+    def setTransformMode(self, value: str) -> None:
+        if value not in (
+            "none",
+            "flip_horizontal",
+            "flip_vertical",
+            "rotate_90",
+            "rotate_180",
+            "rotate_270",
+        ):
+            return
+        self.apply_settings(replace(self._settings, transform=value))
+
+    @pyqtSlot(str)
+    def setValueRangeMode(self, value: str) -> None:
+        if value not in ("auto", "zero_to_one", "zero_to_255", "manual"):
+            return
+        self.apply_settings(replace(self._settings, value_range_mode=value))
+
+    @pyqtSlot(float)
+    def setManualMin(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_min=normalized))
+
+    @pyqtSlot(float)
+    def setManualMax(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return
+        self.apply_settings(replace(self._settings, manual_max=normalized))
 
     def _compose_image(self, latest: np.ndarray) -> np.ndarray | None:
         if latest.shape[0] == 1:
