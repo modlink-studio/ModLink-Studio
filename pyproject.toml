@@ -50,11 +50,49 @@ members = [
 
 [dependency-groups]
 dev = [
-    "black>=26.3.1",
     "pdoc>=16.0.0",
+    "pre-commit>=4.2.0",
     "pytest>=8.4.1",
     "pyinstaller>=6.16.0",
     "rich>=14.3.3",
+    "ruff>=0.11.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "N802",   # camelCase function names (Qt overrides, pyqtProperty)
+    "N815",   # mixedCase class attributes (pyqtSignal)
+    "N814",   # camelCase imports as constants (FluentIcon as FIF)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"packages/modlink_qt_bridge/**" = ["N"]
+"packages/modlink_ui/**" = ["N"]
+"packages/modlink_new_ui/**" = ["N"]
+"apps/modlink_studio/**" = ["N"]
+"apps/modlink_studio_qml/**" = ["N"]
+"**/tests/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "modlink_sdk",
+    "modlink_core",
+    "modlink_ui",
+    "modlink_new_ui",
+    "modlink_qt_bridge",
 ]
 
 [build-system]
