@@ -5,7 +5,6 @@ from collections.abc import Callable
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QWheelEvent
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
     QSizePolicy,
@@ -13,16 +12,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
-    BodyLabel,
     CaptionLabel,
     ComboBox,
     ExpandGroupSettingCard,
-    FluentIcon as FIF,
     PrimaryPushButton,
     PushButton,
     StrongBodyLabel,
     isDarkTheme,
     qconfig,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 
 from modlink_qt_bridge import QtDriverPortal, QtDriverTask
@@ -50,9 +50,7 @@ class StatusBadge(QLabel):
 
     def _refresh_style(self) -> None:
         palette = self._palette()
-        text, color, background, border = palette.get(
-            self._status, palette["disconnected"]
-        )
+        text, color, background, border = palette.get(self._status, palette["disconnected"])
         self.setText(text)
         self.setStyleSheet(
             f"""
@@ -296,9 +294,7 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
 
         row.row_layout.addWidget(self.connected_info, 1)
         row.row_layout.addWidget(self.stream_button, 0, Qt.AlignmentFlag.AlignRight)
-        row.row_layout.addWidget(
-            self.disconnect_button, 0, Qt.AlignmentFlag.AlignRight
-        )
+        row.row_layout.addWidget(self.disconnect_button, 0, Qt.AlignmentFlag.AlignRight)
         return row
 
     def _clear_group_widgets(self) -> None:
@@ -468,15 +464,11 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
 
     def _on_start_streaming_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
-            self._last_error_text = self._format_task_error(
-                "start_streaming", task.error
-            )
+            self._last_error_text = self._format_task_error("start_streaming", task.error)
 
     def _on_stop_streaming_task_done(self, task: QtDriverTask) -> None:
         if task.error is not None:
-            self._last_error_text = self._format_task_error(
-                "stop_streaming", task.error
-            )
+            self._last_error_text = self._format_task_error("stop_streaming", task.error)
 
     def _on_provider_changed(self, provider: str) -> None:
         provider = provider.strip()
@@ -499,9 +491,7 @@ class BaseDeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
     def _on_connection_lost(self, detail: object) -> None:
         self._connected_result = None
         message = str(detail).strip()
-        self._last_error_text = (
-            f"设备连接已丢失：{message}" if message else "设备连接已丢失。"
-        )
+        self._last_error_text = f"设备连接已丢失：{message}" if message else "设备连接已丢失。"
         self._sync_ui()
         self._refresh_groups()
 

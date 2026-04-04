@@ -159,9 +159,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
         layout.addLayout(self.settings_grid)
         layout.addWidget(self.hint_label)
 
-        self.value_range_combo.currentIndexChanged.connect(
-            self._sync_manual_range_visibility
-        )
+        self.value_range_combo.currentIndexChanged.connect(self._sync_manual_range_visibility)
         self.duration_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.colormap_combo.currentIndexChanged.connect(self._emit_state_changed)
         self.value_range_combo.currentIndexChanged.connect(self._emit_state_changed)
@@ -183,9 +181,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
         )
 
     def set_state(self, state: object) -> None:
-        settings = (
-            state if isinstance(state, RasterPreviewSettings) else RasterPreviewSettings()
-        )
+        settings = state if isinstance(state, RasterPreviewSettings) else RasterPreviewSettings()
         with (
             QSignalBlocker(self.duration_combo),
             QSignalBlocker(self.colormap_combo),

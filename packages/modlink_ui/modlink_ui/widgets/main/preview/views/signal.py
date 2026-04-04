@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+import pyqtgraph as pg
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QVBoxLayout
-
-import pyqtgraph as pg
 from scipy import signal as sp_signal
 
 from modlink_qt_bridge import QtSettingsBridge
@@ -97,9 +96,7 @@ class _SignalFilterPipeline:
             return
         self._channel_count = channel_count
 
-        main_sections = (
-            int(self._main_sos.shape[0]) if self._main_sos is not None else 0
-        )
+        main_sections = int(self._main_sos.shape[0]) if self._main_sos is not None else 0
         self._main_states = [
             np.zeros((main_sections, 2), dtype=np.float64) for _ in range(channel_count)
         ]
@@ -329,9 +326,7 @@ class SignalStreamView(BaseStreamView):
             getattr(settings, "layout_mode", self._layout_mode),
             fallback=self._layout_mode,
         )
-        self._layout_mode = (
-            layout_mode if layout_mode in {"stacked", "expanded"} else "expanded"
-        )
+        self._layout_mode = layout_mode if layout_mode in {"stacked", "expanded"} else "expanded"
         self._visible_channel_indices = self._coerce_int_tuple(
             getattr(settings, "visible_channel_indices", self._visible_channel_indices),
         )
@@ -340,9 +335,7 @@ class SignalStreamView(BaseStreamView):
             getattr(settings, "y_range_mode", self._y_range_mode),
             fallback=self._y_range_mode,
         )
-        self._y_range_mode = (
-            y_range_mode if y_range_mode in {"auto", "manual"} else "auto"
-        )
+        self._y_range_mode = y_range_mode if y_range_mode in {"auto", "manual"} else "auto"
         self._manual_y_min = self._coerce_float(
             getattr(settings, "manual_y_min", self._manual_y_min),
             fallback=self._manual_y_min,
@@ -426,10 +419,7 @@ class SignalStreamView(BaseStreamView):
     def _ensure_channels(self, channel_count: int) -> None:
         if channel_count <= 0:
             return
-        if (
-            self._ring_buffer is not None
-            and self._ring_buffer.channels == channel_count
-        ):
+        if self._ring_buffer is not None and self._ring_buffer.channels == channel_count:
             return
 
         self._ring_buffer = _SignalRingBuffer(channel_count, self._max_samples)
@@ -633,9 +623,7 @@ class SignalStreamView(BaseStreamView):
         if channel_count <= 0:
             return ()
         requested = tuple(
-            index
-            for index in self._visible_channel_indices
-            if 0 <= index < channel_count
+            index for index in self._visible_channel_indices if 0 <= index < channel_count
         )
         if requested:
             return requested
@@ -705,16 +693,12 @@ class SignalStreamView(BaseStreamView):
             fallback="butterworth",
         )
         mode = (
-            mode
-            if mode in {"none", "low_pass", "high_pass", "band_pass", "band_stop"}
-            else "none"
+            mode if mode in {"none", "low_pass", "high_pass", "band_pass", "band_stop"} else "none"
         )
-        family = (
-            family
-            if family in {"butterworth", "chebyshev1", "bessel"}
-            else "butterworth"
+        family = family if family in {"butterworth", "chebyshev1", "bessel"} else "butterworth"
+        order = max(
+            1, min(12, self._coerce_int(self._read_attr(filter_settings, "order", 4), fallback=4))
         )
-        order = max(1, min(12, self._coerce_int(self._read_attr(filter_settings, "order", 4), fallback=4)))
 
         low_cutoff = self._coerce_float(
             self._read_attr(filter_settings, "low_cutoff_hz", 1.0),

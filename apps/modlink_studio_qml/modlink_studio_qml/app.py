@@ -3,8 +3,8 @@ from __future__ import annotations
 from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
 from modlink_core.settings.service import SettingsService
-from modlink_qt_bridge import QtModLinkBridge
 from modlink_new_ui import create_application, load_window
+from modlink_qt_bridge import QtModLinkBridge
 
 
 def main() -> None:

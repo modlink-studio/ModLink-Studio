@@ -33,13 +33,9 @@ class AcquisitionController(QObject):
         self._segment_label = ""
         self._segment_started_ns: int | None = None
 
-        self._engine.acquisition.sig_state_changed.connect(
-            self._on_recording_state_changed
-        )
+        self._engine.acquisition.sig_state_changed.connect(self._on_recording_state_changed)
         self._engine.acquisition.sig_error.connect(self._on_error)
-        self._engine.acquisition.sig_recording_failed.connect(
-            self._on_recording_failed
-        )
+        self._engine.acquisition.sig_recording_failed.connect(self._on_recording_failed)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=sessionNameChanged)
@@ -68,9 +64,7 @@ class AcquisitionController(QObject):
 
     @pyqtProperty("QVariantList", notify=recordingLabelsChanged)
     def recordingLabels(self) -> list[str]:
-        return list(
-            normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
-        )
+        return list(normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS)))
 
     @pyqtProperty(str, notify=outputDirectoryChanged)
     def outputDirectory(self) -> str:

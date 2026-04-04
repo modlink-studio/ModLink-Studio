@@ -52,9 +52,7 @@ class SettingsPageController(QObject):
 
     @pyqtProperty("QVariantList", notify=labelsChanged)
     def labels(self) -> list[str]:
-        return list(
-            normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
-        )
+        return list(normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS)))
 
     @pyqtSlot(str)
     def setSaveDirectory(self, value: str) -> None:

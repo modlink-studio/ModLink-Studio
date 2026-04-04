@@ -56,13 +56,9 @@ class StreamPreviewInfoPanel(SimpleCardWidget):
 
     def _add_info_row(self, row: int, label: str, value: str) -> None:
         label_widget = CaptionLabel(label, self)
-        label_widget.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
+        label_widget.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         value_widget = BodyLabel(value, self)
         value_widget.setWordWrap(True)
-        value_widget.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
+        value_widget.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.info_grid.addWidget(label_widget, row, 0)
         self.info_grid.addWidget(value_widget, row, 1)

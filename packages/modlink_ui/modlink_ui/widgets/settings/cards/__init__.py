@@ -2,8 +2,8 @@ from .label_manager import LabelManagerCard
 from .preview_refresh_rate import (
     DEFAULT_PREVIEW_REFRESH_RATE_HZ,
     PREVIEW_REFRESH_RATE_OPTIONS,
-    PreviewRefreshRateCard,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+    PreviewRefreshRateCard,
     normalize_preview_refresh_rate_hz,
 )
 from .save_directory import SaveDirectoryCard

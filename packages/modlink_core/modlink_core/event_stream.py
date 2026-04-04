@@ -27,9 +27,7 @@ class EventStream:
     ) -> None:
         normalized_maxsize = max(1, int(maxsize))
         self._broker = broker
-        self._queue: queue.Queue[BackendEvent | object] = queue.Queue(
-            maxsize=normalized_maxsize
-        )
+        self._queue: queue.Queue[BackendEvent | object] = queue.Queue(maxsize=normalized_maxsize)
         self._lock = RLock()
         self._closed = False
 

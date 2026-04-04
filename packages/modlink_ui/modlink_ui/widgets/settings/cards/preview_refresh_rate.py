@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget
-from qfluentwidgets import ComboBox, FluentIcon as FIF, SettingCard
+from qfluentwidgets import ComboBox, SettingCard
+from qfluentwidgets import FluentIcon as FIF
 
 from modlink_qt_bridge import QtSettingsBridge
 

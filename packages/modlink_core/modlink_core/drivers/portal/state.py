@@ -70,18 +70,11 @@ class DeviceState:
         is_streaming: bool | None = None,
     ) -> bool:
         with self._lock:
-            next_is_connected = (
-                self._is_connected if is_connected is None else bool(is_connected)
-            )
-            next_is_streaming = (
-                self._is_streaming if is_streaming is None else bool(is_streaming)
-            )
+            next_is_connected = self._is_connected if is_connected is None else bool(is_connected)
+            next_is_streaming = self._is_streaming if is_streaming is None else bool(is_streaming)
             if next_is_streaming and not next_is_connected:
                 raise ValueError("streaming requires the device to be connected")
-            if (
-                next_is_connected == self._is_connected
-                and next_is_streaming == self._is_streaming
-            ):
+            if next_is_connected == self._is_connected and next_is_streaming == self._is_streaming:
                 return False
             self._is_connected = next_is_connected
             self._is_streaming = next_is_streaming

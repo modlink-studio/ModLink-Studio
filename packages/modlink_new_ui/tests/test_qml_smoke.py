@@ -6,8 +6,8 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from modlink_core import ModLinkEngine, SettingsService
-from modlink_qt_bridge import QtModLinkBridge
 from modlink_new_ui import create_application, load_window
+from modlink_qt_bridge import QtModLinkBridge
 
 
 class QmlSmokeTest(unittest.TestCase):

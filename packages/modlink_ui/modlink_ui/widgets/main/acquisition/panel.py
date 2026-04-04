@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
 from qfluentwidgets import (
     BodyLabel,
     ComboBox,
-    FluentIcon as FIF,
     InfoBar,
     InfoBarPosition,
     LineEdit,
@@ -28,6 +27,9 @@ from qfluentwidgets import (
     TeachingTipTailPosition,
     TransparentToolButton,
     isDarkTheme,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 
 from modlink_qt_bridge import QtModLinkBridge
@@ -227,9 +229,7 @@ class SharedAcquisitionPanel(QWidget):
         return hint
 
     def _bind_line_edit(self, input_widget: LineEdit, key: str) -> None:
-        input_widget.textChanged.connect(
-            partial(self.view_model.update_field_value_from_ui, key)
-        )
+        input_widget.textChanged.connect(partial(self.view_model.update_field_value_from_ui, key))
 
     def _bind_combo_box(self, combo_box: ComboBox, key: str) -> None:
         combo_box.currentTextChanged.connect(
@@ -508,9 +508,7 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        self.annotation_label_input.textChanged.connect(
-            self._set_compact_annotation_value
-        )
+        self.annotation_label_input.textChanged.connect(self._set_compact_annotation_value)
 
         self.insert_marker_button = TransparentToolButton(insert_marker_state.icon, self)
         self.insert_marker_button.setFixedSize(34, 34)

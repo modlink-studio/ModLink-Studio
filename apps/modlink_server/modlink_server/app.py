@@ -24,8 +24,7 @@ from modlink_core import (
     StreamClosedError,
 )
 from modlink_core.drivers import discover_driver_factories
-from modlink_sdk import SearchResult
-from modlink_sdk import DriverFactory
+from modlink_sdk import DriverFactory, SearchResult
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000

@@ -19,7 +19,9 @@ class FakeEntryPoint:
         return self._loaded
 
 
-def test_discover_driver_factories_sorts_and_loads_callables(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_discover_driver_factories_sorts_and_loads_callables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def factory_alpha() -> str:
         return "alpha"
 

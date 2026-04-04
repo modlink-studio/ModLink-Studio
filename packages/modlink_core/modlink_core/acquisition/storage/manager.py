@@ -42,15 +42,11 @@ class AnnotationRecordingWriter:
         self._segments_file.flush()
 
     def add_marker(self, *, timestamp_ns: int, label: str | None) -> None:
-        self._markers_writer.writerow(
-            [int(timestamp_ns), "" if label is None else label]
-        )
+        self._markers_writer.writerow([int(timestamp_ns), "" if label is None else label])
         self._markers_file.flush()
 
     def add_segment(self, *, start_ns: int, end_ns: int, label: str | None) -> None:
-        self._segments_writer.writerow(
-            [int(start_ns), int(end_ns), "" if label is None else label]
-        )
+        self._segments_writer.writerow([int(start_ns), int(end_ns), "" if label is None else label])
         self._segments_file.flush()
 
     def close(self) -> None:

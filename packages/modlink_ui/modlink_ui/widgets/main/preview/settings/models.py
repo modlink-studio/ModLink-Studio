@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
-PreviewPayloadType: TypeAlias = Literal["signal", "raster", "field", "video"]
+type PreviewPayloadType = Literal["signal", "raster", "field", "video"]
 
 
-SignalFilterFamily: TypeAlias = Literal["butterworth", "chebyshev1", "bessel"]
-SignalFilterMode: TypeAlias = Literal[
+type SignalFilterFamily = Literal["butterworth", "chebyshev1", "bessel"]
+type SignalFilterMode = Literal[
     "none",
     "low_pass",
     "high_pass",
     "band_pass",
     "band_stop",
 ]
-SignalLayoutMode: TypeAlias = Literal["stacked", "expanded"]
-ValueRangeMode: TypeAlias = Literal["auto", "zero_to_one", "zero_to_255", "manual"]
-SignalYAxisRangeMode: TypeAlias = Literal["auto", "manual"]
-InterpolationMode: TypeAlias = Literal["nearest", "bilinear", "bicubic"]
-TransformMode: TypeAlias = Literal[
+type SignalLayoutMode = Literal["stacked", "expanded"]
+type ValueRangeMode = Literal["auto", "zero_to_one", "zero_to_255", "manual"]
+type SignalYAxisRangeMode = Literal["auto", "manual"]
+type InterpolationMode = Literal["nearest", "bilinear", "bicubic"]
+type TransformMode = Literal[
     "none",
     "flip_horizontal",
     "flip_vertical",
@@ -26,9 +26,9 @@ TransformMode: TypeAlias = Literal[
     "rotate_180",
     "rotate_270",
 ]
-VideoColorFormat: TypeAlias = Literal["rgb", "bgr", "gray", "yuv"]
-VideoScaleMode: TypeAlias = Literal["fit", "fill"]
-VideoAspectMode: TypeAlias = Literal["keep", "stretch"]
+type VideoColorFormat = Literal["rgb", "bgr", "gray", "yuv"]
+type VideoScaleMode = Literal["fit", "fill"]
+type VideoAspectMode = Literal["keep", "stretch"]
 
 
 @dataclass(slots=True)
@@ -85,7 +85,7 @@ class VideoPreviewSettings:
     transform: TransformMode = "none"
 
 
-PreviewSettings: TypeAlias = (
+type PreviewSettings = (
     SignalPreviewSettings | RasterPreviewSettings | FieldPreviewSettings | VideoPreviewSettings
 )
 

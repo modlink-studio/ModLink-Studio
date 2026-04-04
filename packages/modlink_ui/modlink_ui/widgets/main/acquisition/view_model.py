@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -106,9 +106,7 @@ class AcquisitionViewModel(QObject):
 
         self.engine.acquisition.sig_state_changed.connect(self._on_state_changed)
         self.engine.acquisition.sig_error.connect(self._on_error)
-        self.engine.acquisition.sig_recording_failed.connect(
-            self._on_recording_failed
-        )
+        self.engine.acquisition.sig_recording_failed.connect(self._on_recording_failed)
 
     @property
     def state(self) -> AcquisitionPanelState:
@@ -200,9 +198,7 @@ class AcquisitionViewModel(QObject):
             self.sig_field_value_changed.emit(key, normalized_value)
 
     def toggle_layout_mode(self) -> LayoutMode:
-        next_mode: LayoutMode = (
-            "compact" if self._layout_mode == "detailed" else "detailed"
-        )
+        next_mode: LayoutMode = "compact" if self._layout_mode == "detailed" else "detailed"
         return self.set_layout_mode(next_mode)
 
     def set_layout_mode(self, mode: LayoutMode) -> LayoutMode:

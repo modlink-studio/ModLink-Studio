@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 import numpy as np
 
 from .utils import make_stream_id, normalize_device_id, normalize_modality
 
-PayloadType: TypeAlias = Literal["signal", "raster", "field", "video"]
+type PayloadType = Literal["signal", "raster", "field", "video"]
 
 
 @dataclass(slots=True)

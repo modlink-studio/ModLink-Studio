@@ -34,9 +34,7 @@ def normalize_device_id(device_id: str) -> str:
     normalized = re.sub(r"[^a-z0-9_.]+", "_", normalized)
     normalized = re.sub(r"_+", "_", normalized).strip("._")
     if not _DEVICE_ID_PATTERN.fullmatch(normalized):
-        raise ValueError(
-            "device_id must match 'name.XX', for example 'my_driver.01'"
-        )
+        raise ValueError("device_id must match 'name.XX', for example 'my_driver.01'")
     return normalized
 
 

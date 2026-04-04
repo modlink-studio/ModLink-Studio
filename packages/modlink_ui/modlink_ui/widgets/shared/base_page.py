@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     SingleDirectionScrollArea,
-    SubtitleLabel,
     SmoothMode,
+    SubtitleLabel,
 )
 
 
@@ -52,16 +52,10 @@ class BasePage(QWidget):
         self.header_layout.addLayout(self.header_text_layout, 1)
         self.header_layout.addLayout(self.header_action_layout)
 
-        self.scroll_area = SingleDirectionScrollArea(
-            self, orient=Qt.Orientation.Vertical
-        )
+        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.scroll_area.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_area.setSmoothMode(SmoothMode.LINEAR)
 
         # Force the time-driven adaptive engine instead of fixed-step scrolling.

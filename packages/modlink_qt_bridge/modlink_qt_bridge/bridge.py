@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from concurrent.futures import CancelledError, Future
+import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import CancelledError, Future
 from pathlib import Path
 from threading import Event, RLock, Thread
-import time
 from uuid import uuid4
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
@@ -71,9 +71,7 @@ class QtDriverTask(QObject):
             self._sig_finalize_requested.emit()
             return
 
-        future.add_done_callback(
-            lambda _future: self._sig_finalize_requested.emit()
-        )
+        future.add_done_callback(lambda _future: self._sig_finalize_requested.emit())
 
     @property
     def is_running(self) -> bool:
@@ -304,9 +302,7 @@ class QtSettingsBridge(QObject):
 
     def _resync_snapshot(self, snapshot: dict[str, object]) -> None:
         for key, value in _flatten_settings(snapshot):
-            self.sig_setting_changed.emit(
-                SettingChangedEvent(key=key, value=value, ts=time.time())
-            )
+            self.sig_setting_changed.emit(SettingChangedEvent(key=key, value=value, ts=time.time()))
 
 
 class QtAcquisitionBridge(QObject):
@@ -424,9 +420,7 @@ class QtModLinkBridge(QObject):
         super().__init__(parent=parent)
         self._engine = engine
         self._stop_event = Event()
-        self._event_stream: EventStream = engine.open_event_stream(
-            maxsize=event_stream_maxsize
-        )
+        self._event_stream: EventStream = engine.open_event_stream(maxsize=event_stream_maxsize)
         self._frame_stream: FrameStream = engine.bus.open_frame_stream(
             maxsize=frame_stream_maxsize,
             drop_policy="drop_oldest",

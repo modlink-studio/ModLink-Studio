@@ -106,9 +106,7 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
         )
 
     def set_state(self, state: object) -> None:
-        settings = (
-            state if isinstance(state, VideoPreviewSettings) else VideoPreviewSettings()
-        )
+        settings = state if isinstance(state, VideoPreviewSettings) else VideoPreviewSettings()
         with (
             QSignalBlocker(self.color_format_combo),
             QSignalBlocker(self.scale_mode_combo),

@@ -38,9 +38,7 @@ class SettingsPage(BasePage):
         )
 
         preview_group = SettingCardGroup("实时展示", self.scroll_widget)
-        preview_group.addSettingCard(
-            PreviewRefreshRateCard(self.engine.settings, preview_group)
-        )
+        preview_group.addSettingCard(PreviewRefreshRateCard(self.engine.settings, preview_group))
 
         labels_group = SettingCardGroup("标签管理", self.scroll_widget)
         labels_group.addSettingCard(LabelManagerCard(self.engine.settings, labels_group))

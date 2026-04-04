@@ -7,11 +7,10 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from modlink_server.app import _iter_sse_messages, create_app
 
 from modlink_core import EventStreamOverflowError, SettingsService
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
-
-from modlink_server.app import create_app, _iter_sse_messages
 
 
 class ApiDemoDriver(Driver):
@@ -274,6 +273,7 @@ def _read_sse_event(lines) -> tuple[str, dict[str, object]]:
         if line.startswith("data: "):
             payload = json.loads(line.removeprefix("data: "))
     raise AssertionError("SSE event was not received")
+
 
 def _read_sse_event_from_generator(generator) -> tuple[str, dict[str, object]]:
     return _read_sse_event(_collect_sse_lines(generator))

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from concurrent.futures import Future
 import queue
 import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import Future
 from pathlib import Path
 
 from platformdirs import user_documents_path
@@ -230,8 +230,7 @@ class AcquisitionBackend:
             raise RuntimeError("ACQ_INVALID_SESSION_NAME")
 
         if not isinstance(recording_descriptors, dict) or not all(
-            isinstance(value, StreamDescriptor)
-            for value in recording_descriptors.values()
+            isinstance(value, StreamDescriptor) for value in recording_descriptors.values()
         ):
             raise RuntimeError("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
 

@@ -1,6 +1,6 @@
 from .base import BaseStreamView
-from .field import FieldStreamView
 from .factory import create_stream_view
+from .field import FieldStreamView
 from .image import ImageStreamView
 from .raster import RasterStreamView
 from .signal import SignalStreamView

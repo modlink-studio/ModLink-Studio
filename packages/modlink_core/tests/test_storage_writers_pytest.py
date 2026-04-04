@@ -139,7 +139,9 @@ def test_signal_writer_falls_back_to_generated_channel_names(
     ]
 
 
-def test_signal_writer_rejects_chunk_size_drift(tmp_path, descriptor_factory, frame_factory) -> None:
+def test_signal_writer_rejects_chunk_size_drift(
+    tmp_path, descriptor_factory, frame_factory
+) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
     writer = SignalStreamRecordingWriter(tmp_path / "signal_chunk_drift", descriptor)
 
