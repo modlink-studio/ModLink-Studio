@@ -44,7 +44,7 @@ function MetricLine({
   );
 }
 
-export function Banner({language, summary, width}: BannerProps): React.JSX.Element {
+export const Banner = React.memo(function Banner({language, summary, width}: BannerProps): React.JSX.Element {
   const copy = getCopy(language);
   const boxWidth = Math.max(24, width);
   const contentWidth = Math.max(20, boxWidth - 4);
@@ -91,4 +91,4 @@ export function Banner({language, summary, width}: BannerProps): React.JSX.Eleme
       />
     </Box>
   );
-}
+});

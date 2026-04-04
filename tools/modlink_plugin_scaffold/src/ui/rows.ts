@@ -18,20 +18,11 @@ function errorFor(validation: ValidationResult, key: string): string | undefined
   return validation.fieldErrors[key];
 }
 
-function withEditingValue(row: UiRow, editingKey: string | null, editBuffer: string): UiRow {
-  if (editingKey !== row.key) {
-    return row;
-  }
-  return {...row, value: editBuffer};
-}
-
 export function getRowsForSection(
   language: Language,
   section: SectionId,
   draft: Draft,
   validation: ValidationResult,
-  editingKey: string | null,
-  editBuffer: string,
 ): UiRow[] {
   const copy = getCopy(language);
   const selectedStream = draft.streams[draft.selectedStreamIndex];
@@ -74,7 +65,7 @@ export function getRowsForSection(
         zone: "default",
         error: errorFor(validation, "deviceId"),
       },
-    ].map((row) => withEditingValue(row, editingKey, editBuffer));
+    ];
   }
 
   if (section === "connection") {
@@ -96,7 +87,7 @@ export function getRowsForSection(
         description: descriptionFor("connection.dataArrival"),
         zone: "default",
       },
-    ].map((row) => withEditingValue(row, editingKey, editBuffer));
+    ];
   }
 
   if (section === "driver") {
@@ -109,7 +100,7 @@ export function getRowsForSection(
         description: descriptionFor("driver.driverKind"),
         zone: "default",
       },
-    ].map((row) => withEditingValue(row, editingKey, editBuffer));
+    ];
   }
 
   if (section === "dependencies") {
@@ -122,7 +113,7 @@ export function getRowsForSection(
         description: descriptionFor("dependencies.dependenciesText"),
         zone: "default",
       },
-    ].map((row) => withEditingValue(row, editingKey, editBuffer));
+    ];
   }
 
   const dynamicFieldLabels: Record<string, string> = {
@@ -205,5 +196,5 @@ export function getRowsForSection(
       zone: "stream-payload" as const,
       error: errorFor(validation, `${streamPrefix}.${fieldKey}`),
     })),
-  ].map((row) => withEditingValue(row, editingKey, editBuffer));
+  ];
 }

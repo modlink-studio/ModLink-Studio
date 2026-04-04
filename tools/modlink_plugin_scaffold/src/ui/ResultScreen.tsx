@@ -11,7 +11,12 @@ type ResultScreenProps = {
   height?: number;
 };
 
-export function ResultScreen({language, result, width, height}: ResultScreenProps): React.JSX.Element {
+export const ResultScreen = React.memo(function ResultScreen({
+  language,
+  result,
+  width,
+  height,
+}: ResultScreenProps): React.JSX.Element {
   const copy = getCopy(language);
 
   return (
@@ -32,4 +37,4 @@ export function ResultScreen({language, result, width, height}: ResultScreenProp
       </Box>
     </Box>
   );
-}
+});
