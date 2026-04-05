@@ -122,7 +122,14 @@ class SettingsService:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(payload)
-            temp_file.replace(self._path)
+            for attempt in range(5):
+                try:
+                    temp_file.replace(self._path)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.01 * (attempt + 1))
         finally:
             if temp_file.exists():
                 temp_file.unlink(missing_ok=True)

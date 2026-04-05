@@ -22,6 +22,8 @@ for path in (
 
 from PyQt6.QtWidgets import QApplication
 
+from modlink_core import SettingsService
+from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 from modlink_ui.widgets.main.preview.settings.models import (
     SignalPreviewSettings,
@@ -123,9 +125,14 @@ class SignalViewGeometryTests(unittest.TestCase):
             channel_names=("C3", "C4", "Cz"),
         )
 
+    def _create_view(self, descriptor: StreamDescriptor) -> SignalStreamView:
+        settings = SettingsService(parent=self._app)
+        bridge = QtSettingsBridge(settings)
+        return SignalStreamView(descriptor, bridge)
+
     def test_expanded_height_tracks_visible_channel_count(self) -> None:
         descriptor = self._descriptor()
-        view = SignalStreamView(descriptor)
+        view = self._create_view(descriptor)
 
         settings = normalize_preview_settings(
             "signal",
@@ -157,7 +164,7 @@ class SignalViewGeometryTests(unittest.TestCase):
 
     def test_stacked_height_stays_fixed(self) -> None:
         descriptor = self._descriptor()
-        view = SignalStreamView(descriptor)
+        view = self._create_view(descriptor)
 
         settings = normalize_preview_settings(
             "signal",
@@ -175,7 +182,7 @@ class SignalViewGeometryTests(unittest.TestCase):
 
     def test_detached_mode_relaxes_embedded_height_lock(self) -> None:
         descriptor = self._descriptor()
-        view = SignalStreamView(descriptor)
+        view = self._create_view(descriptor)
 
         settings = normalize_preview_settings(
             "signal",

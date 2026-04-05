@@ -72,3 +72,6 @@ It contains app code, a headless core, an SDK, Qt bridges, and plugins, but that
 - If the current code violates these rules, prefer simplifying it instead of extending the existing pattern.
 - Do not introduce framework-style extensibility in the name of future growth.
 - If a class or function boundary is unclear, simplify the boundary before adding new behavior.
+- When implementing roadmap-related work, always update `ROADMAP.md` to reflect the current status of that item.
+- After completing a planned feature, milestone, or scope change, mark it clearly in `ROADMAP.md` as planned, in progress, completed, deferred, or otherwise explicitly status-labeled.
+- If implementation changes the intended version boundary or priority of a roadmap item, update `ROADMAP.md` in the same workstream instead of leaving the roadmap stale.
