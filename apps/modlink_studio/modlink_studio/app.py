@@ -14,7 +14,7 @@ from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
 from modlink_core.settings.service import SettingsService
 from modlink_qt_bridge import QtModLinkBridge
-from modlink_ui import MainWindow
+from modlink_ui_qt_widgets import MainWindow
 
 
 def _load_app_icon() -> QIcon:

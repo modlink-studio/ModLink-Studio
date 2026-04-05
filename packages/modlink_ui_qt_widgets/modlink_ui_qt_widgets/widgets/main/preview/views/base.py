@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QWidget
 
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
-from modlink_ui.widgets.settings.cards.preview_refresh_rate import (
+from modlink_ui_qt_widgets.widgets.settings.cards.preview_refresh_rate import (
     DEFAULT_PREVIEW_REFRESH_RATE_HZ,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
     normalize_preview_refresh_rate_hz,

@@ -24,7 +24,7 @@
 
 - <a href="/pdoc/modlink_sdk.html" target="_self">modlink_sdk</a>
 - <a href="/pdoc/modlink_core.html" target="_self">modlink_core</a>
-- <a href="/pdoc/modlink_ui.html" target="_self">modlink_ui</a>
+- <a href="/pdoc/modlink_ui_qt_widgets.html" target="_self">modlink_ui_qt_widgets</a>
 - <a href="/pdoc/modlink_studio.html" target="_self">modlink_studio</a>
 
 ## 先建立一条最小接入链路

@@ -4,12 +4,12 @@ from PyQt6.QtWidgets import QWidget
 from qfluentwidgets import SettingCardGroup
 
 from modlink_qt_bridge import QtModLinkBridge
-from modlink_ui.widgets.settings.cards import (
+from modlink_ui_qt_widgets.widgets.settings.cards import (
     LabelManagerCard,
     PreviewRefreshRateCard,
     SaveDirectoryCard,
 )
-from modlink_ui.widgets.shared import BasePage
+from modlink_ui_qt_widgets.widgets.shared import BasePage
 
 
 class SettingsPage(BasePage):

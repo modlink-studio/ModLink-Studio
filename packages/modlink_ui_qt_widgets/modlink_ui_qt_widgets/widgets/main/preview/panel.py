@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
-from modlink_ui.widgets.shared import EmptyStateMessage
+from modlink_ui_qt_widgets.widgets.shared import EmptyStateMessage
 
 from .cards import DetachableStreamPreviewCard
 

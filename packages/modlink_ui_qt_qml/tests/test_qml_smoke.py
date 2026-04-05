@@ -10,8 +10,8 @@ from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtQml import QQmlComponent, QQmlEngine
 from PyQt6.QtWidgets import QApplication
 
-from modlink_new_ui import create_application
-from modlink_new_ui.preview.signal_controller import SignalStreamController
+from modlink_ui_qt_qml import create_application
+from modlink_ui_qt_qml.preview.signal_controller import SignalStreamController
 from modlink_sdk import Driver, StreamDescriptor
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -70,7 +70,7 @@ def test_qml_window_loads(qapp: QApplication) -> None:
     _ = qapp
     script = """
 from modlink_core import ModLinkEngine, SettingsService
-from modlink_new_ui import create_application, load_window
+from modlink_ui_qt_qml import create_application, load_window
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import Driver, StreamDescriptor
 
@@ -150,7 +150,7 @@ def test_preview_card_settings_dialog_opens(qapp: QApplication) -> None:
         QUrl.fromLocalFile(
             str(
                 Path(__file__).resolve().parents[1]
-                / "modlink_new_ui"
+                / "modlink_ui_qt_qml"
                 / "qml"
                 / "preview"
                 / "StreamPreviewCard.qml"
@@ -195,7 +195,7 @@ def test_page_header_component_instantiates(qapp: QApplication) -> None:
         QUrl.fromLocalFile(
             str(
                 Path(__file__).resolve().parents[1]
-                / "modlink_new_ui"
+                / "modlink_ui_qt_qml"
                 / "qml"
                 / "components"
                 / "PageHeader.qml"
@@ -219,14 +219,14 @@ def test_page_header_component_instantiates(qapp: QApplication) -> None:
 
 
 def test_gpu_items_importable() -> None:
-    from modlink_new_ui.gpu import TextureItem, WaveformItem
+    from modlink_ui_qt_qml.gpu import TextureItem, WaveformItem
 
     assert WaveformItem is not None
     assert TextureItem is not None
 
 
 def test_preview_controllers_importable() -> None:
-    from modlink_new_ui.preview.stream_controller_factory import (
+    from modlink_ui_qt_qml.preview.stream_controller_factory import (
         create_stream_controller,
     )
 

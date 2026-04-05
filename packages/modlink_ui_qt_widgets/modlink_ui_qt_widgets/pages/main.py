@@ -4,9 +4,9 @@ from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
 from PyQt6.QtWidgets import QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
-from modlink_ui.widgets.main.acquisition import AcquisitionControlPanel
-from modlink_ui.widgets.main.preview import StreamPreviewPanel
-from modlink_ui.widgets.shared import BasePage
+from modlink_ui_qt_widgets.widgets.main.acquisition import AcquisitionControlPanel
+from modlink_ui_qt_widgets.widgets.main.preview import StreamPreviewPanel
+from modlink_ui_qt_widgets.widgets.shared import BasePage
 
 
 class MainPage(BasePage):
