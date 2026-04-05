@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
+from modlink_ui.widgets.shared import EmptyStateMessage
 
 from .cards import DetachableStreamPreviewCard
 
@@ -18,7 +19,13 @@ class StreamPreviewPanel(QWidget):
         self.engine = engine
         self._cards: dict[str, DetachableStreamPreviewCard] = {}
         self._descriptor_snapshot = self.engine.bus.descriptors()
+        self.empty_state = EmptyStateMessage(
+            "当前还没有启动任何 driver",
+            "启动 driver 后，实时预览会显示在这里。",
+            self,
+        )
 
+        self.empty_state.setObjectName("stream-preview-empty-state")
         self.cards_container = QWidget(self)
         self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_layout.setContentsMargins(0, 0, 0, 0)
@@ -27,6 +34,7 @@ class StreamPreviewPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        layout.addWidget(self.empty_state)
         layout.addWidget(self.cards_container)
 
         for descriptor in self._descriptor_snapshot.values():
@@ -75,6 +83,12 @@ class StreamPreviewPanel(QWidget):
 
     def _sync_container_visibility(self) -> None:
         if not self.isVisible():
+            self.empty_state.hide()
             self.cards_container.hide()
             return
-        self.cards_container.setVisible(any(not card.is_detached for card in self._cards.values()))
+
+        has_cards = bool(self._cards)
+        self.empty_state.setVisible(not has_cards)
+        self.cards_container.setVisible(
+            has_cards and any(not card.is_detached for card in self._cards.values())
+        )

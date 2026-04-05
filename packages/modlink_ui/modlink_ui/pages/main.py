@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
-from PyQt6.QtWidgets import QVBoxLayout, QWidget
-from qfluentwidgets import CaptionLabel, SimpleCardWidget, StrongBodyLabel
+from PyQt6.QtWidgets import QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui.widgets.main.acquisition import AcquisitionControlPanel
@@ -17,20 +16,17 @@ class MainPage(BasePage):
         super().__init__(
             page_key="main-page",
             title="实时展示",
-            description="在这里直接查看实时流预览，底部悬浮控制采集。",
+            description="这里会显示已启动 driver 的实时流预览，底部悬浮控制采集。",
             parent=parent,
         )
         self.engine = engine
         self.acquisition_panel = AcquisitionControlPanel(engine, self)
         self.acquisition_panel.hide()
-        self.empty_state_card = self._create_empty_state_card()
         self.preview_panel = StreamPreviewPanel(engine, self.scroll_widget)
         self.preview_panel.hide()
         self._bottom_spacer = QWidget(self.scroll_widget)
         self._bottom_spacer.setFixedHeight(0)
 
-        if not self.engine.bus.descriptors():
-            self.content_layout.addWidget(self.empty_state_card)
         self.content_layout.addWidget(self.preview_panel)
         self.content_layout.addWidget(self._bottom_spacer)
         self.content_layout.addStretch(1)
@@ -41,7 +37,10 @@ class MainPage(BasePage):
         QTimer.singleShot(0, self._sync_floating_acquisition_panel)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in {self.scroll_area.viewport(), self.acquisition_panel} and event.type() in {
+        if watched in {
+            self.scroll_area.viewport(),
+            self.acquisition_panel,
+        } and event.type() in {
             QEvent.Type.Resize,
             QEvent.Type.Show,
             QEvent.Type.Hide,
@@ -65,24 +64,6 @@ class MainPage(BasePage):
             self.preview_panel.show()
         self._sync_floating_acquisition_panel()
 
-    def _create_empty_state_card(self) -> SimpleCardWidget:
-        card = SimpleCardWidget(self.scroll_widget)
-        card.setBorderRadius(16)
-
-        title = StrongBodyLabel("当前还没有可预览的流", card)
-        body = CaptionLabel(
-            "请先到设备页搜索并连接 driver，启动流之后，实时预览卡片会自动出现在这里。",
-            card,
-        )
-        body.setWordWrap(True)
-
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(8)
-        layout.addWidget(title)
-        layout.addWidget(body)
-        return card
-
     def _sync_floating_acquisition_panel(self) -> None:
         viewport = self.scroll_area.viewport()
         if not viewport.isVisible():
@@ -105,7 +86,9 @@ class MainPage(BasePage):
             max(360, viewport.width() - side_margin * 2),
         )
         panel_x = viewport_top_left.x() + max(0, (viewport.width() - panel_width) // 2)
-        panel_y = viewport_top_left.y() + viewport.height() - panel_height - bottom_margin
+        panel_y = (
+            viewport_top_left.y() + viewport.height() - panel_height - bottom_margin
+        )
 
         self.acquisition_panel.setGeometry(
             panel_x,
