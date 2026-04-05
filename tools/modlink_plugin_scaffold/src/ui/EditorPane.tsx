@@ -81,6 +81,28 @@ function activeGroupInfo(
   }
 }
 
+function renderInfoPanel(
+  title: string,
+  description: string,
+  row: UiRow | undefined,
+): React.JSX.Element {
+  return (
+    <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+      <Text color="yellow" bold>
+        [{title}]
+      </Text>
+      <Text dimColor wrap="truncate-end">
+        {description}
+      </Text>
+      {row ? (
+        <Text dimColor wrap="truncate-end">
+          <Text bold>{row.label}</Text>: {row.description}
+        </Text>
+      ) : null}
+    </Box>
+  );
+}
+
 function renderAlignedRows(
   rows: UiRow[],
   activeKey: string | null,
@@ -352,7 +374,6 @@ export const EditorPane = React.memo(function EditorPane({
   const copy = getCopy(language);
   const visibleRows = getWindowedRows(rows, rowIndex, maxRows);
   const currentRow = rows[rowIndex];
-  const separator = "─".repeat(Math.max(24, width - 2));
   const groupInfo = activeGroupInfo(copy, section, currentRow);
 
   if (section === "streams") {
@@ -389,18 +410,7 @@ export const EditorPane = React.memo(function EditorPane({
             editingValue={editingValue}
           />
         </Box>
-        <Box marginTop={1} flexDirection="column">
-          <Text dimColor>{separator}</Text>
-          <Text dimColor wrap="truncate-end">
-            <Text bold>{groupInfo.title}</Text>: {groupInfo.description}
-            {currentRow ? (
-              <>
-                <Text dimColor> | </Text>
-                <Text bold>{currentRow.label}</Text>: {currentRow.description}
-              </>
-            ) : null}
-          </Text>
-        </Box>
+        {renderInfoPanel(groupInfo.title, groupInfo.description, currentRow)}
       </Box>
     );
   }
@@ -422,18 +432,7 @@ export const EditorPane = React.memo(function EditorPane({
           </Text>
         </Box>
       ) : null}
-      <Box marginTop={1} flexDirection="column">
-        <Text dimColor>{separator}</Text>
-        <Text dimColor wrap="truncate-end">
-          <Text bold>{groupInfo.title}</Text>: {groupInfo.description}
-          {currentRow ? (
-            <>
-              <Text dimColor> | </Text>
-              <Text bold>{currentRow.label}</Text>: {currentRow.description}
-            </>
-          ) : null}
-        </Text>
-      </Box>
+      {renderInfoPanel(groupInfo.title, groupInfo.description, currentRow)}
     </Box>
   );
 });

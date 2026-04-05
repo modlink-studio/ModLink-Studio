@@ -10,6 +10,11 @@ type BannerProps = {
   width: number;
 };
 
+type MetricCell = {
+  label: string;
+  value: string;
+};
+
 function clampLine(value: string, width: number): string {
   const safeWidth = Math.max(10, width);
   if (value.length <= safeWidth) {
@@ -18,32 +23,33 @@ function clampLine(value: string, width: number): string {
   return `${value.slice(0, Math.max(0, safeWidth - 1))}…`;
 }
 
-function MetricLine({
-  items,
+function MetricRow({
+  left,
+  right,
   width,
 }: {
-  items: Array<{ label: string; value: string }>;
+  left: MetricCell;
+  right?: MetricCell;
   width: number;
 }): React.JSX.Element {
   const gap = 2;
-  const cellWidth = Math.max(
-    16,
-    Math.floor((width - gap * Math.max(0, items.length - 1)) / Math.max(1, items.length)),
-  );
+  const cellWidth = Math.max(18, Math.floor((width - gap) / 2));
 
   return (
     <Box>
-      {items.map((item, index) => (
-        <React.Fragment key={item.label}>
-          <Box width={cellWidth}>
-            <Text wrap="truncate-end">
-              <Text bold>{item.label}</Text>{" "}
-              {clampLine(item.value, Math.max(8, cellWidth - item.label.length - 1))}
-            </Text>
-          </Box>
-          {index < items.length - 1 ? <Box width={gap} /> : null}
-        </React.Fragment>
-      ))}
+      <Box width={cellWidth}>
+        <Text wrap="truncate-end">
+          <Text bold>{left.label}:</Text> {left.value}
+        </Text>
+      </Box>
+      <Box width={gap} />
+      <Box width={cellWidth}>
+        {right ? (
+          <Text wrap="truncate-end">
+            <Text bold>{right.label}:</Text> {right.value}
+          </Text>
+        ) : null}
+      </Box>
     </Box>
   );
 }
@@ -58,6 +64,9 @@ export const Banner = React.memo(function Banner({
   const contentWidth = Math.max(20, boxWidth - 4);
 
   if (summary.kind === "invalid") {
+    const visibleErrors = summary.errors.slice(0, 2);
+    const remainingErrors = summary.errors.length - visibleErrors.length;
+
     return (
       <Box
         width={boxWidth}
@@ -70,12 +79,15 @@ export const Banner = React.memo(function Banner({
           [{summary.title}]
         </Text>
         <Text wrap="truncate-end">{summary.message}</Text>
-        {summary.errors.length > 0 ? (
-          <Text wrap="truncate-end">
-            <Text bold>{copy.validationErrorsHeader}:</Text>{" "}
-            {clampLine(summary.errors.join(" | "), contentWidth - 8)}
+        <Text bold color="red">
+          {copy.validationErrorsHeader}:
+        </Text>
+        {visibleErrors.map((error) => (
+          <Text key={error} color="red" wrap="truncate-end">
+            - {clampLine(error, contentWidth - 2)}
           </Text>
-        ) : null}
+        ))}
+        {remainingErrors > 0 ? <Text dimColor>+ {remainingErrors} more</Text> : null}
       </Box>
     );
   }
@@ -90,36 +102,43 @@ export const Banner = React.memo(function Banner({
       paddingX={1}
       flexDirection="column"
     >
-      <Text wrap="truncate-end">
-        <Text bold dimColor>
-          [{summary.title}]
-        </Text>
-        <Text color="green" bold>
-          {" "}
-          {summary.hero.displayName}
-        </Text>
-        <Text dimColor>
-          {" "}
-          {copy.pluginNameLabel} {summary.hero.pluginName}
-        </Text>
+      <Text bold dimColor>
+        [{summary.title}]
       </Text>
-      <MetricLine
+      <Text color="green" bold wrap="truncate-end">
+        {summary.hero.displayName}
+      </Text>
+      <Text dimColor wrap="truncate-end">
+        {copy.pluginNameLabel} {summary.hero.pluginName}
+      </Text>
+      <MetricRow
         width={contentWidth}
-        items={[
-          {
-            label: copy.deviceIdLabel,
-            value: metricByLabel.get(copy.deviceIdLabel) ?? summary.hero.deviceId,
-          },
-          { label: copy.providersLabel, value: metricByLabel.get(copy.providersLabel) ?? "" },
-        ]}
+        left={{
+          label: copy.deviceIdLabel,
+          value: metricByLabel.get(copy.deviceIdLabel) ?? summary.hero.deviceId,
+        }}
+        right={{
+          label: copy.providersLabel,
+          value: metricByLabel.get(copy.providersLabel) ?? "",
+        }}
       />
-      <MetricLine
+      <MetricRow
         width={contentWidth}
-        items={[
-          { label: copy.driverKindLabel, value: metricByLabel.get(copy.driverKindLabel) ?? "" },
-          { label: copy.dataArrivalLabel, value: metricByLabel.get(copy.dataArrivalLabel) ?? "" },
-          { label: copy.streamCountLabel, value: metricByLabel.get(copy.streamCountLabel) ?? "" },
-        ]}
+        left={{
+          label: copy.driverKindLabel,
+          value: metricByLabel.get(copy.driverKindLabel) ?? "",
+        }}
+        right={{
+          label: copy.dataArrivalLabel,
+          value: metricByLabel.get(copy.dataArrivalLabel) ?? "",
+        }}
+      />
+      <MetricRow
+        width={contentWidth}
+        left={{
+          label: copy.streamCountLabel,
+          value: metricByLabel.get(copy.streamCountLabel) ?? "",
+        }}
       />
     </Box>
   );
