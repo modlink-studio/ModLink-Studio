@@ -75,3 +75,4 @@ It contains app code, a headless core, an SDK, Qt bridges, and plugins, but that
 - When implementing roadmap-related work, always update `ROADMAP.md` to reflect the current status of that item.
 - After completing a planned feature, milestone, or scope change, mark it clearly in `ROADMAP.md` as planned, in progress, completed, deferred, or otherwise explicitly status-labeled.
 - If implementation changes the intended version boundary or priority of a roadmap item, update `ROADMAP.md` in the same workstream instead of leaving the roadmap stale.
+- In this repository, do not rely on sandboxed `pytest` execution for final verification. Request elevated execution before running `pytest`, because the sandboxed environment does not reliably provide the temp/cache filesystem access needed by the current test suite.
