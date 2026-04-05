@@ -7,6 +7,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QVBoxLayout
+from qfluentwidgets import isDarkTheme, qconfig
 from scipy import signal as sp_signal
 
 from modlink_qt_bridge import QtSettingsBridge
@@ -22,6 +23,26 @@ from .signal_layout import (
 
 DEFAULT_SIGNAL_WINDOW_SECONDS = 8
 SIGNAL_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
+LIGHT_SIGNAL_COLORS = (
+    "#2D8CF0",
+    "#19BE6B",
+    "#FF9F43",
+    "#E74C3C",
+    "#8E44AD",
+    "#16A085",
+    "#34495E",
+    "#D35400",
+)
+DARK_SIGNAL_COLORS = (
+    "#4DA3FF",
+    "#4CD37A",
+    "#FFB74D",
+    "#FF6B6B",
+    "#C084FC",
+    "#2DD4BF",
+    "#CBD5E1",
+    "#FB923C",
+)
 
 
 @dataclass(slots=True)
@@ -259,17 +280,6 @@ class _SignalRingBuffer:
 
 
 class SignalStreamView(BaseStreamView):
-    _colors = (
-        "#2D8CF0",
-        "#19BE6B",
-        "#FF9F43",
-        "#E74C3C",
-        "#8E44AD",
-        "#16A085",
-        "#34495E",
-        "#D35400",
-    )
-
     def __init__(
         self,
         descriptor: StreamDescriptor,
@@ -297,15 +307,17 @@ class SignalStreamView(BaseStreamView):
         self._filter_spec = _SignalFilterSpec()
         self._pipeline = _SignalFilterPipeline(sample_rate_hz=self._sample_rate_hz)
         self._pipeline.configure(self._filter_spec)
+        self._colors = self._theme_signal_colors()
 
         self._graphics_widget = pg.GraphicsLayoutWidget(self)
-        self._graphics_widget.setBackground("#FFFFFF")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._graphics_widget, 1)
 
+        qconfig.themeChangedFinished.connect(self._apply_theme)
+        self._apply_theme()
         self._refresh_view_geometry()
 
     @property
@@ -564,7 +576,7 @@ class SignalStreamView(BaseStreamView):
                 plot_item = self._create_plot_item(show_bottom_axis=show_bottom_axis)
                 plot_item.setTitle(
                     self._channel_label(channel_index),
-                    color="#666666",
+                    color=self._theme_secondary_text_color(),
                     size="10pt",
                 )
                 if first_plot is None:
@@ -670,6 +682,15 @@ class SignalStreamView(BaseStreamView):
                 layout.invalidate()
             parent.updateGeometry()
             parent = parent.parentWidget()
+
+    def _apply_theme(self) -> None:
+        self._colors = self._theme_signal_colors()
+        self._graphics_widget.setBackground(self._theme_background_color())
+        if self._ring_buffer is not None:
+            self._plot_signature = None
+            self._ensure_plot_layout(self._ring_buffer.channels)
+        if self.has_frame:
+            self._dirty = True
 
     def _reset_signal_state(self) -> None:
         self._pipeline.reset_states()
@@ -794,3 +815,15 @@ class SignalStreamView(BaseStreamView):
             except (TypeError, ValueError):
                 continue
         return tuple(result)
+
+    @staticmethod
+    def _theme_background_color() -> str:
+        return "#2B2B2B" if isDarkTheme() else "#FFFFFF"
+
+    @staticmethod
+    def _theme_secondary_text_color() -> str:
+        return "#D4D4D4" if isDarkTheme() else "#666666"
+
+    @staticmethod
+    def _theme_signal_colors() -> tuple[str, ...]:
+        return DARK_SIGNAL_COLORS if isDarkTheme() else LIGHT_SIGNAL_COLORS

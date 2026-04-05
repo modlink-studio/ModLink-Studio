@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from unittest.mock import patch
 
@@ -223,10 +224,11 @@ def test_sse_events_stream_emits_driver_connection_lost(settings: SettingsServic
 
 def test_sse_events_stream_emits_resync_required_on_overflow(
     settings: SettingsService,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     app = create_app(driver_factories=[ApiDemoDriver], settings=settings)
 
-    with patch(
+    with caplog.at_level(logging.WARNING), patch(
         "modlink_core.event_stream.EventStream.read",
         side_effect=EventStreamOverflowError("event stream overflowed"),
     ):
@@ -238,6 +240,25 @@ def test_sse_events_stream_emits_resync_required_on_overflow(
 
     assert event_name == "resync_required"
     assert payload == {"reason": "event_stream_overflow"}
+    assert "overflowed" in caplog.text
+
+
+def test_sse_events_stream_emits_keepalive_comment_when_idle(
+    settings: SettingsService,
+) -> None:
+    app = create_app(driver_factories=[ApiDemoDriver], settings=settings)
+
+    with TestClient(app) as client:
+        event_stream = client.app.state.engine.open_event_stream(maxsize=1)
+        chunk = _read_first_sse_chunk(
+            _iter_sse_messages(
+                _ConnectedRequest(),
+                event_stream,
+                heartbeat_interval_seconds=0.0,
+            )
+        )
+
+    assert chunk == ": keepalive\n\n"
 
 
 def test_websocket_frames_stream_encodes_signal_frame(settings: SettingsService) -> None:
@@ -277,6 +298,21 @@ def _read_sse_event(lines) -> tuple[str, dict[str, object]]:
 
 def _read_sse_event_from_generator(generator) -> tuple[str, dict[str, object]]:
     return _read_sse_event(_collect_sse_lines(generator))
+
+
+def _read_first_sse_chunk(generator) -> str:
+    chunk = ""
+
+    async def _read() -> None:
+        nonlocal chunk
+        async for item in generator:
+            chunk = item
+            break
+
+    import asyncio
+
+    asyncio.run(_read())
+    return chunk
 
 
 def _collect_sse_lines(generator) -> list[str]:

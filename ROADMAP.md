@@ -42,9 +42,15 @@
 - [ ] **文档与发布准备（进行中）**
   - [x] README 更新 0.2.0 安装说明与工作区开发说明
   - [x] 0.2.0 CHANGELOG
+  - [x] 文档站 breaking change 说明同步
   - [ ] TestPyPI rehearsal
   - [ ] PyPI 发布前干净环境安装验证
-  - [ ] 文档站 breaking change 说明同步
+
+- [x] **运行时稳健性收口（已完成）**
+  - [x] Settings 文件损坏时不再静默丢设置，损坏内容会备份并记录 warning
+  - [x] `modlink_server` `/events` 增加 SSE keepalive comment，空闲连接不再长期静默
+  - [x] `modlink_core` / `modlink_server` / 官方插件关键异常路径补齐最小 logging
+  - [x] Qt Widgets preview 完成最小主题适配，预览不再固定白底与固定次级文本颜色
 
 **P1 — 建议在 0.2.x 尽快完成：**
 
@@ -311,9 +317,10 @@ packages/modlink_ai/
 1. **锁定 0.2.0 发布范围（已完成）** — 明确 0.2.0 只承诺稳定采集、录制、保存，不再将回放继续纳入当前版本
 2. **首次启动体验（已完成）** — 默认页面在没有可预览流时给出清晰引导，而不是空白页
 3. **录制链路稳定化（已完成）** — UI 上明确显示保存路径、recording_id 与失败原因
-4. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
-5. **文档与发布验证（进行中）** — 安装说明、CHANGELOG 已更新；TestPyPI rehearsal 与 PyPI 发布前验证待执行
-6. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
+4. **运行时稳健性收口（已完成）** — settings 损坏备份、SSE keepalive、最小 logging 与 widgets preview 主题适配已完成
+5. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
+6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新；TestPyPI rehearsal 与 PyPI 发布前验证待执行
+7. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
 
 ---
 

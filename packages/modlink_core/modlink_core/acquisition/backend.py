@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import time
@@ -24,6 +25,8 @@ from .storage import RecordingStorage
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
 ACQUISITION_CONSUMER_NAME = "acquisition"
 AcquisitionCommand = tuple[Callable[[], None], Future[None]]
+
+logger = logging.getLogger(__name__)
 
 
 class AcquisitionBackend:
@@ -170,6 +173,7 @@ class AcquisitionBackend:
                 except StreamClosedError:
                     if not self._started:
                         return
+                    logger.warning("Acquisition frame stream closed unexpectedly; reopening stream")
                     self._frame_stream = self._open_frame_stream()
                     continue
                 except FrameStreamOverflowError as exc:
@@ -180,6 +184,7 @@ class AcquisitionBackend:
                     continue
                 self._on_frame_worker(frame)
             except Exception as exc:
+                logger.exception("Acquisition worker exited with an unexpected error")
                 exit_error = exc
                 break
 
@@ -214,6 +219,7 @@ class AcquisitionBackend:
         try:
             self._storage.append_frame(frame)
         except Exception:
+            logger.exception("Recording append failed; marking recording as failed")
             self._fail_recording_worker("write_failed")
 
     def _start_recording_worker(
@@ -315,6 +321,7 @@ class AcquisitionBackend:
             raise RuntimeError(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}") from exc
 
     def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
+        logger.warning("Acquisition frame stream overflowed for consumer '%s'", consumer_name)
         if self._storage is not None:
             self._fail_recording_worker("frame_stream_overflow")
         self._replace_frame_stream()
@@ -366,9 +373,18 @@ class AcquisitionBackend:
             storage.finalize(stopped_at_ns=stopped_at_ns, status=status)
             return None
         except Exception:
+            logger.exception(
+                "Recording finalize failed for %s (status=%s)",
+                storage.recording_dir,
+                status,
+            )
             try:
                 storage.write_manifest(stopped_at_ns=stopped_at_ns, status="failed")
             except Exception:
+                logger.exception(
+                    "Recording failure manifest write also failed for %s",
+                    storage.recording_dir,
+                )
                 pass
             return "finalize_failed"
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 from PyQt6.QtWidgets import QVBoxLayout
+from qfluentwidgets import isDarkTheme, qconfig
 
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
@@ -34,7 +35,6 @@ class ImageStreamView(BaseStreamView):
         layout.addWidget(self._graphics_widget, 1)
 
         self._last_shape: tuple[int, ...] | None = None
-        self._graphics_widget.setBackground("#FFFFFF")
         self._view_box = self._graphics_widget.addViewBox()
         self._view_box.setAspectLocked(True)
         self._view_box.setMenuEnabled(False)
@@ -43,6 +43,8 @@ class ImageStreamView(BaseStreamView):
         self._image_item = pg.ImageItem(axisOrder="row-major")
         self._view_box.addItem(self._image_item)
         self._apply_interpolation_mode()
+        qconfig.themeChangedFinished.connect(self._apply_theme)
+        self._apply_theme()
 
         self.setMinimumHeight(280)
 
@@ -122,6 +124,9 @@ class ImageStreamView(BaseStreamView):
 
     def _apply_interpolation_mode(self) -> None:
         self._image_item.setAutoDownsample(self._interpolation != "nearest")
+
+    def _apply_theme(self) -> None:
+        self._graphics_widget.setBackground("#2B2B2B" if isDarkTheme() else "#FFFFFF")
 
     def _resolve_levels(self, image: np.ndarray) -> tuple[float, float] | None:
         if image.ndim != 2:

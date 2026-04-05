@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -16,6 +17,8 @@ from ..events import (
 from ..settings import SettingsService
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
+
+logger = logging.getLogger(__name__)
 
 
 class ModLinkEngine:
@@ -47,6 +50,7 @@ class ModLinkEngine:
                 attached_portals.append(portal)
             self._acquisition.start()
         except Exception as exc:
+            logger.exception("Engine startup failed; rolling back attached services")
             self._rollback_startup(attached_portals, exc)
             raise
 
@@ -109,6 +113,7 @@ class ModLinkEngine:
             try:
                 portal.stop()
             except Exception as exc:
+                logger.exception("Engine startup rollback failed while stopping driver '%s'", portal.driver_id)
                 cleanup_failures.append(
                     "cleanup failed while stopping driver "
                     f"'{portal.driver_id}': {type(exc).__name__}: {exc}"
@@ -120,6 +125,7 @@ class ModLinkEngine:
         try:
             self._acquisition.shutdown()
         except Exception as exc:
+            logger.exception("Engine startup rollback failed while shutting down acquisition")
             cleanup_failures.append(
                 f"cleanup failed while shutting down acquisition: {type(exc).__name__}: {exc}"
             )
@@ -133,12 +139,14 @@ class ModLinkEngine:
             try:
                 portal.stop()
             except Exception as exc:
+                logger.exception("Engine shutdown failed while stopping driver '%s'", portal.driver_id)
                 if first_error is None:
                     first_error = exc
         self._driver_portals.clear()
         try:
             self._acquisition.shutdown()
         except Exception as exc:
+            logger.exception("Engine shutdown failed while shutting down acquisition")
             if first_error is None:
                 first_error = exc
         if first_error is not None:

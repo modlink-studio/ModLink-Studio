@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -15,6 +16,8 @@ from ...events import (
 from .executor import DriverExecutor
 from .session import DriverSession
 from .state import DeviceState
+
+logger = logging.getLogger(__name__)
 
 
 class DriverPortal:
@@ -149,6 +152,12 @@ class DriverPortal:
         self._session.mark_stopped()
         if stop_reason is None:
             return
+        logger.error(
+            "Driver executor exited unexpectedly for '%s': %s: %s",
+            self.driver_id,
+            type(stop_reason).__name__,
+            stop_reason,
+        )
         self._publish_event(
             DriverExecutorFailedEvent(
                 driver_id=self.driver_id,

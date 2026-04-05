@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 
 import numpy as np
@@ -10,6 +11,8 @@ from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 DEFAULT_DEVICE_ID = "host_microphone.01"
 DEFAULT_SAMPLE_RATE_HZ = 16_000.0
 DEFAULT_CHUNK_SIZE = 1024
+
+logger = logging.getLogger(__name__)
 
 
 class MicrophoneDemoDriver(Driver):
@@ -82,6 +85,7 @@ class MicrophoneDemoDriver(Driver):
         try:
             stream.start()
         except Exception:
+            logger.exception("Host microphone stream failed to start")
             stream.close()
             raise
 
@@ -109,7 +113,7 @@ class MicrophoneDemoDriver(Driver):
         if not self._callbacks_enabled:
             return
         if status:
-            print(status)
+            logger.warning("Host microphone callback reported status: %s", status)
 
         emitted = self.emit_frame(
             FrameEnvelope(
