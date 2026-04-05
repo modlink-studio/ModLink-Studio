@@ -292,7 +292,7 @@ class AcquisitionViewModel(QObject):
     def _on_state_changed(self, state: str) -> None:
         was_recording = self._last_known_recording_state
         is_recording = str(state or "").strip().lower() == "recording"
-        if str(state or "").strip().lower() != "recording":
+        if was_recording and not is_recording:
             self._clear_pending_segment(notify=True)
         if was_recording and not is_recording and self._pending_recording_stop_notice:
             self._pending_recording_stop_notice = False
