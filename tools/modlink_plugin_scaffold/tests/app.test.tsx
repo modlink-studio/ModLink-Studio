@@ -19,6 +19,20 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
+async function waitForFrame(
+  app: { lastFrame: () => string | null },
+  expected: string,
+  attempts = 20,
+): Promise<void> {
+  for (let index = 0; index < attempts; index += 1) {
+    if ((app.lastFrame() ?? "").includes(expected)) {
+      return;
+    }
+    await flush();
+  }
+  throw new Error(`Timed out waiting for frame content: ${expected}`);
+}
+
 function pressArrow(
   stdin: { write: (data: string) => void },
   direction: "up" | "down" | "left" | "right",
@@ -239,7 +253,7 @@ describe("ScaffoldApp", () => {
     pressArrow(app.stdin, "right");
     await flush();
     app.stdin.write("\r");
-    await flush();
+    await waitForFrame(app, "Scaffold generated");
 
     expect(app.lastFrame()).toContain("Scaffold generated");
     await expect(

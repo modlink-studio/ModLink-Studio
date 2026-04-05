@@ -68,8 +68,8 @@ export function ScaffoldApp({
   const currentRow = rows[state.rowIndex];
   const screenWidth = Math.max(80, stdout.columns ?? process.stdout.columns ?? 100);
   const screenHeight = Math.max(24, stdout.rows ?? process.stdout.rows ?? 30);
-  const bannerHeight = 5;
-  const contentHeight = Math.max(9, screenHeight - 12);
+  const bannerHeight = 8;
+  const contentHeight = Math.max(9, screenHeight - (bannerHeight + 7));
   const editorRows = Math.max(
     6,
     contentHeight - (state.section === "streams" ? Math.min(8, state.draft.streams.length + 5) : 6),
