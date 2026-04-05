@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QVBoxLayout, QWidget
+from qfluentwidgets import CaptionLabel, SimpleCardWidget, StrongBodyLabel
 
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui.widgets.main.acquisition import AcquisitionControlPanel
@@ -22,11 +23,14 @@ class MainPage(BasePage):
         self.engine = engine
         self.acquisition_panel = AcquisitionControlPanel(engine, self)
         self.acquisition_panel.hide()
+        self.empty_state_card = self._create_empty_state_card()
         self.preview_panel = StreamPreviewPanel(engine, self.scroll_widget)
         self.preview_panel.hide()
         self._bottom_spacer = QWidget(self.scroll_widget)
         self._bottom_spacer.setFixedHeight(0)
 
+        if not self.engine.bus.descriptors():
+            self.content_layout.addWidget(self.empty_state_card)
         self.content_layout.addWidget(self.preview_panel)
         self.content_layout.addWidget(self._bottom_spacer)
         self.content_layout.addStretch(1)
@@ -60,6 +64,24 @@ class MainPage(BasePage):
         if not self.preview_panel.isVisible():
             self.preview_panel.show()
         self._sync_floating_acquisition_panel()
+
+    def _create_empty_state_card(self) -> SimpleCardWidget:
+        card = SimpleCardWidget(self.scroll_widget)
+        card.setBorderRadius(16)
+
+        title = StrongBodyLabel("当前还没有可预览的流", card)
+        body = CaptionLabel(
+            "请先到设备页搜索并连接 driver，启动流之后，实时预览卡片会自动出现在这里。",
+            card,
+        )
+        body.setWordWrap(True)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(8)
+        layout.addWidget(title)
+        layout.addWidget(body)
+        return card
 
     def _sync_floating_acquisition_panel(self) -> None:
         viewport = self.scroll_area.viewport()

@@ -80,6 +80,7 @@ class AcquisitionViewModel(QObject):
     sig_recording_changed = pyqtSignal(bool)
     sig_segment_active_changed = pyqtSignal(bool)
     sig_error = pyqtSignal(str)
+    sig_info = pyqtSignal(str)
 
     def __init__(
         self,
@@ -96,6 +97,9 @@ class AcquisitionViewModel(QObject):
             segment_label=self._state.fields[3].value,
         )
         self._pending_segment_start_ns: int | None = None
+        self._pending_recording_stop_notice = False
+        self._last_known_recording_state = self.engine.acquisition.is_recording
+        self._last_started_session_name = ""
         self._settings = self.engine.settings
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
             self._settings.get(
@@ -235,6 +239,7 @@ class AcquisitionViewModel(QObject):
 
     def request_toggle_recording(self) -> None:
         if self.is_recording:
+            self._pending_recording_stop_notice = True
             self._clear_pending_segment(notify=True)
             self.engine.acquisition.stop_recording()
             return
@@ -244,6 +249,8 @@ class AcquisitionViewModel(QObject):
             session_name = time.strftime("session_%Y%m%d_%H%M%S")
             self.set_field_value("session_name", session_name)
 
+        self._last_started_session_name = session_name
+        self._pending_recording_stop_notice = False
         recording_label = self.get_field_value("recording_label").strip() or None
         self.engine.acquisition.start_recording(session_name, recording_label)
 
@@ -283,21 +290,63 @@ class AcquisitionViewModel(QObject):
             self.sig_segment_active_changed.emit(False)
 
     def _on_state_changed(self, state: str) -> None:
+        was_recording = self._last_known_recording_state
+        is_recording = str(state or "").strip().lower() == "recording"
         if str(state or "").strip().lower() != "recording":
             self._clear_pending_segment(notify=True)
-        self.sig_recording_changed.emit(self.is_recording)
+        if was_recording and not is_recording and self._pending_recording_stop_notice:
+            self._pending_recording_stop_notice = False
+            self.sig_info.emit(self._format_recording_finished_message())
+        self._last_known_recording_state = is_recording
+        self.sig_recording_changed.emit(is_recording)
 
     def _on_error(self, message: str) -> None:
+        normalized = str(message or "").strip()
+        if normalized.startswith("ACQ_STOP_") or normalized == "ACQ_COMMAND_CANCELLED":
+            self._pending_recording_stop_notice = False
         self.sig_error.emit(self._format_error_message(message))
 
     def _on_recording_failed(self, event: object) -> None:
+        self._pending_recording_stop_notice = False
         reason = str(getattr(event, "reason", "")).strip()
         friendly = {
             "frame_stream_overflow": "采集数据积压过多，录制已停止。",
             "write_failed": "写入采集数据失败，录制已停止。",
             "finalize_failed": "结束采集时写入录制元数据失败。",
         }.get(reason)
-        self.sig_error.emit(friendly or "采集录制失败。")
+        message = friendly or "采集录制失败。"
+        recording_id = str(getattr(event, "recording_id", "")).strip()
+        recording_path = str(getattr(event, "recording_path", "")).strip()
+        if recording_id:
+            message = f"{message} recording_id={recording_id}"
+        if recording_path:
+            message = f"{message} 路径：{recording_path}"
+        self.sig_error.emit(message)
+
+    def _format_recording_finished_message(self) -> str:
+        session_name = (
+            self._last_started_session_name.strip() or self.get_field_value("session_name").strip()
+        )
+        if not session_name:
+            return "录制已完成。"
+
+        session_dir = Path(self.engine.acquisition.root_dir) / f"session_{session_name}"
+        recording_dirs = (
+            sorted(
+                (path for path in session_dir.iterdir() if path.is_dir()),
+                key=lambda path: path.name,
+            )
+            if session_dir.is_dir()
+            else []
+        )
+        if not recording_dirs:
+            return f"Session {session_name} 录制已完成。"
+
+        recording_dir = recording_dirs[-1]
+        return (
+            f"Session {session_name} 录制已完成。"
+            f" recording_id={recording_dir.name}，路径：{recording_dir}"
+        )
 
     def _format_error_message(self, message: str) -> str:
         normalized = str(message or "").strip()

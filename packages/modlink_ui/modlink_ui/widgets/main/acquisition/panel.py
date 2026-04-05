@@ -605,6 +605,7 @@ class AcquisitionControlPanel(SimpleCardWidget):
         self.view_model.sig_recording_changed.connect(self._sync_panels_from_view_model)
         self.view_model.sig_segment_active_changed.connect(self._sync_panels_from_view_model)
         self.view_model.sig_error.connect(self._show_error_bar)
+        self.view_model.sig_info.connect(self._show_success_bar)
 
         root_layout.addWidget(self.toggle_strip)
         root_layout.addWidget(self.panel_stack)
@@ -647,6 +648,16 @@ class AcquisitionControlPanel(SimpleCardWidget):
             title="采集错误",
             content=message,
             duration=4500,
+            position=InfoBarPosition.TOP_RIGHT,
+            parent=parent,
+        )
+
+    def _show_success_bar(self, message: str) -> None:
+        parent = self.window() if isinstance(self.window(), QWidget) else self
+        InfoBar.success(
+            title="录制完成",
+            content=message,
+            duration=5500,
             position=InfoBarPosition.TOP_RIGHT,
             parent=parent,
         )
