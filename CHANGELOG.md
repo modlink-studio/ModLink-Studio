@@ -28,6 +28,8 @@
 
 录制回放不属于 `0.2.0` 的发布范围，已整体延后到 `0.3.0`。
 
+这一版本正式发布时，公开安装入口也会切到 **PyPI**；`TestPyPI` 只用于发布前 rehearsal，不作为日常安装源。
+
 ---
 
 ### Breaking Changes
@@ -134,6 +136,7 @@
 #### Documentation
 
 - 更新安装说明、driver 开发说明和项目结构说明
+- 公开安装与分发表述统一切到 PyPI / TestPyPI rehearsal 口径
 - 将路线图正式纳入仓库，并要求实现内容同步更新 `ROADMAP.md`
 
 ---
@@ -182,6 +185,7 @@
 3. 只有在确实需要 runtime 服务时，才额外依赖 `modlink-core`
 4. 插件发现基于 `modlink.drivers` entry points
 5. 新 driver 项目建议从 `modlink_plugin_scaffold` 开始
+6. `0.2.0` 正式发布时，公开安装入口将以 PyPI 为准；`TestPyPI` 只用于发布前 rehearsal
 
 ---
 

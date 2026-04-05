@@ -2,6 +2,8 @@
 
 这份手册描述的是 `apps/modlink_server` 当前已经实现的 Web wire contract。
 
+`modlink_server` 在 `0.2.0` 中的角色不是“已经完成的 Web UI”，而是服务化 host 边界：它把 backend 以 `HTTP + SSE + WebSocket` 的形式暴露出来，为后续 HTML / Web UI 提前固定协议。
+
 目标读者是当前仓库里的前端和全栈开发者。默认前提是：
 
 - 服务只运行在本机开发环境
