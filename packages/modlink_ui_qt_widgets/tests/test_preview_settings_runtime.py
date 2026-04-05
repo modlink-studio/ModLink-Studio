@@ -26,18 +26,18 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.settings.service import SettingsService
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
-from modlink_ui.widgets.main.preview.settings import PreviewSettingsRuntime
-from modlink_ui.widgets.main.preview.settings.models import (
+from modlink_ui_qt_widgets.widgets.main.preview.settings import PreviewSettingsRuntime
+from modlink_ui_qt_widgets.widgets.main.preview.settings.models import (
     FieldPreviewSettings,
     RasterPreviewSettings,
     VideoPreviewSettings,
 )
-from modlink_ui.widgets.main.preview.settings.sections import (
+from modlink_ui_qt_widgets.widgets.main.preview.settings.sections import (
     FieldPayloadSettingsPanel,
     RasterPayloadSettingsPanel,
     VideoPayloadSettingsPanel,
 )
-from modlink_ui.widgets.main.preview.settings.store import (
+from modlink_ui_qt_widgets.widgets.main.preview.settings.store import (
     UI_PREVIEW_STREAMS_KEY,
     PreviewStreamSettingsStore,
 )

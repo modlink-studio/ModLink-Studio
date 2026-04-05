@@ -3,8 +3,8 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
-from modlink_ui.widgets.device import create_device_control_panel
-from modlink_ui.widgets.shared import BasePage, EmptyStateMessage
+from modlink_ui_qt_widgets.widgets.device import create_device_control_panel
+from modlink_ui_qt_widgets.widgets.shared import BasePage, EmptyStateMessage
 
 
 class DevicePage(BasePage):

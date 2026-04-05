@@ -11,20 +11,20 @@ from modlink_core import ModLinkEngine, SettingsService
 from modlink_qt_bridge import QtModLinkBridge, QtSettingsBridge
 from modlink_sdk import Driver, FrameEnvelope, StreamDescriptor
 
-from modlink_new_ui.main_page import MainPageController
-from modlink_new_ui.preview.image_controller import ImageStreamController
-from modlink_new_ui.preview.models import (
+from modlink_ui_qt_qml.main_page import MainPageController
+from modlink_ui_qt_qml.preview.image_controller import ImageStreamController
+from modlink_ui_qt_qml.preview.models import (
     FieldPreviewSettings,
     RasterPreviewSettings,
     SignalPreviewSettings,
     VideoPreviewSettings,
 )
-from modlink_new_ui.preview.raster_controller import (
+from modlink_ui_qt_qml.preview.raster_controller import (
     RasterStreamController,
     VideoStreamController,
 )
-from modlink_new_ui.preview.signal_controller import SignalStreamController
-from modlink_new_ui.preview.store import PreviewStreamSettingsStore
+from modlink_ui_qt_qml.preview.signal_controller import SignalStreamController
+from modlink_ui_qt_qml.preview.store import PreviewStreamSettingsStore
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 

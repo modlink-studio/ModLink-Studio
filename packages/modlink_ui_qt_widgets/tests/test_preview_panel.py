@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.settings.service import SettingsService
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
-from modlink_ui.widgets.main.preview import StreamPreviewPanel
+from modlink_ui_qt_widgets.widgets.main.preview import StreamPreviewPanel
 
 
 class _BusStub(QObject):

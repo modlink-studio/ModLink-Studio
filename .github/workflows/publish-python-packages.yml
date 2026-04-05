@@ -35,7 +35,7 @@ jobs:
           rm -rf dist
           mkdir -p dist/modlink-sdk
           mkdir -p dist/modlink-core
-          mkdir -p dist/modlink-ui
+          mkdir -p dist/modlink-ui-qt-widgets
           mkdir -p dist/modlink-studio
           mkdir -p dist/modlink-plugin-host-camera
           mkdir -p dist/modlink-plugin-host-microphone
@@ -43,7 +43,7 @@ jobs:
 
           uv build packages/modlink_sdk -o dist/modlink-sdk
           uv build packages/modlink_core -o dist/modlink-core
-          uv build packages/modlink_ui -o dist/modlink-ui
+          uv build packages/modlink_ui_qt_widgets -o dist/modlink-ui-qt-widgets
           uv build apps/modlink_studio -o dist/modlink-studio
           uv build plugins/host-camera -o dist/modlink-plugin-host-camera
           uv build plugins/host-microphone -o dist/modlink-plugin-host-microphone
@@ -53,7 +53,7 @@ jobs:
         run: |
           uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-sdk/*
           uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-core/*
-          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-ui/*
+          uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-ui-qt-widgets/*
           uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-studio/*
           uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-host-camera/*
           uv publish --publish-url "$CLOUDSMITH_PUBLISH_URL" dist/modlink-plugin-host-microphone/*

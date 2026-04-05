@@ -27,10 +27,10 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.settings.service import SettingsService
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
-from modlink_ui.pages.device import DevicePage
-from modlink_ui.pages.main import MainPage
-from modlink_ui.widgets.main.preview import StreamPreviewPanel
-from modlink_ui.widgets.shared import EmptyStateMessage
+from modlink_ui_qt_widgets.pages.device import DevicePage
+from modlink_ui_qt_widgets.pages.main import MainPage
+from modlink_ui_qt_widgets.widgets.main.preview import StreamPreviewPanel
+from modlink_ui_qt_widgets.widgets.shared import EmptyStateMessage
 
 
 class _BusStub(QObject):

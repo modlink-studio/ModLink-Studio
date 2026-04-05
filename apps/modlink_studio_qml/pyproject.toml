@@ -6,7 +6,7 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
-    "modlink-new-ui",
+    "modlink_ui_qt_qml",
     "pyqt6>=6.10.2",
 ]
 
@@ -22,7 +22,7 @@ modlink-studio-qml = "modlink_studio_qml.app:main"
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
-modlink-new-ui = { workspace = true }
+modlink_ui_qt_qml = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

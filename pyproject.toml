@@ -30,8 +30,8 @@ modlink-server = { workspace = true }
 modlink-core = { workspace = true }
 modlink-sdk = { workspace = true }
 modlink-qt-bridge = { workspace = true }
-modlink-ui = { workspace = true }
-modlink-new-ui = { workspace = true }
+modlink_ui_qt_widgets = { workspace = true }
+modlink_ui_qt_qml = { workspace = true }
 modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
 modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
 modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
@@ -44,8 +44,8 @@ members = [
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_qt_bridge",
-    "packages/modlink_ui",
-    "packages/modlink_new_ui",
+    "packages/modlink_ui_qt_widgets",
+    "packages/modlink_ui_qt_qml",
 ]
 
 [dependency-groups]
@@ -82,8 +82,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "packages/modlink_qt_bridge/**" = ["N"]
-"packages/modlink_ui/**" = ["N"]
-"packages/modlink_new_ui/**" = ["N"]
+"packages/modlink_ui_qt_widgets/**" = ["N"]
+"packages/modlink_ui_qt_qml/**" = ["N"]
 "apps/modlink_studio/**" = ["N"]
 "apps/modlink_studio_qml/**" = ["N"]
 "**/tests/**" = ["E402"]
@@ -92,8 +92,8 @@ ignore = [
 known-first-party = [
     "modlink_sdk",
     "modlink_core",
-    "modlink_ui",
-    "modlink_new_ui",
+    "modlink_ui_qt_widgets",
+    "modlink_ui_qt_qml",
     "modlink_qt_bridge",
 ]
 

@@ -14,7 +14,7 @@ from qfluentwidgets import (
 )
 
 from modlink_sdk import StreamDescriptor
-from modlink_ui.widgets.shared.inputs import TokenLineEdit
+from modlink_ui_qt_widgets.widgets.shared.inputs import TokenLineEdit
 
 from ..models import SignalFilterSettings, SignalPreviewSettings
 
