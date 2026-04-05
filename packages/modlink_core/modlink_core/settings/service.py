@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import tempfile
 import time
@@ -13,6 +14,8 @@ from typing import Any
 from platformdirs import user_data_path
 
 from ..events import BackendEvent, SettingChangedEvent
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsService:
@@ -94,11 +97,31 @@ class SettingsService:
         with self._lock:
             try:
                 if self._path.exists():
-                    payload = json.loads(self._path.read_text(encoding="utf-8"))
+                    raw_payload = self._path.read_text(encoding="utf-8")
+                    payload = json.loads(raw_payload)
                     if isinstance(payload, dict):
                         return payload
-            except (OSError, json.JSONDecodeError):
-                pass
+                    logger.warning(
+                        "Settings file did not contain a JSON object; resetting in memory: %s",
+                        self._path,
+                    )
+                    return {}
+            except json.JSONDecodeError as exc:
+                backup_path = self._backup_corrupt_payload(raw_payload)
+                logger.warning(
+                    "Settings file contained invalid JSON and was reset in memory: %s "
+                    "(backup: %s, error: %s)",
+                    self._path,
+                    backup_path,
+                    exc,
+                )
+            except (OSError, UnicodeDecodeError) as exc:
+                logger.warning(
+                    "Settings file could not be read and was reset in memory: %s (%s: %s)",
+                    self._path,
+                    type(exc).__name__,
+                    exc,
+                )
             return {}
 
     def _resolve_path(self) -> Path:
@@ -109,6 +132,21 @@ class SettingsService:
         if not normalized:
             raise ValueError("setting key must not be empty")
         return normalized
+
+    def _backup_corrupt_payload(self, raw_payload: str) -> Path | None:
+        backup_path = self._path.with_name(f"{self._path.name}.corrupt-{time.time_ns()}.json")
+        try:
+            backup_path.write_text(raw_payload, encoding="utf-8")
+        except OSError as exc:
+            logger.warning(
+                "Failed to write corrupt settings backup for %s to %s (%s: %s)",
+                self._path,
+                backup_path,
+                type(exc).__name__,
+                exc,
+            )
+            return None
+        return backup_path
 
     def _save_locked(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

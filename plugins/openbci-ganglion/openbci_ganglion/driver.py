@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Iterable
 
@@ -18,6 +19,8 @@ DEFAULT_CHUNK_SIZE = 10
 DEFAULT_CHANNEL_NAMES = ("ch1", "ch2", "ch3", "ch4")
 _LIKELY_GANGLION_TOKENS = ("ganglion", "openbci")
 _LIKELY_DONGLE_TOKENS = ("ganglion", "openbci", "bled112", "silicon labs", "cp210")
+
+logger = logging.getLogger(__name__)
 
 
 class OpenBCIGanglionDriver(LoopDriver):
@@ -125,6 +128,7 @@ class OpenBCIGanglionDriver(LoopDriver):
             try:
                 self._board.config_board("v")
             except Exception:
+                logger.exception("OpenBCI Ganglion dongle cleanup command failed during disconnect")
                 pass
 
         try:
@@ -165,6 +169,7 @@ class OpenBCIGanglionDriver(LoopDriver):
                 dtype=np.float32,
             )
         except Exception as exc:
+            logger.exception("OpenBCI Ganglion stream polling failed")
             self.disconnect_device()
             self.emit_connection_lost(
                 {

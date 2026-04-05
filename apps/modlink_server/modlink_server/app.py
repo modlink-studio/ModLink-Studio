@@ -4,7 +4,9 @@ import asyncio
 import base64
 import dataclasses
 import json
+import logging
 import queue
+import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
@@ -28,6 +30,10 @@ from modlink_sdk import DriverFactory, SearchResult
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
+DEFAULT_SSE_POLL_TIMEOUT_SECONDS = 0.25
+DEFAULT_SSE_HEARTBEAT_INTERVAL_SECONDS = 15.0
+
+logger = logging.getLogger(__name__)
 
 
 class SearchRequest(BaseModel):
@@ -75,6 +81,7 @@ def create_app(
     settings: SettingsService | None = None,
     event_stream_maxsize: int = 1024,
     frame_stream_maxsize: int = 256,
+    sse_heartbeat_interval_seconds: float = DEFAULT_SSE_HEARTBEAT_INTERVAL_SECONDS,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -91,6 +98,7 @@ def create_app(
         app.state.engine = engine
         app.state.event_stream_maxsize = max(1, int(event_stream_maxsize))
         app.state.frame_stream_maxsize = max(1, int(frame_stream_maxsize))
+        app.state.sse_heartbeat_interval_seconds = max(0.0, float(sse_heartbeat_interval_seconds))
         try:
             yield
         finally:
@@ -252,8 +260,13 @@ def create_app(
     async def events(request: Request) -> StreamingResponse:
         engine = _engine(request)
         event_stream = engine.open_event_stream(maxsize=request.app.state.event_stream_maxsize)
+        logger.info("Opened SSE event stream")
         return StreamingResponse(
-            _iter_sse_messages(request, event_stream),
+            _iter_sse_messages(
+                request,
+                event_stream,
+                heartbeat_interval_seconds=request.app.state.sse_heartbeat_interval_seconds,
+            ),
             media_type="text/event-stream",
         )
 
@@ -352,29 +365,50 @@ def _sse_message(event_name: str, payload: dict[str, Any]) -> str:
     return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+def _sse_comment(comment: str) -> str:
+    return f": {comment}\n\n"
+
+
 async def _iter_sse_messages(
     request: Request,
     event_stream: Any,
+    *,
+    heartbeat_interval_seconds: float = DEFAULT_SSE_HEARTBEAT_INTERVAL_SECONDS,
 ) -> AsyncIterator[str]:
+    last_sent_at = time.monotonic()
     try:
         while True:
             if await request.is_disconnected():
+                logger.info("SSE client disconnected")
                 return
             try:
-                event = await asyncio.to_thread(event_stream.read, timeout=0.25)
+                event = await asyncio.to_thread(
+                    event_stream.read,
+                    timeout=DEFAULT_SSE_POLL_TIMEOUT_SECONDS,
+                )
             except queue.Empty:
+                if (
+                    heartbeat_interval_seconds >= 0.0
+                    and time.monotonic() - last_sent_at >= heartbeat_interval_seconds
+                ):
+                    last_sent_at = time.monotonic()
+                    yield _sse_comment("keepalive")
                 continue
             except StreamClosedError:
+                logger.info("SSE event stream closed")
                 return
             except EventStreamOverflowError:
+                logger.warning("SSE event stream overflowed; requesting client resync")
                 yield _sse_message(
                     "resync_required",
                     {"reason": "event_stream_overflow"},
                 )
                 return
+            last_sent_at = time.monotonic()
             yield _sse_message(event.kind, _json_payload(event))
     finally:
         event_stream.close()
+        logger.info("Closed SSE event stream")
 
 
 async def _handle_http_exception(_request: Request, exc: HTTPException) -> JSONResponse:
@@ -394,14 +428,17 @@ async def _handle_value_error(_request: Request, exc: ValueError) -> JSONRespons
 
 
 async def _handle_runtime_error(_request: Request, exc: RuntimeError) -> JSONResponse:
+    logger.warning("Server request failed with runtime error: %s", exc)
     return _error_response(409, exc)
 
 
 async def _handle_timeout_error(_request: Request, exc: TimeoutError) -> JSONResponse:
+    logger.warning("Server request timed out: %s", exc)
     return _error_response(504, exc)
 
 
 async def _handle_unexpected_error(_request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Server request failed unexpectedly")
     return _error_response(500, exc)
 
 
