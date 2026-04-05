@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
     lang: 'zh-CN',
     title: 'ModLink Studio',
-    description: '面向设备接入、多模态采集与展示的平台文档',
+    description: '面向设备接入、多模态采集与展示的 0.2.0 文档站',
     head: [
         ['link', { rel: 'icon', href: '/favicon.ico' }],
     ],
@@ -23,6 +23,7 @@ export default defineConfig({
             { text: 'Core', link: '/core' },
             { text: 'UI', link: '/ui' },
             { text: 'App', link: '/app' },
+            { text: 'Server API', link: '/server-api' },
             { text: 'API', link: '/api' },
         ],
         sidebar: {
@@ -43,7 +44,7 @@ export default defineConfig({
             ],
         },
         footer: {
-            message: 'Packages for ModLink Studio are hosted on Cloudsmith OSS.',
+            message: 'Docs track the upcoming 0.2.0 PyPI release; TestPyPI is rehearsal-only.',
             copyright: 'Copyright © 2026',
         },
         socialLinks: [

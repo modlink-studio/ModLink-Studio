@@ -16,7 +16,7 @@
 
 | 链路环节 | 状态 | 需要做的事 |
 |---|---|---|
-| 安装与启动 | 基本就位 | 确认 Cloudsmith 包能正常安装到干净环境；`modlink-studio` 命令可用 |
+| 安装与启动 | 基本就位 | 完成 TestPyPI rehearsal，并确认 PyPI 目标安装命令可在干净环境中工作；`modlink-studio` 命令可用 |
 | 设备搜索 | 已就位 | Driver.search() → SearchResult → UI 展示 |
 | 设备连接 | 已就位 | 选择 SearchResult → Driver.connect_device() → 流描述发现 |
 | 流预览 | 已就位 | SignalStreamView / RasterView / VideoView |
@@ -42,7 +42,8 @@
 - [ ] **文档与发布准备（进行中）**
   - [x] README 更新 0.2.0 安装说明与工作区开发说明
   - [x] 0.2.0 CHANGELOG
-  - [ ] Cloudsmith 干净环境安装验证
+  - [ ] TestPyPI rehearsal
+  - [ ] PyPI 发布前干净环境安装验证
   - [ ] 文档站 breaking change 说明同步
 
 **P1 — 建议在 0.2.x 尽快完成：**
@@ -311,7 +312,7 @@ packages/modlink_ai/
 2. **首次启动体验（已完成）** — 默认页面在没有可预览流时给出清晰引导，而不是空白页
 3. **录制链路稳定化（已完成）** — UI 上明确显示保存路径、recording_id 与失败原因
 4. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
-5. **文档与发布验证（进行中）** — 安装说明、CHANGELOG 已更新，Cloudsmith 干净环境验证待执行
+5. **文档与发布验证（进行中）** — 安装说明、CHANGELOG 已更新；TestPyPI rehearsal 与 PyPI 发布前验证待执行
 6. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
 
 ---
