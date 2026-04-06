@@ -1,7 +1,7 @@
 [project]
-name = "modlink-studio"
+name = "modlink-studio-internal"
 version = "0.2.0"
-description = "Host application for ModLink Studio"
+description = "Internal packaging stub for the Qt Widgets ModLink Studio host"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
@@ -17,7 +17,6 @@ Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
 
 [project.optional-dependencies]
 official-host-camera = ["modlink-plugin-host-camera"]

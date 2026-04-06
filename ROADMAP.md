@@ -23,7 +23,17 @@
 | 开始/停止采集 | 已就位 | AcquisitionBackend + UI 面板 |
 | 录制保存 | 已就位 | StorageManager → 文件系统 |
 | 录制回放 | 延后到 0.3.0 | 0.2.0 先保证录制格式稳定、元数据完整、保存结果可见 |
-| 插件安装 | 基本就位 | extras + entry point 发现 |
+| 插件安装 | 基本就位 | 官方驱动代码内置在主包中，extras 仅负责可选第三方依赖 |
+
+### 1.1.1 0.2.x-0.3.x 发布包策略
+
+**已确认：至少到 0.3.0 之前，对外公开分发保持单主包策略。**
+
+- [x] `modlink-studio` 作为 0.2.x-0.3.x 阶段唯一公开的 PyPI 主包
+- [x] Qt Widgets UI、QML UI、Qt bridge、运行时实现与官方驱动代码继续保留在 monorepo 内部拆分，但不作为独立公开 PyPI 包名承诺
+- [x] `modlink-studio-qml` 命令可以继续保留，但应来自同一个 `modlink-studio` distribution，而不是单独的公开分发包
+- [x] 官方驱动不在 0.2.x-0.3.x 阶段以独立公开包名发布；相关 extras 只负责安装可选第三方依赖
+- [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
 
 ### 1.2 0.2.0 发布门槛
 
@@ -43,13 +53,14 @@
   - [x] README 更新 0.2.0 安装说明与工作区开发说明
   - [x] 0.2.0 CHANGELOG
   - [x] 文档站 breaking change 说明同步
+  - [x] 单主包 `modlink-studio` 的 TestPyPI / PyPI 发布链落地
   - [ ] TestPyPI rehearsal
   - [ ] PyPI 发布前干净环境安装验证
 
 - [x] **运行时稳健性收口（已完成）**
   - [x] Settings 文件损坏时不再静默丢设置，损坏内容会备份并记录 warning
   - [x] `modlink_server` `/events` 增加 SSE keepalive comment，空闲连接不再长期静默
-  - [x] `modlink_core` / `modlink_server` / 官方插件关键异常路径补齐最小 logging
+  - [x] `modlink_core` / `modlink_server` / 官方驱动关键异常路径补齐最小 logging
   - [x] Qt Widgets preview 完成最小主题适配，预览不再固定白底与固定次级文本颜色
 
 **P1 — 建议在 0.2.x 尽快完成：**
@@ -71,16 +82,18 @@
 - AI 辅助功能
 - Web 前端
 - QML UI 替代 Qt Widgets（保持两条线并行，不做切换）
+- 对外拆分发布 UI 实现层或官方驱动包（至少延后到 0.4.0 之后再评估）
 
 ### 1.4 0.2.0 可用性标准
 
 ```
 0.2.0 应达到以下可用性标准：
-1. pip install modlink-studio + 安装一个官方插件
+1. pip install modlink-studio
 2. 启动应用，搜索并连接设备
 3. 看到实时流预览
 4. 开始录制，添加 marker，停止录制
 5. 明确看到录制结果保存到了哪里，录制文件结构清晰、元数据完整
+6. 需要额外依赖的官方设备能力可通过 `modlink-studio` extras 补齐，而不是安装独立官方驱动包
 ```
 
 ---
@@ -88,6 +101,8 @@
 ## 二、0.3.0 — 实验工作流与回放
 
 **核心目标：从“能采集”升级为“能组织实验、管理会话、回看录制结果”。**
+
+**发布策略保持不变：0.3.0 继续沿用单主包 `modlink-studio` 的公开分发方式，不在此版本重新拆分 UI 实现层或官方驱动公开包。**
 
 ### 2.1 数据模型扩展
 
@@ -283,6 +298,7 @@ packages/modlink_ai/
   ├── UI 体验修复
   ├── 元数据增强（notes, operator）
   ├── 录制链路稳定化（保存结果清晰可见）
+  ├── 单主包 PyPI 发布（`modlink-studio`）
   └── 文档 + 发布准备
       │
       ▼
@@ -292,7 +308,8 @@ packages/modlink_ai/
   ├── 录制回放
   ├── UI：实验管理页面
   ├── 存储结构升级（向后兼容）
-  └── 录制文件格式标准化
+  ├── 录制文件格式标准化
+  └── 保持单主包公开分发
       │
       ▼
 0.4.x  AI 辅助
@@ -319,7 +336,7 @@ packages/modlink_ai/
 3. **录制链路稳定化（已完成）** — UI 上明确显示保存路径、recording_id 与失败原因
 4. **运行时稳健性收口（已完成）** — settings 损坏备份、SSE keepalive、最小 logging 与 widgets preview 主题适配已完成
 5. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
-6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新；TestPyPI rehearsal 与 PyPI 发布前验证待执行
+6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新；下一步按单主包 `modlink-studio` 策略完成 TestPyPI rehearsal 与 PyPI 发布前验证
 7. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
 
 ---

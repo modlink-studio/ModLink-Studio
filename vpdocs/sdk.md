@@ -4,10 +4,12 @@
 
 第一版的核心原则只有两条：
 
-- 外部 driver 项目优先依赖 `modlink-sdk`
+- 外部 driver 项目优先依赖 `modlink-sdk` 这一层契约
 - 安装后通过 `modlink.drivers` entry point 被宿主发现
 
 当前文档以 `0.2.0` 主线为准。`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
+
+需要特别说明的是：`0.2.0` 的公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink-sdk` 这一层契约在仓库中已经稳定存在，但不会作为 `0.2.0` 的独立公开 PyPI 包同步发布。
 
 开发前，请先完成宿主环境安装，见 [安装与发布](/install)。
 
@@ -303,6 +305,8 @@ my-driver = "my_driver.factory:create_driver"
 
 `factory.py` 的职责也应该保持简单：它负责暴露给宿主加载的工厂函数，而不是在这里实现设备协议逻辑。
 
+当前阶段更推荐在源码或本地联调环境中验证 driver：
+
 安装方式：
 
 ```bash
@@ -399,15 +403,9 @@ name.XX
 - `host_camera.01:video`
 - `openbci_ganglion.01:eeg`
 
-## 官方插件命名
+## 官方驱动命名
 
-第一版官方插件使用下面这组正式名：
-
-- `modlink-plugin-host-camera`
-- `modlink-plugin-host-microphone`
-- `modlink-plugin-openbci-ganglion`
-
-它们对应的 entry point 分别是：
+当前内置官方驱动使用下面这组 entry point：
 
 - `host-camera`
 - `host-microphone`

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import time
+from types import ModuleType
 
 import numpy as np
-import sounddevice as sd
 
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
@@ -21,7 +21,7 @@ class MicrophoneDemoDriver(Driver):
     def __init__(self) -> None:
         super().__init__()
         self._device_index: int | None = None
-        self._stream: sd.InputStream | None = None
+        self._stream: object | None = None
         self._callbacks_enabled = False
         self._seq = 0
 
@@ -50,6 +50,7 @@ class MicrophoneDemoDriver(Driver):
         if provider != "audio":
             raise ValueError("Host microphone provider must be 'audio'")
 
+        sd = _require_sounddevice()
         return [
             SearchResult(
                 title=device["name"],
@@ -75,6 +76,7 @@ class MicrophoneDemoDriver(Driver):
         if self._stream is not None:
             return
 
+        sd = _require_sounddevice()
         stream = sd.InputStream(
             device=self._device_index,
             channels=1,
@@ -108,7 +110,7 @@ class MicrophoneDemoDriver(Driver):
         indata: np.ndarray,
         frames: int,
         timestamp: object,
-        status: sd.CallbackFlags,
+        status: object,
     ) -> None:
         if not self._callbacks_enabled:
             return
@@ -126,3 +128,14 @@ class MicrophoneDemoDriver(Driver):
         )
         if emitted:
             self._seq += 1
+
+
+def _require_sounddevice() -> ModuleType:
+    try:
+        import sounddevice as sd
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "Host Microphone requires optional dependency 'sounddevice'. "
+            "Install modlink-studio[official-host-microphone]."
+        ) from exc
+    return sd

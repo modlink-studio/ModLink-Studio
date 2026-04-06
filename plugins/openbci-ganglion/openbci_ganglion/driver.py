@@ -4,11 +4,9 @@ import asyncio
 import logging
 import time
 from collections.abc import Iterable
+from types import ModuleType
 
 import numpy as np
-from bleak import BleakScanner
-from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
-from serial.tools import list_ports
 
 from modlink_sdk import FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
@@ -59,7 +57,8 @@ class OpenBCIGanglionDriver(LoopDriver):
 
     def search(self, provider: str) -> list[SearchResult]:
         if provider == "ble":
-            devices = asyncio.run(BleakScanner.discover(timeout=5.0))
+            bleak_scanner = _require_bleak_scanner()
+            devices = asyncio.run(bleak_scanner.discover(timeout=5.0))
             results = [
                 SearchResult(
                     title=(device.name or "BLE device").strip() or "BLE device",
@@ -76,6 +75,7 @@ class OpenBCIGanglionDriver(LoopDriver):
             return _preferred_results(results, transport="native_ble")
 
         if provider == "serial":
+            list_ports = _require_list_ports()
             results = [
                 SearchResult(
                     title=_port_title(port),
@@ -98,24 +98,25 @@ class OpenBCIGanglionDriver(LoopDriver):
         raise ValueError("OpenBCI Ganglion search provider must be 'ble' or 'serial'")
 
     def connect_device(self, config: SearchResult) -> None:
+        board_ids, board_shim, brain_flow_input_params = _require_brainflow()
         extra = config.extra
-        params = BrainFlowInputParams()
+        params = brain_flow_input_params()
         params.timeout = 15
         params.other_info = "fw:auto"
 
         if extra["transport"] == "dongle":
             params.serial_port = extra["serial_port"]
-            board_id = int(BoardIds.GANGLION_BOARD.value)
+            board_id = int(board_ids.GANGLION_BOARD.value)
         else:
             params.serial_number = extra["serial_number"]
-            board_id = int(BoardIds.GANGLION_NATIVE_BOARD.value)
+            board_id = int(board_ids.GANGLION_NATIVE_BOARD.value)
 
-        board = BoardShim(board_id, params)
+        board = board_shim(board_id, params)
         board.prepare_session()
 
         self._board = board
         self._transport = extra["transport"]
-        self._eeg_channels = tuple(BoardShim.get_eeg_channels(board_id))
+        self._eeg_channels = tuple(board_shim.get_eeg_channels(board_id))
         self._buffer = np.empty((len(DEFAULT_CHANNEL_NAMES), 0), dtype=np.float32)
         self._seq = 0
 
@@ -258,3 +259,36 @@ def _port_title(port: object) -> str:
         if candidate:
             return candidate
     return "Serial device"
+
+
+def _require_bleak_scanner() -> object:
+    try:
+        from bleak import BleakScanner
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "OpenBCI Ganglion BLE search requires optional dependency 'bleak'. "
+            "Install modlink-studio[official-openbci-ganglion]."
+        ) from exc
+    return BleakScanner
+
+
+def _require_list_ports() -> ModuleType:
+    try:
+        from serial.tools import list_ports
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "OpenBCI Ganglion serial search requires optional dependency 'pyserial'. "
+            "Install modlink-studio[official-openbci-ganglion]."
+        ) from exc
+    return list_ports
+
+
+def _require_brainflow() -> tuple[object, object, object]:
+    try:
+        from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "OpenBCI Ganglion requires optional dependency 'brainflow'. "
+            "Install modlink-studio[official-openbci-ganglion]."
+        ) from exc
+    return BoardIds, BoardShim, BrainFlowInputParams

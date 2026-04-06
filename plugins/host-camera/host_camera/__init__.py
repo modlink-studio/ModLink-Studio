@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-from .driver import WebcamDriver
+from .factory import create_driver
 
-__all__ = ["WebcamDriver"]
+__all__ = ["create_driver"]

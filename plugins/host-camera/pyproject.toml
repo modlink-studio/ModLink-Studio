@@ -17,7 +17,6 @@ Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
 
 [project.entry-points."modlink.drivers"]
 host-camera = "host_camera.factory:create_driver"

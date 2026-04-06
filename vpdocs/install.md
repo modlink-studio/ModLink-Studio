@@ -1,6 +1,6 @@
 # 安装与发布
 
-本页汇总 `0.2.0` 的安装目标、官方插件安装方式和源码运行方式。
+本页汇总 `0.2.0` 的安装目标、内置官方驱动启用方式和源码运行方式。
 
 ## 0.2.0 发布状态
 
@@ -42,9 +42,9 @@ modlink-studio
 python -m modlink_studio
 ```
 
-## 安装官方插件
+## 启用内置官方驱动
 
-官方插件继续按需通过 extras 安装，不会随主应用一次性全部启用。
+内置官方驱动继续按需通过 extras 启用，不会随主应用一次性拉起所有可选第三方依赖。
 
 可用 extras：
 
@@ -66,11 +66,11 @@ python -m pip install "modlink-studio[official-host-camera,official-host-microph
 python -m pip install "modlink-studio[official-openbci-ganglion]"
 ```
 
-当前保留支持的官方插件包名是：
+这些 extras 对应的是主包内置的官方驱动能力：
 
-- `modlink-plugin-host-camera`
-- `modlink-plugin-host-microphone`
-- `modlink-plugin-openbci-ganglion`
+- `official-host-camera`：启用 Host Camera 需要的第三方依赖
+- `official-host-microphone`：启用 Host Microphone 需要的第三方依赖
+- `official-openbci-ganglion`：启用 OpenBCI Ganglion 需要的第三方依赖
 
 ## 从源码运行
 
@@ -96,7 +96,7 @@ uv sync
 uv run modlink-studio
 ```
 
-按需附加官方插件：
+按需附加官方驱动依赖：
 
 ```bash
 uv run --extra official-host-camera modlink-studio
@@ -137,7 +137,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 - TestPyPI rehearsal 能完整跑通
 - PyPI 目标安装命令在干净环境中可用
-- extras 安装后的官方插件可被宿主发现
+- extras 安装后的内置官方驱动可被宿主发现
 - `modlink-studio` 命令入口正常
 
 ## 常见问题
@@ -150,9 +150,9 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 不是。`TestPyPI` 只用于发布前 rehearsal；正式发布后，公开安装入口以 PyPI 为准。
 
-### 已安装主应用但看不到某个官方插件
+### 已安装主应用但看不到某个官方驱动
 
-主应用默认不会带上所有官方插件。需要显式安装对应 extra，或在源码工作区里通过根项目 extra 启动。
+主应用默认不会拉起所有官方设备依赖。需要显式安装对应 extra，或在源码工作区里通过根项目 extra 启动。
 
 ### 系统里找不到 `modlink-studio` 命令
 

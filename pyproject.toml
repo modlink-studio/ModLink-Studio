@@ -1,57 +1,52 @@
 [project]
-name = "modlink-workspace"
+name = "modlink-studio"
 version = "0.2.0"
-description = "Workspace root for ModLink Studio"
+description = "Host application bundle for ModLink Studio"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
-dependencies = ["modlink-studio", "modlink-studio-qml"]
+dependencies = [
+    "numpy>=2.3.3",
+    "platformdirs>=4.9.4",
+    "pyqt6>=6.10.2",
+    "pyqt6-fluent-widgets>=1.11.1",
+    "pyqtgraph>=0.13.7",
+    "scipy>=1.15.2",
+    "fastapi>=0.118.0",
+    "uvicorn>=0.37.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
+Packages = "https://pypi.org/project/modlink-studio/"
 
 [project.optional-dependencies]
-official-host-camera = ["modlink-plugin-host-camera"]
-official-host-microphone = ["modlink-plugin-host-microphone"]
-official-openbci-ganglion = ["modlink-plugin-openbci-ganglion"]
+official-host-camera = ["opencv-python>=4.11.0"]
+official-host-microphone = ["sounddevice"]
+official-openbci-ganglion = ["brainflow", "bleak", "pyserial"]
+
+[project.gui-scripts]
+modlink-studio = "modlink_studio.app:main"
+modlink-studio-qml = "modlink_studio_qml.app:main"
+
+[project.scripts]
+modlink-server = "modlink_server.app:main"
+
+[project.entry-points."modlink.drivers"]
+host-camera = "host_camera.factory:create_driver"
+host-microphone = "host_microphone.factory:create_driver"
+openbci-ganglion = "openbci_ganglion.factory:create_driver"
 
 [tool.uv]
 default-groups = ["dev"]
 
-[tool.uv.sources]
-modlink-studio = { workspace = true }
-modlink-studio-qml = { workspace = true }
-modlink-server = { workspace = true }
-modlink-core = { workspace = true }
-modlink-sdk = { workspace = true }
-modlink-qt-bridge = { workspace = true }
-modlink_ui_qt_widgets = { workspace = true }
-modlink_ui_qt_qml = { workspace = true }
-modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
-modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
-modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
-
-[tool.uv.workspace]
-members = [
-    "apps/modlink_studio",
-    "apps/modlink_studio_qml",
-    "apps/modlink_server",
-    "packages/modlink_sdk",
-    "packages/modlink_core",
-    "packages/modlink_qt_bridge",
-    "packages/modlink_ui_qt_widgets",
-    "packages/modlink_ui_qt_qml",
-]
-
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
-    "modlink-server",
     "pdoc>=16.0.0",
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
@@ -102,7 +97,40 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = []
+include-package-data = false
+
+[tool.setuptools.package-data]
+modlink_studio = ["app_icon.png"]
+modlink_ui_qt_qml = ["qml/*.qml", "qml/**/*.qml"]
+
+[tool.setuptools.packages.find]
+where = [
+    "apps/modlink_studio",
+    "apps/modlink_studio_qml",
+    "apps/modlink_server",
+    "packages/modlink_sdk",
+    "packages/modlink_core",
+    "packages/modlink_qt_bridge",
+    "packages/modlink_ui_qt_widgets",
+    "packages/modlink_ui_qt_qml",
+    "plugins/host-camera",
+    "plugins/host-microphone",
+    "plugins/openbci-ganglion",
+]
+include = [
+    "modlink_studio*",
+    "modlink_studio_qml*",
+    "modlink_server*",
+    "modlink_sdk*",
+    "modlink_core*",
+    "modlink_qt_bridge*",
+    "modlink_ui_qt_widgets*",
+    "modlink_ui_qt_qml*",
+    "host_camera*",
+    "host_microphone*",
+    "openbci_ganglion*",
+]
+namespaces = false
 
 [tool.pytest.ini_options]
 norecursedirs = [
