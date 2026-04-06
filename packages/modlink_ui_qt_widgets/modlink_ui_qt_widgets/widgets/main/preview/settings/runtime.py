@@ -7,15 +7,41 @@ from PyQt6.QtWidgets import QWidget
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 
+from ..views import (
+    BaseStreamView,
+    FieldStreamView,
+    RasterStreamView,
+    SignalStreamView,
+    VideoStreamView,
+)
 from .dialog import StreamPreviewSettingsDialog
 from .models import (
+    FieldPreviewSettings,
     PreviewPayloadType,
     PreviewSettings,
-    default_preview_settings,
+    RasterPreviewSettings,
+    SignalPreviewSettings,
+    VideoPreviewSettings,
     normalize_preview_settings,
 )
-from .sections import create_payload_settings_section
+from .sections import (
+    FieldPayloadSettingsPanel,
+    RasterPayloadSettingsPanel,
+    SignalPayloadSettingsPanel,
+    VideoPayloadSettingsPanel,
+)
 from .store import PreviewStreamSettingsStore
+
+type PreviewPayloadSectionWidget = (
+    SignalPayloadSettingsPanel
+    | RasterPayloadSettingsPanel
+    | FieldPayloadSettingsPanel
+    | VideoPayloadSettingsPanel
+)
+
+type SupportedPreviewStreamView = (
+    SignalStreamView | RasterStreamView | FieldStreamView | VideoStreamView
+)
 
 
 class PreviewSettingsRuntime:
@@ -23,19 +49,19 @@ class PreviewSettingsRuntime:
         self,
         descriptor: StreamDescriptor,
         settings: QtSettingsBridge,
-        stream_view: QWidget,
+        stream_view: BaseStreamView,
         parent: QWidget | None = None,
     ) -> None:
         self.descriptor = descriptor
-        self.stream_view = stream_view
         self.parent = parent
         self.store = PreviewStreamSettingsStore(settings)
         self.payload_type = self._payload_type(descriptor)
-        self.payload_section_widget = create_payload_settings_section(descriptor, None)
+        self.stream_view = self._coerce_stream_view(stream_view)
+        self.payload_section_widget = self._create_payload_section()
         self.dialog: StreamPreviewSettingsDialog | None = None
         self._syncing_section = False
 
-        self._connect_section_signal()
+        self.payload_section_widget.sig_state_changed.connect(self._on_section_state_changed)
         self._apply_settings(self._load_settings())
 
     def open_dialog(self, parent: QWidget | None = None) -> None:
@@ -48,16 +74,8 @@ class PreviewSettingsRuntime:
             )
         self.dialog.exec()
 
-    def _connect_section_signal(self) -> None:
-        signal = getattr(self.payload_section_widget, "sig_state_changed", None)
-        if signal is None:
-            raise TypeError(
-                f"{type(self.payload_section_widget).__name__} must expose sig_state_changed"
-            )
-        signal.connect(self._on_section_state_changed)
-
     def _load_settings(self) -> PreviewSettings:
-        return self._normalize_settings(self.store.load(self.descriptor))
+        return self.store.load(self.descriptor)
 
     def _on_section_state_changed(self, state: object) -> None:
         if self._syncing_section:
@@ -72,37 +90,109 @@ class PreviewSettingsRuntime:
         self._apply_to_view(settings)
 
     def _normalize_settings(self, state: object) -> PreviewSettings:
-        settings = self._coerce_settings(state)
-        return normalize_preview_settings(
-            self.payload_type,
-            settings,
-            float(self.descriptor.nominal_sample_rate_hz or 1.0),
-            tuple(self.descriptor.channel_names),
-        )
-
-    def _coerce_settings(self, state: object) -> PreviewSettings:
-        default = default_preview_settings(self.payload_type)
-        if isinstance(state, type(default)):
-            return cast(PreviewSettings, state)
-        return default
+        sample_rate_hz = float(self.descriptor.nominal_sample_rate_hz or 1.0)
+        channel_names = tuple(self.descriptor.channel_names)
+        if self.payload_type == "signal":
+            if not isinstance(state, SignalPreviewSettings):
+                raise TypeError("signal preview settings must use SignalPreviewSettings")
+            return normalize_preview_settings(
+                "signal",
+                state,
+                sample_rate_hz,
+                channel_names,
+            )
+        if self.payload_type == "raster":
+            if not isinstance(state, RasterPreviewSettings):
+                raise TypeError("raster preview settings must use RasterPreviewSettings")
+            return normalize_preview_settings(
+                "raster",
+                state,
+                sample_rate_hz,
+                channel_names,
+            )
+        if self.payload_type == "field":
+            if not isinstance(state, FieldPreviewSettings):
+                raise TypeError("field preview settings must use FieldPreviewSettings")
+            return normalize_preview_settings(
+                "field",
+                state,
+                sample_rate_hz,
+                channel_names,
+            )
+        if self.payload_type == "video":
+            if not isinstance(state, VideoPreviewSettings):
+                raise TypeError("video preview settings must use VideoPreviewSettings")
+            return normalize_preview_settings(
+                "video",
+                state,
+                sample_rate_hz,
+                channel_names,
+            )
+        raise ValueError(f"unsupported payload_type: {self.payload_type}")
 
     def _set_section_state(self, settings: PreviewSettings) -> None:
-        set_state = getattr(self.payload_section_widget, "set_state", None)
-        if not callable(set_state):
-            raise TypeError(
-                f"{type(self.payload_section_widget).__name__} must implement set_state()"
-            )
-
         self._syncing_section = True
         try:
-            set_state(settings)
+            if self.payload_type == "signal":
+                assert isinstance(settings, SignalPreviewSettings)
+                self.payload_section_widget.set_state(settings)
+            elif self.payload_type == "raster":
+                assert isinstance(settings, RasterPreviewSettings)
+                self.payload_section_widget.set_state(settings)
+            elif self.payload_type == "field":
+                assert isinstance(settings, FieldPreviewSettings)
+                self.payload_section_widget.set_state(settings)
+            else:
+                assert isinstance(settings, VideoPreviewSettings)
+                self.payload_section_widget.set_state(settings)
         finally:
             self._syncing_section = False
 
     def _apply_to_view(self, settings: PreviewSettings) -> None:
-        apply_preview_settings = getattr(self.stream_view, "apply_preview_settings", None)
-        if callable(apply_preview_settings):
-            apply_preview_settings(settings)
+        if self.payload_type == "signal":
+            assert isinstance(settings, SignalPreviewSettings)
+            self.stream_view.apply_preview_settings(settings)
+            return
+        if self.payload_type == "raster":
+            assert isinstance(settings, RasterPreviewSettings)
+            self.stream_view.apply_preview_settings(settings)
+            return
+        if self.payload_type == "field":
+            assert isinstance(settings, FieldPreviewSettings)
+            self.stream_view.apply_preview_settings(settings)
+            return
+        assert isinstance(settings, VideoPreviewSettings)
+        self.stream_view.apply_preview_settings(settings)
+
+    def _create_payload_section(self) -> PreviewPayloadSectionWidget:
+        if self.payload_type == "signal":
+            return SignalPayloadSettingsPanel(self.descriptor, None)
+        if self.payload_type == "raster":
+            return RasterPayloadSettingsPanel(self.descriptor, None)
+        if self.payload_type == "field":
+            return FieldPayloadSettingsPanel(self.descriptor, None)
+        if self.payload_type == "video":
+            return VideoPayloadSettingsPanel(self.descriptor, None)
+        raise ValueError(f"unsupported payload_type: {self.payload_type}")
+
+    def _coerce_stream_view(self, stream_view: BaseStreamView) -> SupportedPreviewStreamView:
+        if self.payload_type == "signal":
+            if not isinstance(stream_view, SignalStreamView):
+                raise TypeError("signal preview runtime requires SignalStreamView")
+            return stream_view
+        if self.payload_type == "raster":
+            if not isinstance(stream_view, RasterStreamView):
+                raise TypeError("raster preview runtime requires RasterStreamView")
+            return stream_view
+        if self.payload_type == "field":
+            if not isinstance(stream_view, FieldStreamView):
+                raise TypeError("field preview runtime requires FieldStreamView")
+            return stream_view
+        if self.payload_type == "video":
+            if not isinstance(stream_view, VideoStreamView):
+                raise TypeError("video preview runtime requires VideoStreamView")
+            return stream_view
+        raise ValueError(f"unsupported payload_type: {self.payload_type}")
 
     @staticmethod
     def _payload_type(descriptor: StreamDescriptor) -> PreviewPayloadType:

@@ -9,7 +9,6 @@ from .base import BaseStreamView
 from .field import FieldStreamView
 from .raster import RasterStreamView
 from .signal import SignalStreamView
-from .unavailable import UnavailableStreamView
 from .video import VideoStreamView
 
 
@@ -26,10 +25,4 @@ def create_stream_view(
         return FieldStreamView(descriptor, settings, parent=parent)
     if descriptor.payload_type == "video":
         return VideoStreamView(descriptor, settings, parent=parent)
-
-    return UnavailableStreamView(
-        descriptor,
-        settings,
-        reason=f"当前不支持 payload_type={descriptor.payload_type} 的预览。",
-        parent=parent,
-    )
+    raise ValueError(f"unsupported payload_type: {descriptor.payload_type}")

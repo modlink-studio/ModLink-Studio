@@ -30,25 +30,66 @@ from modlink_ui_qt_widgets.widgets.main.preview.settings import PreviewSettingsR
 from modlink_ui_qt_widgets.widgets.main.preview.settings.models import (
     FieldPreviewSettings,
     RasterPreviewSettings,
+    SignalFilterSettings,
+    SignalPreviewSettings,
     VideoPreviewSettings,
 )
 from modlink_ui_qt_widgets.widgets.main.preview.settings.sections import (
     FieldPayloadSettingsPanel,
     RasterPayloadSettingsPanel,
+    SignalPayloadSettingsPanel,
     VideoPayloadSettingsPanel,
 )
 from modlink_ui_qt_widgets.widgets.main.preview.settings.store import (
     UI_PREVIEW_STREAMS_KEY,
     PreviewStreamSettingsStore,
 )
+from modlink_ui_qt_widgets.widgets.main.preview.views import (
+    FieldStreamView,
+    RasterStreamView,
+    SignalStreamView,
+    VideoStreamView,
+)
 
 
-class _DummyPreviewView:
-    def __init__(self) -> None:
-        self.applied_settings: list[object] = []
+class _RecordingSignalStreamView(SignalStreamView):
+    def __init__(self, descriptor: StreamDescriptor, settings: QtSettingsBridge) -> None:
+        super().__init__(descriptor, settings)
+        self.applied_settings: list[SignalPreviewSettings] = []
 
-    def apply_preview_settings(self, settings: object) -> None:
+    def apply_preview_settings(self, settings: SignalPreviewSettings) -> None:
         self.applied_settings.append(settings)
+        super().apply_preview_settings(settings)
+
+
+class _RecordingRasterStreamView(RasterStreamView):
+    def __init__(self, descriptor: StreamDescriptor, settings: QtSettingsBridge) -> None:
+        super().__init__(descriptor, settings)
+        self.applied_settings: list[RasterPreviewSettings] = []
+
+    def apply_preview_settings(self, settings: RasterPreviewSettings) -> None:
+        self.applied_settings.append(settings)
+        super().apply_preview_settings(settings)
+
+
+class _RecordingFieldStreamView(FieldStreamView):
+    def __init__(self, descriptor: StreamDescriptor, settings: QtSettingsBridge) -> None:
+        super().__init__(descriptor, settings)
+        self.applied_settings: list[FieldPreviewSettings] = []
+
+    def apply_preview_settings(self, settings: FieldPreviewSettings) -> None:
+        self.applied_settings.append(settings)
+        super().apply_preview_settings(settings)
+
+
+class _RecordingVideoStreamView(VideoStreamView):
+    def __init__(self, descriptor: StreamDescriptor, settings: QtSettingsBridge) -> None:
+        super().__init__(descriptor, settings)
+        self.applied_settings: list[VideoPreviewSettings] = []
+
+    def apply_preview_settings(self, settings: VideoPreviewSettings) -> None:
+        self.applied_settings.append(settings)
+        super().apply_preview_settings(settings)
 
 
 class PreviewSettingsRuntimeTests(unittest.TestCase):
@@ -99,7 +140,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
             persist=False,
         )
 
-        view = _DummyPreviewView()
+        view = _RecordingRasterStreamView(descriptor, self._settings_bridge)
         runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         expected = RasterPreviewSettings(
@@ -111,12 +152,13 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
             interpolation="bicubic",
             transform="rotate_180",
         )
+        self.assertIsInstance(runtime.payload_section_widget, RasterPayloadSettingsPanel)
         self.assertEqual(view.applied_settings[-1], expected)
         self.assertEqual(runtime.payload_section_widget.state(), expected)
 
     def test_runtime_persists_changes_and_reapplies_to_view(self) -> None:
         descriptor = self._descriptor("video", "video")
-        view = _DummyPreviewView()
+        view = _RecordingVideoStreamView(descriptor, self._settings_bridge)
         runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         updated = VideoPreviewSettings(
@@ -125,6 +167,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
             aspect_mode="stretch",
             transform="rotate_90",
         )
+        self.assertIsInstance(runtime.payload_section_widget, VideoPayloadSettingsPanel)
         runtime.payload_section_widget.sig_state_changed.emit(updated)
 
         self.assertEqual(view.applied_settings[-1], updated)
@@ -148,11 +191,59 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
             persist=False,
         )
 
-        view = _DummyPreviewView()
+        view = _RecordingVideoStreamView(descriptor, self._settings_bridge)
         runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
 
         self.assertEqual(view.applied_settings[-1], VideoPreviewSettings())
         self.assertEqual(runtime.payload_section_widget.state(), VideoPreviewSettings())
+
+    def test_runtime_creates_signal_section_and_applies_to_signal_view(self) -> None:
+        descriptor = self._descriptor("eeg", "signal")
+        view = _RecordingSignalStreamView(descriptor, self._settings_bridge)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
+
+        self.assertIsInstance(runtime.payload_section_widget, SignalPayloadSettingsPanel)
+        self.assertEqual(view.applied_settings[-1], SignalPreviewSettings())
+
+    def test_runtime_creates_field_section_and_applies_to_field_view(self) -> None:
+        descriptor = self._descriptor("field", "field")
+        view = _RecordingFieldStreamView(descriptor, self._settings_bridge)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
+
+        self.assertIsInstance(runtime.payload_section_widget, FieldPayloadSettingsPanel)
+        self.assertEqual(view.applied_settings[-1], FieldPreviewSettings())
+
+    def test_runtime_rejects_unsupported_payload_type(self) -> None:
+        descriptor = self._descriptor("mystery", "tensor")
+        view = _RecordingRasterStreamView(
+            self._descriptor("raster", "raster"),
+            self._settings_bridge,
+        )
+
+        with self.assertRaises(ValueError):
+            PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
+
+    def test_runtime_rejects_wrong_settings_type(self) -> None:
+        descriptor = self._descriptor("video", "video")
+        view = _RecordingVideoStreamView(descriptor, self._settings_bridge)
+        runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
+
+        with self.assertRaises(TypeError):
+            runtime._on_section_state_changed(RasterPreviewSettings())
+
+    def test_signal_section_state_contract_uses_typed_settings(self) -> None:
+        descriptor = self._descriptor("eeg", "signal")
+        section = SignalPayloadSettingsPanel(descriptor)
+        expected = SignalPreviewSettings(
+            window_seconds=12,
+            antialias_enabled=False,
+            visible_channel_indices=(0, 1),
+            filter=SignalFilterSettings(high_cutoff_hz=30.0),
+        )
+
+        section.set_state(expected)
+
+        self.assertEqual(section.state(), expected)
 
     def test_raster_section_state_contract_uses_typed_settings(self) -> None:
         descriptor = self._descriptor("raster", "raster")
@@ -170,6 +261,13 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         section.set_state(expected)
 
         self.assertEqual(section.state(), expected)
+
+    def test_section_rejects_wrong_settings_type(self) -> None:
+        descriptor = self._descriptor("video", "video")
+        section = VideoPayloadSettingsPanel(descriptor)
+
+        with self.assertRaises(TypeError):
+            section.set_state(RasterPreviewSettings())
 
     def test_field_section_state_contract_uses_typed_settings(self) -> None:
         descriptor = self._descriptor("field", "field")

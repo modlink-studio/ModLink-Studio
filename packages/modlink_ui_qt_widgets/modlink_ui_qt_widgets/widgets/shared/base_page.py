@@ -70,7 +70,15 @@ class BasePage(QWidget):
         self.content_layout.setSpacing(20)
 
         self.scroll_area.setWidget(self.scroll_widget)
-        self.scroll_area.enableTransparentBackground()
+        viewport_name = f"{self.scroll_widget.objectName()}-viewport"
+        self.scroll_area.viewport().setObjectName(viewport_name)
+        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.scroll_area.viewport().setStyleSheet(
+            f"QWidget#{viewport_name} {{ background: transparent; }}"
+        )
+        self.scroll_widget.setStyleSheet(
+            f"QWidget#{self.scroll_widget.objectName()} {{ background: transparent; }}"
+        )
 
         root_layout.addLayout(self.header_layout)
         root_layout.addWidget(self.scroll_area, 1)

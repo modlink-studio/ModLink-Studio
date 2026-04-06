@@ -105,8 +105,9 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
             transform=str(self.transform_combo.currentData() or "none"),
         )
 
-    def set_state(self, state: object) -> None:
-        settings = state if isinstance(state, VideoPreviewSettings) else VideoPreviewSettings()
+    def set_state(self, settings: VideoPreviewSettings) -> None:
+        if not isinstance(settings, VideoPreviewSettings):
+            raise TypeError("video settings panel requires VideoPreviewSettings")
         with (
             QSignalBlocker(self.color_format_combo),
             QSignalBlocker(self.scale_mode_combo),

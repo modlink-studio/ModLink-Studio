@@ -10,6 +10,7 @@ from qfluentwidgets import isDarkTheme, qconfig
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
+from ..settings.models import RasterPreviewSettings
 from .base import BaseStreamView
 
 DEFAULT_RASTER_WINDOW_SECONDS = 8
@@ -56,37 +57,17 @@ class RasterStreamView(BaseStreamView):
         layout.addWidget(self._graphics_widget, 1)
         self.setMinimumHeight(280)
 
-    def apply_preview_settings(self, settings: object) -> None:
-        window_seconds = self._coerce_int(
-            getattr(settings, "window_seconds", self._window_seconds),
-            fallback=self._window_seconds,
-        )
-        self._apply_window_seconds(window_seconds)
+    def apply_preview_settings(self, settings: RasterPreviewSettings) -> None:
+        if not isinstance(settings, RasterPreviewSettings):
+            raise TypeError("raster preview view requires RasterPreviewSettings")
 
-        transform_mode = getattr(settings, "transform", self._transform_mode)
-        if isinstance(transform_mode, str):
-            self._transform_mode = transform_mode
-
-        colormap = getattr(settings, "colormap", self._colormap)
-        if isinstance(colormap, str):
-            self._colormap = colormap
-
-        value_range_mode = getattr(
-            settings,
-            "value_range_mode",
-            self._value_range_mode,
-        )
-        if isinstance(value_range_mode, str):
-            self._value_range_mode = value_range_mode
-
-        try:
-            self._manual_min = float(getattr(settings, "manual_min", self._manual_min))
-            self._manual_max = float(getattr(settings, "manual_max", self._manual_max))
-        except (TypeError, ValueError):
-            pass
-        interpolation = getattr(settings, "interpolation", self._interpolation)
-        if isinstance(interpolation, str):
-            self._interpolation = interpolation
+        self._apply_window_seconds(settings.window_seconds)
+        self._transform_mode = settings.transform
+        self._colormap = settings.colormap
+        self._value_range_mode = settings.value_range_mode
+        self._manual_min = float(settings.manual_min)
+        self._manual_max = float(settings.manual_max)
+        self._interpolation = settings.interpolation
         self._apply_interpolation_mode()
 
         if self.has_frame:
@@ -190,10 +171,3 @@ class RasterStreamView(BaseStreamView):
 
     def _apply_theme(self) -> None:
         self._graphics_widget.setBackground("#2B2B2B" if isDarkTheme() else "#FFFFFF")
-
-    @staticmethod
-    def _coerce_int(value: object, fallback: int) -> int:
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return fallback

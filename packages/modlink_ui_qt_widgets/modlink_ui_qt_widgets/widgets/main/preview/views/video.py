@@ -4,6 +4,7 @@ import numpy as np
 
 from modlink_qt_bridge import QtSettingsBridge
 
+from ..settings.models import VideoPreviewSettings
 from .image import ImageStreamView
 
 
@@ -19,21 +20,18 @@ class VideoStreamView(ImageStreamView):
         self._scale_mode = "fit"
         self._aspect_mode = "keep"
 
-    def apply_preview_settings(self, settings: object) -> None:
-        color_format = getattr(settings, "color_format", self._color_format)
-        if isinstance(color_format, str):
-            self._color_format = color_format
+    def apply_preview_settings(self, settings: VideoPreviewSettings) -> None:
+        if not isinstance(settings, VideoPreviewSettings):
+            raise TypeError("video preview view requires VideoPreviewSettings")
 
-        scale_mode = getattr(settings, "scale_mode", self._scale_mode)
-        if isinstance(scale_mode, str):
-            self._scale_mode = scale_mode
-
-        aspect_mode = getattr(settings, "aspect_mode", self._aspect_mode)
-        if isinstance(aspect_mode, str):
-            self._aspect_mode = aspect_mode
-
-        super().apply_preview_settings(settings)
+        self._color_format = settings.color_format
+        self._scale_mode = settings.scale_mode
+        self._aspect_mode = settings.aspect_mode
+        self._transform_mode = settings.transform
         self._apply_view_modes()
+
+        if self.has_frame:
+            self._dirty = True
 
     def _render(self) -> None:
         super()._render()

@@ -31,10 +31,19 @@ class StreamPreviewSettingsPanel(SingleDirectionScrollArea):
         self.setSmoothMode(SmoothMode.LINEAR)
         self.smoothScroll.setDynamicEngineEnabled(True)
         self.smoothScroll.widthThreshold = 0
-        self.enableTransparentBackground()
 
         self.scroll_widget = QWidget(self)
+        self.scroll_widget.setObjectName("stream-preview-settings-scroll-widget")
         self.setWidget(self.scroll_widget)
+        viewport_name = f"{self.scroll_widget.objectName()}-viewport"
+        self.viewport().setObjectName(viewport_name)
+        self.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.viewport().setStyleSheet(
+            f"QWidget#{viewport_name} {{ background: transparent; }}"
+        )
+        self.scroll_widget.setStyleSheet(
+            f"QWidget#{self.scroll_widget.objectName()} {{ background: transparent; }}"
+        )
 
         self.title_label = StrongBodyLabel("预览设置", self.scroll_widget)
         self.tip_label = CaptionLabel(

@@ -180,8 +180,9 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
             transform=str(self.transform_combo.currentData() or "none"),
         )
 
-    def set_state(self, state: object) -> None:
-        settings = state if isinstance(state, RasterPreviewSettings) else RasterPreviewSettings()
+    def set_state(self, settings: RasterPreviewSettings) -> None:
+        if not isinstance(settings, RasterPreviewSettings):
+            raise TypeError("raster settings panel requires RasterPreviewSettings")
         with (
             QSignalBlocker(self.duration_combo),
             QSignalBlocker(self.colormap_combo),

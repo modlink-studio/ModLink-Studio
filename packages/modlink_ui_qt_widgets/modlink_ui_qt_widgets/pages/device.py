@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget
 
 from modlink_qt_bridge import QtModLinkBridge
-from modlink_ui_qt_widgets.widgets.device import create_device_control_panel
+from modlink_ui_qt_widgets.widgets.device import BaseDeviceControlPanel
 from modlink_ui_qt_widgets.widgets.shared import BasePage, EmptyStateMessage
 
 
@@ -35,7 +35,5 @@ class DevicePage(BasePage):
             return
 
         for portal in portals:
-            self.content_layout.addWidget(
-                create_device_control_panel(portal, self.scroll_widget)
-            )
+            self.content_layout.addWidget(BaseDeviceControlPanel(portal, self.scroll_widget))
         self.content_layout.addStretch(1)

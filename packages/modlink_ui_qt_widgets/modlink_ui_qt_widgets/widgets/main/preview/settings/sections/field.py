@@ -163,8 +163,9 @@ class FieldPayloadSettingsPanel(SimpleCardWidget):
             transform=str(self.transform_combo.currentData() or "none"),
         )
 
-    def set_state(self, state: object) -> None:
-        settings = state if isinstance(state, FieldPreviewSettings) else FieldPreviewSettings()
+    def set_state(self, settings: FieldPreviewSettings) -> None:
+        if not isinstance(settings, FieldPreviewSettings):
+            raise TypeError("field settings panel requires FieldPreviewSettings")
         with (
             QSignalBlocker(self.colormap_combo),
             QSignalBlocker(self.value_range_combo),

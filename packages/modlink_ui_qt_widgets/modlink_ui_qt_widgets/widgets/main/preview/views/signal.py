@@ -13,6 +13,7 @@ from scipy import signal as sp_signal
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
+from ..settings.models import SignalFilterSettings, SignalPreviewSettings
 from .base import BaseStreamView
 from .signal_layout import (
     EMBEDDED_SIGNAL_PLOT_HEIGHT,
@@ -324,38 +325,17 @@ class SignalStreamView(BaseStreamView):
     def window_seconds(self) -> int:
         return self._window_seconds
 
-    def apply_preview_settings(self, settings: object) -> None:
-        window_seconds = self._coerce_int(
-            getattr(settings, "window_seconds", self._window_seconds),
-            fallback=self._window_seconds,
-        )
-        self._apply_window_seconds(window_seconds)
-        self._antialias_enabled = bool(
-            getattr(settings, "antialias_enabled", self._antialias_enabled)
-        )
+    def apply_preview_settings(self, settings: SignalPreviewSettings) -> None:
+        if not isinstance(settings, SignalPreviewSettings):
+            raise TypeError("signal preview view requires SignalPreviewSettings")
 
-        layout_mode = self._coerce_str(
-            getattr(settings, "layout_mode", self._layout_mode),
-            fallback=self._layout_mode,
-        )
-        self._layout_mode = layout_mode if layout_mode in {"stacked", "expanded"} else "expanded"
-        self._visible_channel_indices = self._coerce_int_tuple(
-            getattr(settings, "visible_channel_indices", self._visible_channel_indices),
-        )
-
-        y_range_mode = self._coerce_str(
-            getattr(settings, "y_range_mode", self._y_range_mode),
-            fallback=self._y_range_mode,
-        )
-        self._y_range_mode = y_range_mode if y_range_mode in {"auto", "manual"} else "auto"
-        self._manual_y_min = self._coerce_float(
-            getattr(settings, "manual_y_min", self._manual_y_min),
-            fallback=self._manual_y_min,
-        )
-        self._manual_y_max = self._coerce_float(
-            getattr(settings, "manual_y_max", self._manual_y_max),
-            fallback=self._manual_y_max,
-        )
+        self._apply_window_seconds(settings.window_seconds)
+        self._antialias_enabled = bool(settings.antialias_enabled)
+        self._layout_mode = settings.layout_mode
+        self._visible_channel_indices = settings.visible_channel_indices
+        self._y_range_mode = settings.y_range_mode
+        self._manual_y_min = float(settings.manual_y_min)
+        self._manual_y_max = float(settings.manual_y_max)
 
         self._auto_downsample_enabled = True
         self._plot_signature = None
@@ -365,7 +345,7 @@ class SignalStreamView(BaseStreamView):
         if self._ring_buffer is not None:
             self._ensure_plot_layout(self._ring_buffer.channels)
 
-        next_spec = self._extract_filter_spec(settings)
+        next_spec = self._extract_filter_spec(settings.filter)
         if next_spec != self._filter_spec:
             self._filter_spec = next_spec
             self._pipeline.configure(self._filter_spec)
@@ -699,36 +679,14 @@ class SignalStreamView(BaseStreamView):
         if self.has_frame:
             self._dirty = True
 
-    def _extract_filter_spec(self, settings: object) -> _SignalFilterSpec:
+    def _extract_filter_spec(self, filter_settings: SignalFilterSettings) -> _SignalFilterSpec:
         nyquist = max(self._sample_rate_hz * 0.5, 1.0)
-        filter_settings = getattr(settings, "filter", None)
-        if filter_settings is None:
-            return _SignalFilterSpec()
+        mode = filter_settings.mode
+        family = filter_settings.family
+        order = max(1, min(12, int(filter_settings.order)))
 
-        mode = self._coerce_str(
-            self._read_attr(filter_settings, "mode", "none"),
-            fallback="none",
-        )
-        family = self._coerce_str(
-            self._read_attr(filter_settings, "family", "butterworth"),
-            fallback="butterworth",
-        )
-        mode = (
-            mode if mode in {"none", "low_pass", "high_pass", "band_pass", "band_stop"} else "none"
-        )
-        family = family if family in {"butterworth", "chebyshev1", "bessel"} else "butterworth"
-        order = max(
-            1, min(12, self._coerce_int(self._read_attr(filter_settings, "order", 4), fallback=4))
-        )
-
-        low_cutoff = self._coerce_float(
-            self._read_attr(filter_settings, "low_cutoff_hz", 1.0),
-            fallback=1.0,
-        )
-        high_cutoff = self._coerce_float(
-            self._read_attr(filter_settings, "high_cutoff_hz", 40.0),
-            fallback=40.0,
-        )
+        low_cutoff = float(filter_settings.low_cutoff_hz)
+        high_cutoff = float(filter_settings.high_cutoff_hz)
         max_cutoff = max(0.001, nyquist - 1e-6)
         low_cutoff = max(0.001, min(low_cutoff, max_cutoff))
         high_cutoff = max(0.001, min(high_cutoff, max_cutoff))
@@ -739,12 +697,8 @@ class SignalStreamView(BaseStreamView):
             low_cutoff = max(0.001, min(low_cutoff, max_cutoff * 0.5))
             high_cutoff = min(max_cutoff, max(low_cutoff + 0.001, high_cutoff))
 
-        notch_enabled = bool(self._read_attr(filter_settings, "notch_enabled", False))
-        raw_frequencies = self._read_attr(
-            filter_settings,
-            "notch_frequencies_hz",
-            (),
-        )
+        notch_enabled = bool(filter_settings.notch_enabled)
+        raw_frequencies = filter_settings.notch_frequencies_hz
         notch_frequencies: list[float] = []
         if isinstance(raw_frequencies, (list, tuple)):
             for value in raw_frequencies:
@@ -758,14 +712,11 @@ class SignalStreamView(BaseStreamView):
 
         notch_q = max(
             0.1,
-            self._coerce_float(self._read_attr(filter_settings, "notch_q", 30.0), fallback=30.0),
+            float(filter_settings.notch_q),
         )
         chebyshev1_ripple_db = max(
             0.01,
-            self._coerce_float(
-                self._read_attr(filter_settings, "chebyshev1_ripple_db", 1.0),
-                fallback=1.0,
-            ),
+            float(filter_settings.chebyshev1_ripple_db),
         )
 
         return _SignalFilterSpec(
@@ -779,42 +730,6 @@ class SignalStreamView(BaseStreamView):
             notch_q=notch_q,
             chebyshev1_ripple_db=chebyshev1_ripple_db,
         )
-
-    @staticmethod
-    def _read_attr(target: object, name: str, default: object) -> object:
-        return getattr(target, name, default)
-
-    @staticmethod
-    def _coerce_int(value: object, fallback: int) -> int:
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return fallback
-
-    @staticmethod
-    def _coerce_float(value: object, fallback: float) -> float:
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return fallback
-
-    @staticmethod
-    def _coerce_str(value: object, fallback: str) -> str:
-        if isinstance(value, str) and value:
-            return value
-        return fallback
-
-    @staticmethod
-    def _coerce_int_tuple(value: object) -> tuple[int, ...]:
-        if not isinstance(value, (list, tuple)):
-            return ()
-        result: list[int] = []
-        for item in value:
-            try:
-                result.append(int(item))
-            except (TypeError, ValueError):
-                continue
-        return tuple(result)
 
     @staticmethod
     def _theme_background_color() -> str:

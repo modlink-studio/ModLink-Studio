@@ -328,8 +328,9 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
             ),
         )
 
-    def set_state(self, state: object) -> None:
-        settings = state if isinstance(state, SignalPreviewSettings) else SignalPreviewSettings()
+    def set_state(self, settings: SignalPreviewSettings) -> None:
+        if not isinstance(settings, SignalPreviewSettings):
+            raise TypeError("signal settings panel requires SignalPreviewSettings")
         visible_channel_indices = settings.visible_channel_indices
         if self._is_multi_channel and not visible_channel_indices:
             visible_channel_indices = tuple(range(len(self._channel_checkboxes)))

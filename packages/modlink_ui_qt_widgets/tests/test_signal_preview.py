@@ -26,6 +26,7 @@ from modlink_core import SettingsService
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 from modlink_ui_qt_widgets.widgets.main.preview.settings.models import (
+    RasterPreviewSettings,
     SignalPreviewSettings,
     normalize_preview_settings,
 )
@@ -201,6 +202,13 @@ class SignalViewGeometryTests(unittest.TestCase):
         view.set_embedded_mode(False)
         self.assertEqual(view.minimumHeight(), 260)
         self.assertGreater(view.maximumHeight(), 780)
+
+    def test_signal_view_rejects_other_payload_settings(self) -> None:
+        descriptor = self._descriptor()
+        view = self._create_view(descriptor)
+
+        with self.assertRaises(TypeError):
+            view.apply_preview_settings(RasterPreviewSettings())
 
 
 if __name__ == "__main__":

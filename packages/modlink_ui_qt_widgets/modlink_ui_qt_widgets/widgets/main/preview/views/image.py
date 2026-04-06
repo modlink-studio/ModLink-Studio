@@ -90,38 +90,6 @@ class ImageStreamView(BaseStreamView):
             return normalized
         return np.asarray(normalized, dtype=np.float32)
 
-    def apply_preview_settings(self, settings: object) -> None:
-        transform_mode = getattr(settings, "transform", self._transform_mode)
-        if isinstance(transform_mode, str):
-            self._transform_mode = transform_mode
-
-        colormap = getattr(settings, "colormap", self._colormap)
-        if isinstance(colormap, str):
-            self._colormap = colormap
-
-        value_range_mode = getattr(
-            settings,
-            "value_range_mode",
-            self._value_range_mode,
-        )
-        if isinstance(value_range_mode, str):
-            self._value_range_mode = value_range_mode
-
-        manual_min = getattr(settings, "manual_min", self._manual_min)
-        manual_max = getattr(settings, "manual_max", self._manual_max)
-        try:
-            self._manual_min = float(manual_min)
-            self._manual_max = float(manual_max)
-        except (TypeError, ValueError):
-            pass
-        interpolation = getattr(settings, "interpolation", self._interpolation)
-        if isinstance(interpolation, str):
-            self._interpolation = interpolation
-        self._apply_interpolation_mode()
-
-        if self.has_frame:
-            self._dirty = True
-
     def _apply_interpolation_mode(self) -> None:
         self._image_item.setAutoDownsample(self._interpolation != "nearest")
 
