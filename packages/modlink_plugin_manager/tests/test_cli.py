@@ -29,9 +29,9 @@ def _manifest_payload() -> dict[str, object]:
                 "summary": "Camera capture driver for local webcam devices.",
                 "releases": [
                     {
-                        "version": "0.2.0rc3",
-                        "host_version_spec": ">=0.2.0rc3,<0.3.0",
-                        "wheel_url": "https://example.invalid/host-camera-0.2.0rc3.whl",
+                        "version": "0.2.0rc4",
+                        "host_version_spec": ">=0.2.0rc4,<0.3.0",
+                        "wheel_url": "https://example.invalid/host-camera-0.2.0rc4.whl",
                     }
                 ],
             },
@@ -42,9 +42,9 @@ def _manifest_payload() -> dict[str, object]:
                 "summary": "Microphone capture driver for local audio input devices.",
                 "releases": [
                     {
-                        "version": "0.2.0rc3",
-                        "host_version_spec": ">=0.2.0rc3,<0.3.0",
-                        "wheel_url": "https://example.invalid/host-microphone-0.2.0rc3.whl",
+                        "version": "0.2.0rc4",
+                        "host_version_spec": ">=0.2.0rc4,<0.3.0",
+                        "wheel_url": "https://example.invalid/host-microphone-0.2.0rc4.whl",
                     }
                 ],
             },
@@ -68,7 +68,7 @@ def test_list_installed_shows_all_detected_plugins(monkeypatch, capsys) -> None:
         cli,
         "entry_points",
         lambda *, group: [
-            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0rc3")),
+            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0rc4")),
             _FakeEntryPoint("custom-eeg", _FakeDistribution("my-eeg-plugin", "1.2.3")),
         ],
     )
@@ -92,13 +92,13 @@ def test_list_installed_reports_none_for_empty_environment(monkeypatch, capsys) 
 
 
 def test_status_reports_official_and_third_party_plugins(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(cli, "_host_version", lambda: "0.2.0rc3")
+    monkeypatch.setattr(cli, "_host_version", lambda: "0.2.0rc4")
     monkeypatch.setattr(cli, "_load_manifest", lambda: cli._parse_manifest(_manifest_payload()))
     monkeypatch.setattr(
         cli,
         "entry_points",
         lambda *, group: [
-            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0rc3")),
+            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0rc4")),
             _FakeEntryPoint("custom-eeg", _FakeDistribution("my-eeg-plugin", "1.2.3")),
         ],
     )
@@ -132,8 +132,8 @@ def test_install_downloads_latest_compatible_release_and_runs_pip(monkeypatch, t
                         "summary": "Camera capture driver for local webcam devices.",
                         "releases": [
                             {
-                                "version": "0.2.0rc3",
-                                "host_version_spec": ">=0.2.0rc3,<0.2.1",
+                                "version": "0.2.0rc4",
+                                "host_version_spec": ">=0.2.0rc4,<0.2.1",
                                 "wheel_url": "https://example.invalid/old.whl",
                             },
                             {
@@ -178,7 +178,7 @@ def test_uninstall_supports_third_party_plugins(monkeypatch, capsys) -> None:
 def test_manifest_uses_cache_when_network_fetch_fails(monkeypatch, tmp_path) -> None:
     cache_path = tmp_path / "plugin-index.json"
     cache_path.write_text(
-        '{"schema_version": 1, "plugins": [{"plugin_id": "host-camera", "distribution": "modlink-plugin-host-camera", "display_name": "Host Camera", "summary": "Camera", "releases": [{"version": "0.2.0rc3", "host_version_spec": ">=0.2.0rc3,<0.3.0", "wheel_url": "https://example.invalid/host-camera.whl"}]}]}',
+        '{"schema_version": 1, "plugins": [{"plugin_id": "host-camera", "distribution": "modlink-plugin-host-camera", "display_name": "Host Camera", "summary": "Camera", "releases": [{"version": "0.2.0rc4", "host_version_spec": ">=0.2.0rc4,<0.3.0", "wheel_url": "https://example.invalid/host-camera.whl"}]}]}',
         encoding="utf-8",
     )
     monkeypatch.setattr(cli, "_cache_path", lambda: cache_path)
