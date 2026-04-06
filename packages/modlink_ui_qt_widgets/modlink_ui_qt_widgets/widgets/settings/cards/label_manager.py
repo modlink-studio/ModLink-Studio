@@ -136,7 +136,9 @@ class LabelManagerDialog(QDialog):
         self.setWindowTitle("标签管理")
         self.resize(600, 420)
         self.setMinimumSize(500, 360)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setStyleSheet(_dialog_background_stylesheet())
+        self.finished.connect(self.deleteLater)
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(20, 20, 20, 20)
@@ -238,14 +240,15 @@ class LabelManagerCard(PushSettingCard):
 
     def _open_dialog(self) -> None:
         if self._dialog is None:
-            self._dialog = LabelManagerDialog(self._settings, self.window())
-            self._dialog.finished.connect(self._on_dialog_finished)
+            dialog = LabelManagerDialog(self._settings, self.window())
+            dialog.destroyed.connect(self._on_dialog_destroyed)
+            self._dialog = dialog
 
         self._dialog.show()
         self._dialog.raise_()
         self._dialog.activateWindow()
 
-    def _on_dialog_finished(self, _result: int) -> None:
+    def _on_dialog_destroyed(self, _object: object | None = None) -> None:
         self._dialog = None
 
     def _on_setting_changed(self, event: object) -> None:
