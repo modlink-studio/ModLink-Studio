@@ -223,7 +223,30 @@ def _download_wheel(url: str, target_dir: Path) -> Path:
     return target_path
 
 
+def _ensure_pip_available() -> None:
+    probe = subprocess.run(
+        [sys.executable, "-m", "pip", "--version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if probe.returncode == 0:
+        return
+
+    stderr = (probe.stderr or "").strip()
+    if "No module named pip" not in stderr:
+        raise RuntimeError(
+            "Failed to invoke pip in the current Python environment."
+            if not stderr
+            else f"Failed to invoke pip in the current Python environment: {stderr}"
+        )
+
+    subprocess.run([sys.executable, "-m", "ensurepip", "--upgrade"], check=True)
+
+
 def _run_pip(*args: str) -> None:
+    _ensure_pip_available()
     subprocess.run([sys.executable, "-m", "pip", *args], check=True)
 
 

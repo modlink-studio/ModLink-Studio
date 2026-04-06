@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 
 from modlink_plugin_manager import cli
@@ -199,3 +200,28 @@ def test_manifest_url_defaults_to_plugin_repository_pages() -> None:
         cli.DEFAULT_PLUGIN_INDEX_URL
         == "https://modlink-studio.github.io/ModLink-Studio-Plugins/plugins/index.json"
     )
+
+
+def test_run_pip_bootstraps_missing_pip(monkeypatch) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    def _fake_run(command, **kwargs):
+        call = tuple(command)
+        calls.append(call)
+        if call == (cli.sys.executable, "-m", "pip", "--version"):
+            return subprocess.CompletedProcess(call, 1, stderr="No module named pip")
+        if call == (cli.sys.executable, "-m", "ensurepip", "--upgrade"):
+            return subprocess.CompletedProcess(call, 0)
+        if call == (cli.sys.executable, "-m", "pip", "install", "plugin.whl"):
+            return subprocess.CompletedProcess(call, 0)
+        raise AssertionError(f"Unexpected subprocess call: {call!r}")
+
+    monkeypatch.setattr(cli.subprocess, "run", _fake_run)
+
+    cli._run_pip("install", "plugin.whl")
+
+    assert calls == [
+        (cli.sys.executable, "-m", "pip", "--version"),
+        (cli.sys.executable, "-m", "ensurepip", "--upgrade"),
+        (cli.sys.executable, "-m", "pip", "install", "plugin.whl"),
+    ]
