@@ -19,7 +19,7 @@ OFFICIAL_PLUGINS: tuple[OfficialPlugin, ...] = (
         distribution="modlink-plugin-host-camera",
         display_name="Host Camera",
         description="Camera capture driver for local webcam devices.",
-        min_host_version="0.2.0",
+        min_host_version="0.2.0rc1",
         max_host_version_exclusive="0.3.0",
     ),
     OfficialPlugin(
@@ -27,7 +27,7 @@ OFFICIAL_PLUGINS: tuple[OfficialPlugin, ...] = (
         distribution="modlink-plugin-host-microphone",
         display_name="Host Microphone",
         description="Microphone capture driver for local audio input devices.",
-        min_host_version="0.2.0",
+        min_host_version="0.2.0rc1",
         max_host_version_exclusive="0.3.0",
     ),
     OfficialPlugin(
@@ -35,7 +35,7 @@ OFFICIAL_PLUGINS: tuple[OfficialPlugin, ...] = (
         distribution="modlink-plugin-openbci-ganglion",
         display_name="OpenBCI Ganglion",
         description="OpenBCI Ganglion driver over BLE or serial transport.",
-        min_host_version="0.2.0",
+        min_host_version="0.2.0rc1",
         max_host_version_exclusive="0.3.0",
     ),
 )
