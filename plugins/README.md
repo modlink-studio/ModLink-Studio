@@ -1,32 +1,37 @@
 # 驱动源目录
 
-`plugins/` 保存的是官方驱动源目录，不是最终用户的独立安装入口。
+`plugins/` 保存的是官方驱动源目录，不是最终用户的独立 PyPI 安装入口。
 
-从 `0.2.0` 开始，这些官方驱动代码会内置到 `modlink-studio` 主包里；最终用户通过 `modlink-studio[...]` extras 按需安装第三方依赖。仓库里的这些目录主要用于开发、联调和主包构建。
+从 `0.2.0` 开始，这些官方驱动不会作为独立 PyPI 包公开发布，也不会直接内置到 `modlink-studio` wheel 中。正式安装路径是：
+
+- 先安装 `modlink-studio`
+- 再运行 `modlink-studio-plugin install <plugin_id>` 从 GitHub Release 安装对应驱动 wheel
+
+仓库里的这些目录主要用于开发、联调和 GitHub Release 资产构建。
 
 当前仓库主线是 `0.2.0`。这里的官方驱动也已经按新的纯 Python driver API 迁移，不再以 Qt-style runtime 契约为准。
 
 ## 官方驱动
 
 - `host-camera/`
-  内置驱动：Host Camera
+  官方驱动源码：Host Camera
 - `host-microphone/`
-  内置驱动：Host Microphone
+  官方驱动源码：Host Microphone
 - `openbci-ganglion/`
-  内置驱动：OpenBCI Ganglion
+  官方驱动源码：OpenBCI Ganglion
 
 ## 仓库内联调
 
-从 monorepo 根目录运行时，官方驱动依赖优先通过根项目 extras 附加：
+从 monorepo 根目录运行时，可以把某个驱动源码直接装进当前环境：
 
 ```bash
-uv run --extra official-host-camera modlink-studio
+uv run python -m pip install -e plugins/host-camera
 ```
 
 ```bash
-uv run --extra official-host-microphone modlink-studio
+uv run python -m pip install -e plugins/host-microphone
 ```
 
 ```bash
-uv run --extra official-openbci-ganglion modlink-studio
+uv run python -m pip install -e plugins/openbci-ganglion
 ```

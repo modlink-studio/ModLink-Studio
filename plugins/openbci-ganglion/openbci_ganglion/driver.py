@@ -267,7 +267,7 @@ def _require_bleak_scanner() -> object:
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "OpenBCI Ganglion BLE search requires optional dependency 'bleak'. "
-            "Install modlink-studio[official-openbci-ganglion]."
+            "Run `modlink-studio-plugin install openbci-ganglion`."
         ) from exc
     return BleakScanner
 
@@ -278,7 +278,7 @@ def _require_list_ports() -> ModuleType:
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "OpenBCI Ganglion serial search requires optional dependency 'pyserial'. "
-            "Install modlink-studio[official-openbci-ganglion]."
+            "Run `modlink-studio-plugin install openbci-ganglion`."
         ) from exc
     return list_ports
 
@@ -289,6 +289,6 @@ def _require_brainflow() -> tuple[object, object, object]:
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "OpenBCI Ganglion requires optional dependency 'brainflow'. "
-            "Install modlink-studio[official-openbci-ganglion]."
+            "Run `modlink-studio-plugin install openbci-ganglion`."
         ) from exc
     return BoardIds, BoardShim, BrainFlowInputParams

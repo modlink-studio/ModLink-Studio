@@ -4,8 +4,7 @@
 
 ## 接入方式
 
-- 内置于 `modlink-studio` 主包
-- 宿主 extra：`official-openbci-ganglion`
+- 通过 `modlink-studio-plugin install openbci-ganglion` 安装到当前环境
 - entry point：`openbci-ganglion`
 
 ## 当前能力
@@ -23,14 +22,14 @@
 - 官方 BrainFlow 轮询式 driver 示例
 - EEG 预览和采集流程联调
 
-## 启用依赖
+## 安装方式
 
 ```bash
-python -m pip install "modlink-studio[official-openbci-ganglion]"
+modlink-studio-plugin install openbci-ganglion
 ```
 
 ## 在仓库里联调
 
 ```bash
-uv run --extra official-openbci-ganglion modlink-studio
+uv run python -m pip install -e plugins/openbci-ganglion
 ```

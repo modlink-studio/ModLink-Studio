@@ -4,8 +4,7 @@
 
 ## 接入方式
 
-- 内置于 `modlink-studio` 主包
-- 宿主 extra：`official-host-camera`
+- 通过 `modlink-studio-plugin install host-camera` 安装到当前环境
 - entry point：`host-camera`
 
 ## 适用场景
@@ -14,14 +13,14 @@
 - 视频流接入与录制
 - 作为官方示例视频驱动进行开发联调
 
-## 启用依赖
+## 安装方式
 
 ```bash
-python -m pip install "modlink-studio[official-host-camera]"
+modlink-studio-plugin install host-camera
 ```
 
 ## 在仓库里联调
 
 ```bash
-uv run --extra official-host-camera modlink-studio
+uv run python -m pip install -e plugins/host-camera
 ```

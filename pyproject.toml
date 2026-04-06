@@ -24,22 +24,13 @@ Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
 Packages = "https://pypi.org/project/modlink-studio/"
 
-[project.optional-dependencies]
-official-host-camera = ["opencv-python>=4.11.0"]
-official-host-microphone = ["sounddevice"]
-official-openbci-ganglion = ["brainflow", "bleak", "pyserial"]
-
 [project.gui-scripts]
 modlink-studio = "modlink_studio.app:main"
 modlink-studio-qml = "modlink_studio_qml.app:main"
 
 [project.scripts]
 modlink-server = "modlink_server.app:main"
-
-[project.entry-points."modlink.drivers"]
-host-camera = "host_camera.factory:create_driver"
-host-microphone = "host_microphone.factory:create_driver"
-openbci-ganglion = "openbci_ganglion.factory:create_driver"
+modlink-studio-plugin = "modlink_studio.plugin_cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -113,9 +104,6 @@ where = [
     "packages/modlink_qt_bridge",
     "packages/modlink_ui_qt_widgets",
     "packages/modlink_ui_qt_qml",
-    "plugins/host-camera",
-    "plugins/host-microphone",
-    "plugins/openbci-ganglion",
 ]
 include = [
     "modlink_studio*",
@@ -126,9 +114,6 @@ include = [
     "modlink_qt_bridge*",
     "modlink_ui_qt_widgets*",
     "modlink_ui_qt_qml*",
-    "host_camera*",
-    "host_microphone*",
-    "openbci_ganglion*",
 ]
 namespaces = false
 

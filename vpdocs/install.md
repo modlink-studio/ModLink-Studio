@@ -1,6 +1,6 @@
 # 安装与发布
 
-本页汇总 `0.2.0` 的安装目标、内置官方驱动启用方式和源码运行方式。
+本页汇总 `0.2.0` 的安装目标、官方驱动安装方式和源码运行方式。
 
 ## 0.2.0 发布状态
 
@@ -42,35 +42,31 @@ modlink-studio
 python -m modlink_studio
 ```
 
-## 启用内置官方驱动
+## 安装官方驱动
 
-内置官方驱动继续按需通过 extras 启用，不会随主应用一次性拉起所有可选第三方依赖。
-
-可用 extras：
-
-- `official-host-camera`
-- `official-host-microphone`
-- `official-openbci-ganglion`
-
-安装示例：
+官方驱动不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件 CLI 从 GitHub Release 安装对应驱动 wheel：
 
 ```bash
-python -m pip install "modlink-studio[official-host-camera]"
+modlink-studio-plugin list
 ```
 
 ```bash
-python -m pip install "modlink-studio[official-host-camera,official-host-microphone]"
+modlink-studio-plugin install host-camera
 ```
 
 ```bash
-python -m pip install "modlink-studio[official-openbci-ganglion]"
+modlink-studio-plugin install host-microphone
 ```
 
-这些 extras 对应的是主包内置的官方驱动能力：
+```bash
+modlink-studio-plugin install openbci-ganglion
+```
 
-- `official-host-camera`：启用 Host Camera 需要的第三方依赖
-- `official-host-microphone`：启用 Host Microphone 需要的第三方依赖
-- `official-openbci-ganglion`：启用 OpenBCI Ganglion 需要的第三方依赖
+如果不再需要某个官方驱动：
+
+```bash
+modlink-studio-plugin uninstall host-camera
+```
 
 ## 从源码运行
 
@@ -96,14 +92,14 @@ uv sync
 uv run modlink-studio
 ```
 
-按需附加官方驱动依赖：
+按需在当前开发环境安装某个官方驱动源码包：
 
 ```bash
-uv run --extra official-host-camera modlink-studio
+uv run python -m pip install -e plugins/host-camera
 ```
 
 ```bash
-uv run --extra official-host-camera --extra official-host-microphone modlink-studio
+uv run python -m pip install -e plugins/host-microphone
 ```
 
 如果要直接联调 QML 宿主：
@@ -137,7 +133,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 - TestPyPI rehearsal 能完整跑通
 - PyPI 目标安装命令在干净环境中可用
-- extras 安装后的内置官方驱动可被宿主发现
+- 官方驱动安装 CLI 可从与当前主包版本匹配的 GitHub Release 获取 wheel
 - `modlink-studio` 命令入口正常
 
 ## 常见问题
@@ -152,7 +148,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 ### 已安装主应用但看不到某个官方驱动
 
-主应用默认不会拉起所有官方设备依赖。需要显式安装对应 extra，或在源码工作区里通过根项目 extra 启动。
+主应用不会默认安装所有官方驱动。需要显式运行 `modlink-studio-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
 
 ### 系统里找不到 `modlink-studio` 命令
 

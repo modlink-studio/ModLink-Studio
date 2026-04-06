@@ -18,20 +18,12 @@ Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
 
-[project.optional-dependencies]
-official-host-camera = ["modlink-plugin-host-camera"]
-official-host-microphone = ["modlink-plugin-host-microphone"]
-official-openbci-ganglion = ["modlink-plugin-openbci-ganglion"]
-
 [project.gui-scripts]
 modlink-studio = "modlink_studio.app:main"
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
 modlink_ui_qt_widgets = { workspace = true }
-modlink-plugin-host-camera = { path = "../../plugins/host-camera", editable = true }
-modlink-plugin-host-microphone = { path = "../../plugins/host-microphone", editable = true }
-modlink-plugin-openbci-ganglion = { path = "../../plugins/openbci-ganglion", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

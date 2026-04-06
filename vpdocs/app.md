@@ -79,9 +79,9 @@ python -m modlink_studio_qml
 
 ## 插件发现模型
 
-宿主不会在运行时临时下载插件，也不会要求最终用户拼接本地路径。当前模型是“先安装，再发现”：
+宿主不会在运行时临时发现“未安装的插件”。当前模型是“先安装，再发现”：
 
-- 内置官方驱动通过 `modlink-studio[...]` extras 补齐第三方依赖
+- 官方驱动通过 `modlink-studio-plugin install ...` 安装到当前环境
 - 外部 driver 在当前阶段主要通过源码环境和本地安装联调到同一个 Python 环境
 - 宿主启动时扫描当前环境里的 `modlink.drivers`
 
@@ -120,14 +120,16 @@ App 层当前明确保留 fail-fast 策略：
 
 ## 仓库内联调
 
-在 monorepo 根目录联调时，可以通过主包 extras 启动宿主：
+在 monorepo 根目录联调时，可以先把某个官方驱动源码装进当前环境，再启动宿主：
 
 ```bash
-uv run --extra official-host-camera modlink-studio
+uv run python -m pip install -e plugins/host-camera
+uv run modlink-studio
 ```
 
 ```bash
-uv run --extra official-openbci-ganglion modlink-studio
+uv run python -m pip install -e plugins/openbci-ganglion
+uv run modlink-studio
 ```
 
 如果目的是理解 driver 契约，优先继续看 [SDK](/sdk)。如果目的是理解 runtime 如何托管 driver 和流，继续看 [Core](/core)。如果目的是联调 Web / HTML 前端，则直接看 [服务端 API 手册](/server-api)。

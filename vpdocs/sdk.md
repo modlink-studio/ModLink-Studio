@@ -405,7 +405,7 @@ name.XX
 
 ## 官方驱动命名
 
-当前内置官方驱动使用下面这组 entry point：
+当前仓库内维护的官方驱动使用下面这组 entry point：
 
 - `host-camera`
 - `host-microphone`

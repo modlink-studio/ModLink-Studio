@@ -7,7 +7,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
-    "modlink-sdk",
+    "modlink-studio>=0.2.0,<0.3.0",
     "numpy>=2.3.3",
     "sounddevice",
 ]
@@ -22,7 +22,7 @@ Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
 host-microphone = "host_microphone.factory:create_driver"
 
 [tool.uv.sources]
-modlink-sdk = { path = "../../packages/modlink_sdk", editable = true }
+modlink-studio = { path = "../..", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]
