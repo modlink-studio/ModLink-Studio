@@ -10,7 +10,7 @@
 - 正式公开发布渠道将切到 **PyPI**
 - 发布前会先完成一次 **TestPyPI rehearsal**
 - `TestPyPI` 只用于发布链路演练，不作为日常安装源
-- 当前这轮预发布验证统一使用 `0.2.0rc2`
+- 当前这轮预发布验证统一使用 `0.2.0rc3`
 - 正式稳定版仍将使用 `0.2.0`
 
 ## 0.2.0 升级说明
@@ -132,7 +132,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 正式发布前的检查重点包括：
 
 - TestPyPI rehearsal 能完整跑通
-- 当前 rehearsal 版本统一为 `0.2.0rc2`
+- 当前 rehearsal 版本统一为 `0.2.0rc3`
 - PyPI 目标安装命令在干净环境中可用
 - 插件安装 CLI 可从 GitHub Pages 插件索引解析兼容版本，并从 GitHub Release 获取 wheel
 - `modlink-studio` 命令入口正常

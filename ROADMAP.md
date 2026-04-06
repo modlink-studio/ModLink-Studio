@@ -37,7 +37,7 @@
 - [x] `modlink-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
 - [x] 插件索引改为 GitHub Pages JSON manifest，不再写死在宿主代码中
 - [x] `modlink-plugin` 默认索引源切到 `ModLink-Studio-Plugins` 的 GitHub Pages，而不是主仓库文档站根路径
-- [x] 当前预发布演练版本统一提升到 `0.2.0rc2`；正式 PyPI 稳定版保留 `0.2.0`
+- [x] 当前预发布演练版本统一提升到 `0.2.0rc3`；正式 PyPI 稳定版保留 `0.2.0`
 - [ ] 将 `modlink-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
 - [x] 官方驱动源码、release 资产与插件索引已迁移到独立仓库 `ModLink-Studio-Plugins`；主仓库只保留主包与插件管理器
 - [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
