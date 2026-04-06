@@ -2,7 +2,7 @@
 
 ## 背景
 
-当前项目处于 0.2.0 开发阶段，核心目标是从 0.1.x 的 Qt-style driver API 切换到纯 Python 运行时。技术重构已基本完成（SDK、Core、Bridge、Server），但距离「稳定可发布、可持续扩展」的产品状态仍有明确缺口。本文档用于定义从当前状态到 0.2.0 发布、再到后续实验工作流与 AI 辅助能力的版本路线。
+当前项目正处于 0.2.0 正式发布收口阶段，核心目标是从 0.1.x 的 Qt-style driver API 切换到纯 Python 运行时。技术重构已基本完成（SDK、Core、Bridge、Server），当前重点已经从大规模结构调整转为正式发布、安装验证与后续版本路线。本文档用于定义从 0.2.0 发布、再到后续实验工作流与 AI 辅助能力的版本路线。
 
 ---
 
@@ -16,7 +16,7 @@
 
 | 链路环节 | 状态 | 需要做的事 |
 |---|---|---|
-| 安装与启动 | 基本就位 | 完成 TestPyPI rehearsal，并确认 PyPI 目标安装命令可在干净环境中工作；`modlink-studio` 命令可用 |
+| 安装与启动 | 基本就位 | TestPyPI rehearsal 已完成；正式 PyPI 发布前再确认目标安装命令可在干净环境中工作，且 `modlink-studio` 命令可用 |
 | 设备搜索 | 已就位 | Driver.search() → SearchResult → UI 展示 |
 | 设备连接 | 已就位 | 选择 SearchResult → Driver.connect_device() → 流描述发现 |
 | 流预览 | 已就位 | SignalStreamView / RasterView / VideoView |
@@ -37,7 +37,7 @@
 - [x] `modlink-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
 - [x] 插件索引改为 GitHub Pages JSON manifest，不再写死在宿主代码中
 - [x] `modlink-plugin` 默认索引源切到 `ModLink-Studio-Plugins` 的 GitHub Pages，而不是主仓库文档站根路径
-- [x] 当前预发布演练版本统一提升到 `0.2.0rc4`；正式 PyPI 稳定版保留 `0.2.0`
+- [x] TestPyPI rehearsal 已完成，主仓库版本切换到正式版 `0.2.0` 发布收口
 - [ ] 将 `modlink-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
 - [x] 官方驱动源码、release 资产与插件索引已迁移到独立仓库 `ModLink-Studio-Plugins`；主仓库只保留主包与插件管理器
 - [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
@@ -63,7 +63,7 @@
 - [x] 单主包 `modlink-studio` 的 TestPyPI / PyPI 发布链落地
 - [x] 插件安装路径从 `extras -> 主包内置` 方案收口为 `plugin CLI -> GitHub 发布物`
 - [x] 官方插件迁移到独立仓库 `ModLink-Studio-Plugins`，主仓库不再托管插件源码与插件资产 workflow
-  - [ ] TestPyPI rehearsal
+  - [x] TestPyPI rehearsal
   - [ ] PyPI 发布前干净环境安装验证
 
 - [x] **运行时稳健性收口（已完成）**
@@ -347,7 +347,7 @@ packages/modlink_ai/
 3. **录制链路稳定化（已完成）** — UI 上明确显示保存路径、recording_id 与失败原因
 4. **运行时稳健性收口（已完成）** — settings 损坏备份、SSE keepalive、最小 logging 与 widgets preview 主题适配已完成
 5. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
-6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新；下一步按单主包 `modlink-studio` 策略收口插件管理命令，并完成 TestPyPI rehearsal 与 PyPI 发布前验证
+6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新，TestPyPI rehearsal 已完成；下一步完成正式 PyPI 发布前的干净环境安装验证
 7. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
 
 ---

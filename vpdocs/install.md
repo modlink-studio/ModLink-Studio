@@ -4,14 +4,13 @@
 
 ## 0.2.0 发布状态
 
-`0.2.0` 目前仍未正式发布。当前文档描述的是 `0.2.0` 的目标发布状态：
+`0.2.0` 当前已经完成正式发布前收口：
 
 - `0.2.0` 是一次明确的 breaking change
 - 正式公开发布渠道将切到 **PyPI**
-- 发布前会先完成一次 **TestPyPI rehearsal**
+- **TestPyPI rehearsal** 已完成
 - `TestPyPI` 只用于发布链路演练，不作为日常安装源
-- 当前这轮预发布验证统一使用 `0.2.0rc4`
-- 正式稳定版仍将使用 `0.2.0`
+- 当前仓库版本已经切到正式版 `0.2.0`
 
 ## 0.2.0 升级说明
 
@@ -26,7 +25,7 @@
 
 ## 正式安装命令
 
-`0.2.0` 正式发布后的主安装入口将是：
+`0.2.0` 的主安装入口是：
 
 ```bash
 python -m pip install modlink-studio
@@ -46,7 +45,7 @@ python -m modlink_studio
 
 ## 安装插件
 
-插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令；命令会先从 `ModLink-Studio-Plugins` 的 GitHub Pages 插件索引读取可用版本，再从该插件仓库的 GitHub Release 安装对应插件 wheel。
+插件不通过 PyPI extras 安装。主包安装完成后使用独立插件管理命令；命令会先从 `ModLink-Studio-Plugins` 的 GitHub Pages 插件索引读取可用版本，再从该插件仓库的 GitHub Release 安装对应插件 wheel。
 
 当前第一阶段，这个命令集主要覆盖官方驱动；后续会继续扩展成更通用的插件管理工具：
 
@@ -127,12 +126,11 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 ## 发布前验证
 
-在 `0.2.0` 正式发布前，需要先完成一次 **TestPyPI rehearsal**。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
+`0.2.0` 的 **TestPyPI rehearsal** 已完成。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
 
 正式发布前的检查重点包括：
 
-- TestPyPI rehearsal 能完整跑通
-- 当前 rehearsal 版本统一为 `0.2.0rc4`
+- TestPyPI rehearsal 已完整跑通
 - PyPI 目标安装命令在干净环境中可用
 - 插件安装 CLI 可从 GitHub Pages 插件索引解析兼容版本，并从 GitHub Release 获取 wheel
 - `modlink-studio` 命令入口正常
