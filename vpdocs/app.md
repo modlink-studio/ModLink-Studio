@@ -120,16 +120,6 @@ App 层当前明确保留 fail-fast 策略：
 
 ## 仓库内联调
 
-在 monorepo 根目录联调时，可以先把某个官方驱动源码装进当前环境，再启动宿主：
-
-```bash
-uv run python -m pip install -e plugins/host-camera
-uv run modlink-studio
-```
-
-```bash
-uv run python -m pip install -e plugins/openbci-ganglion
-uv run modlink-studio
-```
+官方驱动源码已经迁移到独立仓库 `ModLink-Studio-Plugins`。当前主仓库的宿主应用只负责发现已经安装进环境的插件；如果需要联调官方驱动源码，请在插件仓库中完成构建、发布或本地安装，再回到当前宿主环境验证。
 
 如果目的是理解 driver 契约，优先继续看 [SDK](/sdk)。如果目的是理解 runtime 如何托管 driver 和流，继续看 [Core](/core)。如果目的是联调 Web / HTML 前端，则直接看 [服务端 API 手册](/server-api)。

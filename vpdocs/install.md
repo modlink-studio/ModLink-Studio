@@ -46,7 +46,7 @@ python -m modlink_studio
 
 ## 安装插件
 
-插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令；命令会先从 GitHub Pages 插件索引读取可用版本，再从 GitHub Release 安装对应插件 wheel。
+插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令；命令会先从 `ModLink-Studio-Plugins` 的 GitHub Pages 插件索引读取可用版本，再从该插件仓库的 GitHub Release 安装对应插件 wheel。
 
 当前第一阶段，这个命令集主要覆盖官方驱动；后续会继续扩展成更通用的插件管理工具：
 
@@ -102,16 +102,6 @@ uv sync
 uv run modlink-studio
 ```
 
-按需在当前开发环境安装某个官方驱动源码包：
-
-```bash
-uv run python -m pip install -e plugins/host-camera
-```
-
-```bash
-uv run python -m pip install -e plugins/host-microphone
-```
-
 如果要直接联调 QML 宿主：
 
 ```bash
@@ -159,7 +149,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 ### 已安装主应用但看不到某个插件
 
-主应用不会默认安装所有插件。当前第一阶段主要是官方驱动，需要显式运行 `modlink-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
+主应用不会默认安装所有插件。当前第一阶段主要是官方驱动，需要显式运行 `modlink-plugin install <plugin_id>`；官方驱动源码与 wheel 资产已经迁移到独立仓库 `ModLink-Studio-Plugins`。
 
 ### 系统里找不到 `modlink-studio` 命令
 

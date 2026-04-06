@@ -74,10 +74,10 @@ modlink-plugin status
 - Host Microphone
 - OpenBCI Ganglion
 
-这些驱动源码继续保留在 monorepo 的 `plugins/` 目录中，但正式安装路径是：
+这些驱动现在由独立仓库 [`ModLink-Studio-Plugins`](https://github.com/modlink-studio/ModLink-Studio-Plugins) 维护；正式安装路径是：
 
 - 先安装 `modlink-studio`
-- 再使用 `modlink-plugin install <plugin_id>` 从 GitHub Pages 插件索引解析版本，并从 GitHub Release 安装对应插件 wheel
+- 再使用 `modlink-plugin install <plugin_id>` 从插件仓库 Pages 索引解析版本，并从插件仓库 GitHub Release 安装对应插件 wheel
 
 当前这个命令仍以官方驱动为中心；后续版本会把它继续扩展成更完整的插件管理工具，例如统一查看插件状态、已安装第三方插件、安装来源和可升级项。
 
@@ -133,7 +133,6 @@ modlink-studio/
 │  └─ modlink_ui_qt_qml/
 ├─ tools/
 │  └─ modlink_plugin_scaffold/
-├─ plugins/
 └─ vpdocs/
 ```
 
@@ -147,7 +146,6 @@ modlink-studio/
 - `packages/modlink_ui_qt_widgets/`: Qt Widgets UI 包
 - `packages/modlink_ui_qt_qml/`: Qt QML UI 包
 - `tools/modlink_plugin_scaffold/`: 独立 npm driver 脚手架工具
-- `plugins/`: 官方驱动源码与 GitHub Release 资产构建输入
 - `vpdocs/`: VitePress 文档站源码
 
 ## Contributor Setup
@@ -159,15 +157,7 @@ uv sync
 uv run modlink-studio
 ```
 
-按需在当前开发环境安装某个官方驱动源码包：
-
-```bash
-uv run python -m pip install -e plugins/host-camera
-```
-
-```bash
-uv run python -m pip install -e plugins/host-microphone
-```
+如果要联调官方驱动源码，请切到独立仓库 `ModLink-Studio-Plugins` 进行构建与发布验证；主仓库不再承载官方驱动源码目录。
 
 根仓库执行 `uv sync --dev` 后，`apps/modlink_server/tests` 也会被当前工作区虚拟环境直接覆盖；不需要再单独创建 server 专用环境。
 

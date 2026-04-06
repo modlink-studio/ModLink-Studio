@@ -192,3 +192,10 @@ def test_manifest_url_can_be_overridden(monkeypatch) -> None:
     monkeypatch.setenv(cli.PLUGIN_INDEX_URL_ENV, "https://example.invalid/plugins.json")
 
     assert cli._manifest_url() == "https://example.invalid/plugins.json"
+
+
+def test_manifest_url_defaults_to_plugin_repository_pages() -> None:
+    assert (
+        cli.DEFAULT_PLUGIN_INDEX_URL
+        == "https://modlink-studio.github.io/ModLink-Studio-Plugins/plugins/index.json"
+    )

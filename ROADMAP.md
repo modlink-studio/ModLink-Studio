@@ -30,15 +30,16 @@
 **已确认：至少到 0.3.0 之前，对外公开分发保持单主包策略。**
 
 - [x] `modlink-studio` 作为 0.2.x-0.3.x 阶段唯一公开的 PyPI 主包
-- [x] Qt Widgets UI、QML UI、Qt bridge、运行时实现与官方驱动源码继续保留在 monorepo 内部拆分，但不作为独立公开 PyPI 包名承诺
+- [x] Qt Widgets UI、QML UI、Qt bridge 与运行时实现继续保留在主 monorepo 内部拆分，但不作为独立公开 PyPI 包名承诺
 - [x] `modlink-studio-qml` 命令可以继续保留，但应来自同一个 `modlink-studio` distribution，而不是单独的公开分发包
 - [x] 官方驱动不在 0.2.x-0.3.x 阶段以独立公开包名发布
 - [x] 官方驱动也不直接内置在公开的 `modlink-studio` wheel 中，避免用户在未选择设备能力时就安装到全部官方驱动实现
 - [x] `modlink-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
 - [x] 插件索引改为 GitHub Pages JSON manifest，不再写死在宿主代码中
+- [x] `modlink-plugin` 默认索引源切到 `ModLink-Studio-Plugins` 的 GitHub Pages，而不是主仓库文档站根路径
 - [x] 当前预发布演练版本统一提升到 `0.2.0rc2`；正式 PyPI 稳定版保留 `0.2.0`
 - [ ] 将 `modlink-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
-- [x] 0.2.x-0.3.x 阶段不要求把所有官方驱动立即拆成独立仓库；源码继续保留在 monorepo 的 `plugins/` 目录，是否拆仓按后续维护边界再评估
+- [x] 官方驱动源码、release 资产与插件索引已迁移到独立仓库 `ModLink-Studio-Plugins`；主仓库只保留主包与插件管理器
 - [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
 
 ### 1.2 0.2.0 发布门槛
@@ -56,11 +57,12 @@
   - [x] 录制失败时，错误原因和失败 recording 路径能被用户看到，而不是静默失败
 
 - [ ] **文档与发布准备（进行中）**
-  - [x] README 更新 0.2.0 安装说明与工作区开发说明
-  - [x] 0.2.0 CHANGELOG
-  - [x] 文档站 breaking change 说明同步
-  - [x] 单主包 `modlink-studio` 的 TestPyPI / PyPI 发布链落地
+- [x] README 更新 0.2.0 安装说明与工作区开发说明
+- [x] 0.2.0 CHANGELOG
+- [x] 文档站 breaking change 说明同步
+- [x] 单主包 `modlink-studio` 的 TestPyPI / PyPI 发布链落地
 - [x] 插件安装路径从 `extras -> 主包内置` 方案收口为 `plugin CLI -> GitHub 发布物`
+- [x] 官方插件迁移到独立仓库 `ModLink-Studio-Plugins`，主仓库不再托管插件源码与插件资产 workflow
   - [ ] TestPyPI rehearsal
   - [ ] PyPI 发布前干净环境安装验证
 
@@ -100,7 +102,7 @@
 3. 看到实时流预览
 4. 开始录制，添加 marker，停止录制
 5. 明确看到录制结果保存到了哪里，录制文件结构清晰、元数据完整
-6. 需要额外安装的插件能力通过 `modlink-plugin install ...` 获取；主包保持单一公开安装入口
+6. 需要额外安装的插件能力通过 `modlink-plugin install ...` 获取；默认索引与插件资产来自 `ModLink-Studio-Plugins`
 ```
 
 ---

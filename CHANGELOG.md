@@ -173,6 +173,7 @@
 
 - 先安装 `modlink-studio`
 - 再运行 `modlink-plugin install <plugin_id>`
+- 官方驱动索引与 wheel 资产由独立仓库 `ModLink-Studio-Plugins` 提供
 
 当前命令集主要覆盖官方驱动；插件索引已经改为远端 JSON manifest，后续版本会继续扩展为更通用的插件管理工具。
 

@@ -18,7 +18,7 @@ from packaging.version import InvalidVersion, Version
 from platformdirs import user_cache_path
 
 PLUGIN_ENTRY_POINT_GROUP = "modlink.drivers"
-DEFAULT_PLUGIN_INDEX_URL = "https://modlink-studio.github.io/plugins/index.json"
+DEFAULT_PLUGIN_INDEX_URL = "https://modlink-studio.github.io/ModLink-Studio-Plugins/plugins/index.json"
 PLUGIN_INDEX_URL_ENV = "MODLINK_PLUGIN_INDEX_URL"
 USER_AGENT = "modlink-plugin"
 
