@@ -63,6 +63,10 @@ modlink-plugin list --installed
 modlink-plugin status
 ```
 
+```bash
+modlink-plugin uninstall host-camera
+```
+
 更完整的安装说明、升级说明和源码运行方式见 [vpdocs/install.md](vpdocs/install.md)。
 
 ## Plugin Management
