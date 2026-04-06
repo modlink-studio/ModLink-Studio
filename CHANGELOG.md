@@ -24,7 +24,7 @@
 - 实时流预览
 - 开始 / 停止采集
 - 录制与保存
-- 官方驱动安装与外部 driver 接入
+- 插件安装与外部 driver 接入
   - `0.2.0` 公开分发面收口为单主包 `modlink-studio`
 
 录制回放不属于 `0.2.0` 的发布范围，已整体延后到 `0.3.0`。
@@ -85,7 +85,7 @@
 
 - `modlink_plugin_scaffold` 从主运行时链路中拆出，转为独立开发工具
 - 新的脚手架工具改写为 React + Ink 的 npm 工具
-- 官方驱动继续保留在 monorepo 的 `plugins/` 目录中，并改为通过主包插件 CLI + GitHub 发布物安装
+- 官方驱动继续保留在 monorepo 的 `plugins/` 目录中，并改为通过主包插件管理命令 + GitHub 发布物安装
 - 外部 driver 开发路径明确为：
   - 主要依赖仓库内的 `modlink-sdk` 契约
   - 按需依赖仓库内的 `modlink-core`
@@ -159,7 +159,7 @@
 
 ---
 
-### Official Drivers
+### Plugin Management
 
 `0.2.0` 当前提供以下官方驱动：
 
@@ -167,10 +167,12 @@
 - Host Microphone
 - OpenBCI Ganglion
 
-安装方式：
+当前阶段的插件安装方式：
 
 - 先安装 `modlink-studio`
 - 再运行 `modlink-studio-plugin install <plugin_id>`
+
+当前命令集主要覆盖官方驱动；后续版本会继续扩展为更通用的插件管理工具。
 
 ---
 
@@ -211,7 +213,7 @@
 - preview streams
 - start / stop acquisition
 - record and save
-- install official drivers through `modlink-studio-plugin`
+- install plugins through `modlink-studio-plugin`
 
 这一版本是后续能力的结构基础：
 

@@ -403,10 +403,12 @@ name.XX
 - `host_camera.01:video`
 - `openbci_ganglion.01:eeg`
 
-## 官方驱动命名
+## 官方驱动命名与插件安装
 
 当前仓库内维护的官方驱动使用下面这组 entry point：
 
 - `host-camera`
 - `host-microphone`
 - `openbci-ganglion`
+
+在 `0.2.x` 当前阶段，这些 entry point 主要通过 `modlink-studio-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。

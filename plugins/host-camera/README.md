@@ -5,6 +5,7 @@
 ## 接入方式
 
 - 通过 `modlink-studio-plugin install host-camera` 安装到当前环境
+- 当前这一条安装命令属于 `modlink-studio-plugin` 的第一阶段能力；后续会被并入更完整的插件管理流程
 - entry point：`host-camera`
 
 ## 适用场景

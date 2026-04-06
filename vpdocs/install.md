@@ -42,9 +42,11 @@ modlink-studio
 python -m modlink_studio
 ```
 
-## 安装官方驱动
+## 安装插件
 
-官方驱动不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件 CLI 从 GitHub Release 安装对应驱动 wheel：
+插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令，从 GitHub Release 安装对应插件 wheel。
+
+当前第一阶段，这个命令集主要覆盖官方驱动；后续会继续扩展成更通用的插件管理工具：
 
 ```bash
 modlink-studio-plugin list
@@ -62,7 +64,7 @@ modlink-studio-plugin install host-microphone
 modlink-studio-plugin install openbci-ganglion
 ```
 
-如果不再需要某个官方驱动：
+如果不再需要某个插件：
 
 ```bash
 modlink-studio-plugin uninstall host-camera
@@ -133,7 +135,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 - TestPyPI rehearsal 能完整跑通
 - PyPI 目标安装命令在干净环境中可用
-- 官方驱动安装 CLI 可从与当前主包版本匹配的 GitHub Release 获取 wheel
+- 插件安装 CLI 可从与当前主包版本匹配的 GitHub Release 获取 wheel
 - `modlink-studio` 命令入口正常
 
 ## 常见问题
@@ -146,9 +148,9 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 不是。`TestPyPI` 只用于发布前 rehearsal；正式发布后，公开安装入口以 PyPI 为准。
 
-### 已安装主应用但看不到某个官方驱动
+### 已安装主应用但看不到某个插件
 
-主应用不会默认安装所有官方驱动。需要显式运行 `modlink-studio-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
+主应用不会默认安装所有插件。当前第一阶段主要是官方驱动，需要显式运行 `modlink-studio-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
 
 ### 系统里找不到 `modlink-studio` 命令
 

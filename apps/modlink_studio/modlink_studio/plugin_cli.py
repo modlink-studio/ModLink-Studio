@@ -158,19 +158,22 @@ def _cmd_uninstall(plugin_id: str) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="modlink-studio-plugin",
-        description="Manage official ModLink Studio driver plugins.",
+        description=(
+            "Manage ModLink Studio plugins. "
+            "The current command set covers official driver plugins."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("list", help="List official driver plugins.")
-    subparsers.add_parser("status", help="Show install status for official driver plugins.")
+    subparsers.add_parser("list", help="List known plugins.")
+    subparsers.add_parser("status", help="Show install status for known plugins.")
 
-    install_parser = subparsers.add_parser("install", help="Install one official driver plugin.")
+    install_parser = subparsers.add_parser("install", help="Install one plugin.")
     install_parser.add_argument("plugin_id", choices=[plugin.plugin_id for plugin in OFFICIAL_PLUGINS])
 
     uninstall_parser = subparsers.add_parser(
         "uninstall",
-        help="Uninstall one official driver plugin.",
+        help="Uninstall one plugin.",
     )
     uninstall_parser.add_argument("plugin_id", choices=[plugin.plugin_id for plugin in OFFICIAL_PLUGINS])
     return parser
