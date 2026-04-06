@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 📦
     title: PyPI 安装
-    details: 0.2.0 正式发布后将通过 PyPI 分发；发布前会先完成一次 TestPyPI rehearsal。
+    details: 0.2.0 的公开安装入口以 PyPI 为准；TestPyPI rehearsal 已完成。
   - icon: 🔌
     title: Driver 接入
     details: 外部 driver 优先依赖仓库内的 SDK 契约，通过 modlink.drivers entry point 被宿主发现。
@@ -35,7 +35,7 @@ features:
 
 # ModLink Studio 文档总览
 
-当前文档以 `0.2.0` 主线为准。这里描述的是 `0.2.0` 的目标发布状态，而不是 `0.1.x` 的旧行为：
+当前文档以 `0.2.0` 主线为准。这里描述的是 `0.2.0` 的正式发布边界，而不是 `0.1.x` 的旧行为：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
@@ -43,7 +43,7 @@ features:
 - FastAPI host 已建立服务化边界，用于后续 HTML / Web UI
 - 录制回放不属于 `0.2.0`，延后到 `0.3.0`
 
-`0.2.0` 目前尚未正式发布。正式发布时将以 **PyPI** 作为公开安装入口；发布前会先完成一次 **TestPyPI rehearsal**，但 `TestPyPI` 不作为日常安装源。
+`0.2.0` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 已完成，但 `TestPyPI` 不作为日常安装源。
 
 ## 从哪里开始
 
@@ -58,4 +58,4 @@ features:
 
 - 源码仓库：[github.com/modlink-studio/ModLink-Studio](https://github.com/modlink-studio/ModLink-Studio)
 - 文档站点：[modlink-studio.github.io](https://modlink-studio.github.io)
-- 正式发布渠道：PyPI（`0.2.0` 正式发布后生效）
+- 正式发布渠道：PyPI

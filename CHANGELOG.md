@@ -29,7 +29,7 @@
 
 录制回放不属于 `0.2.0` 的发布范围，已整体延后到 `0.3.0`。
 
-这一版本正式发布时，公开安装入口也会切到 **PyPI**；`TestPyPI` 只用于发布前 rehearsal，不作为日常安装源。
+这一版本的公开安装入口以 **PyPI** 为准；`TestPyPI` 只用于发布前 rehearsal，不作为日常安装源。
 
 `0.2.0` 的 `TestPyPI rehearsal` 已完成；正式稳定版使用 `0.2.0`，公开安装入口以 PyPI 为准。
 
@@ -87,7 +87,7 @@
 
 - `modlink_plugin_scaffold` 从主运行时链路中拆出，转为独立开发工具
 - 新的脚手架工具改写为 React + Ink 的 npm 工具
-- 官方驱动继续保留在 monorepo 的 `plugins/` 目录中，并改为通过主包插件管理命令 + GitHub 发布物安装
+- 官方驱动从主仓库拆出，迁移到独立仓库 `ModLink-Studio-Plugins`，并改为通过主包插件管理命令 + GitHub 发布物安装
 - 外部 driver 开发路径明确为：
   - 主要依赖仓库内的 `modlink-sdk` 契约
   - 按需依赖仓库内的 `modlink-core`
@@ -190,7 +190,7 @@
 3. 只有在确实需要 runtime 服务时，才额外依赖仓库内的 `modlink-core`
 4. 插件发现基于 `modlink.drivers` entry points
 5. 新 driver 项目建议从 `modlink_plugin_scaffold` 开始
-6. `0.2.0` 正式发布时，公开安装入口将以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
+6. `0.2.0` 的公开安装入口以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
 
 ---
 
