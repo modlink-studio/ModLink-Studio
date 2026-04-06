@@ -24,7 +24,8 @@
 - 实时流预览
 - 开始 / 停止采集
 - 录制与保存
-- 官方插件安装与外部 driver 接入
+- 内置官方驱动能力启用与外部 driver 接入
+  - `0.2.0` 公开分发面收口为单主包 `modlink-studio`
 
 录制回放不属于 `0.2.0` 的发布范围，已整体延后到 `0.3.0`。
 
@@ -84,10 +85,10 @@
 
 - `modlink_plugin_scaffold` 从主运行时链路中拆出，转为独立开发工具
 - 新的脚手架工具改写为 React + Ink 的 npm 工具
-- 官方插件安装路径统一到 extras + `modlink.drivers` entry point
+- 官方驱动代码内置到主包，extras 只负责第三方依赖
 - 外部 driver 开发路径明确为：
-  - 主要依赖 `modlink-sdk`
-  - 按需依赖 `modlink-core`
+  - 主要依赖仓库内的 `modlink-sdk` 契约
+  - 按需依赖仓库内的 `modlink-core`
   - 使用 `modlink.drivers` entry points 暴露 driver
 
 #### Testing / Tooling
@@ -158,13 +159,13 @@
 
 ---
 
-### Official Plugins
+### Official Drivers
 
-`0.2.0` 当前面向以下官方插件保留支持：
+`0.2.0` 当前在主包内保留支持以下官方驱动：
 
-- `modlink-plugin-host-camera`
-- `modlink-plugin-host-microphone`
-- `modlink-plugin-openbci-ganglion`
+- Host Camera
+- Host Microphone
+- OpenBCI Ganglion
 
 对应 extras：
 
@@ -179,13 +180,13 @@
 从 `0.1.x` 升级到 `0.2.0` 时，需要注意：
 
 1. 旧 driver 需要迁移到新的 runtime-oriented driver API
-2. 外部 driver 应优先依赖：
+2. 外部 driver 应优先依赖仓库内的 SDK 契约：
    - `modlink-sdk`
    - 设备自身的传输层依赖
-3. 只有在确实需要 runtime 服务时，才额外依赖 `modlink-core`
+3. 只有在确实需要 runtime 服务时，才额外依赖仓库内的 `modlink-core`
 4. 插件发现基于 `modlink.drivers` entry points
 5. 新 driver 项目建议从 `modlink_plugin_scaffold` 开始
-6. `0.2.0` 正式发布时，公开安装入口将以 PyPI 为准；`TestPyPI` 只用于发布前 rehearsal
+6. `0.2.0` 正式发布时，公开安装入口将以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
 
 ---
 
@@ -211,7 +212,7 @@
 - preview streams
 - start / stop acquisition
 - record and save
-- install official plugins through a clearer extension path
+- enable built-in official driver capabilities through extras
 
 这一版本是后续能力的结构基础：
 

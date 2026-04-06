@@ -1,7 +1,7 @@
 [project]
-name = "modlink-studio-qml"
+name = "modlink-studio-qml-internal"
 version = "0.2.0"
-description = "QML application entrypoint for ModLink Studio"
+description = "Internal packaging stub for the QML ModLink Studio host"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
 dependencies = [
@@ -15,7 +15,6 @@ Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
 
 [project.gui-scripts]
 modlink-studio-qml = "modlink_studio_qml.app:main"

@@ -2,19 +2,6 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 
-[manifest]
-members = [
-    "modlink-core",
-    "modlink-qt-bridge",
-    "modlink-sdk",
-    "modlink-server",
-    "modlink-studio",
-    "modlink-studio-qml",
-    "modlink-ui-qt-qml",
-    "modlink-ui-qt-widgets",
-    "modlink-workspace",
-]
-
 [[package]]
 name = "altgraph"
 version = "0.17.5"
@@ -409,256 +396,36 @@ wheels = [
 ]
 
 [[package]]
-name = "modlink-core"
+name = "modlink-studio"
 version = "0.2.0"
-source = { editable = "packages/modlink_core" }
-dependencies = [
-    { name = "modlink-sdk" },
-    { name = "numpy" },
-    { name = "platformdirs" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-sdk", editable = "packages/modlink_sdk" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "platformdirs", specifier = ">=4.9.4" },
-]
-
-[[package]]
-name = "modlink-plugin-host-camera"
-version = "0.2.0"
-source = { editable = "plugins/host-camera" }
-dependencies = [
-    { name = "modlink-sdk" },
-    { name = "numpy" },
-    { name = "opencv-python" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-sdk", editable = "packages/modlink_sdk" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "opencv-python", specifier = ">=4.11.0" },
-]
-
-[[package]]
-name = "modlink-plugin-host-microphone"
-version = "0.2.0"
-source = { editable = "plugins/host-microphone" }
-dependencies = [
-    { name = "modlink-sdk" },
-    { name = "numpy" },
-    { name = "sounddevice" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-sdk", editable = "packages/modlink_sdk" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "sounddevice" },
-]
-
-[[package]]
-name = "modlink-plugin-openbci-ganglion"
-version = "0.2.0"
-source = { editable = "plugins/openbci-ganglion" }
-dependencies = [
-    { name = "bleak" },
-    { name = "brainflow" },
-    { name = "modlink-sdk" },
-    { name = "numpy" },
-    { name = "pyserial" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bleak" },
-    { name = "brainflow" },
-    { name = "modlink-sdk", editable = "packages/modlink_sdk" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "pyserial" },
-]
-
-[[package]]
-name = "modlink-qt-bridge"
-version = "0.2.0"
-source = { editable = "packages/modlink_qt_bridge" }
-dependencies = [
-    { name = "modlink-core" },
-    { name = "pyqt6" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-]
-
-[[package]]
-name = "modlink-sdk"
-version = "0.2.0"
-source = { editable = "packages/modlink_sdk" }
-dependencies = [
-    { name = "numpy" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "numpy", specifier = ">=2.3.3" }]
-
-[[package]]
-name = "modlink-server"
-version = "0.2.0"
-source = { editable = "apps/modlink_server" }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
-    { name = "modlink-core" },
+    { name = "numpy" },
+    { name = "platformdirs" },
+    { name = "pyqt6" },
+    { name = "pyqt6-fluent-widgets" },
+    { name = "pyqtgraph" },
+    { name = "scipy" },
     { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
 official-host-camera = [
-    { name = "modlink-plugin-host-camera" },
+    { name = "opencv-python" },
 ]
 official-host-microphone = [
-    { name = "modlink-plugin-host-microphone" },
+    { name = "sounddevice" },
 ]
 official-openbci-ganglion = [
-    { name = "modlink-plugin-openbci-ganglion" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.118.0" },
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "modlink-plugin-host-camera", marker = "extra == 'official-host-camera'", editable = "plugins/host-camera" },
-    { name = "modlink-plugin-host-microphone", marker = "extra == 'official-host-microphone'", editable = "plugins/host-microphone" },
-    { name = "modlink-plugin-openbci-ganglion", marker = "extra == 'official-openbci-ganglion'", editable = "plugins/openbci-ganglion" },
-    { name = "uvicorn", specifier = ">=0.37.0" },
-]
-provides-extras = ["official-host-camera", "official-host-microphone", "official-openbci-ganglion"]
-
-[[package]]
-name = "modlink-studio"
-version = "0.2.0"
-source = { editable = "apps/modlink_studio" }
-dependencies = [
-    { name = "modlink-core" },
-    { name = "modlink-ui-qt-widgets" },
-    { name = "pyqt6" },
-    { name = "pyqt6-fluent-widgets" },
-]
-
-[package.optional-dependencies]
-official-host-camera = [
-    { name = "modlink-plugin-host-camera" },
-]
-official-host-microphone = [
-    { name = "modlink-plugin-host-microphone" },
-]
-official-openbci-ganglion = [
-    { name = "modlink-plugin-openbci-ganglion" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "modlink-plugin-host-camera", marker = "extra == 'official-host-camera'", editable = "plugins/host-camera" },
-    { name = "modlink-plugin-host-microphone", marker = "extra == 'official-host-microphone'", editable = "plugins/host-microphone" },
-    { name = "modlink-plugin-openbci-ganglion", marker = "extra == 'official-openbci-ganglion'", editable = "plugins/openbci-ganglion" },
-    { name = "modlink-ui-qt-widgets", editable = "packages/modlink_ui_qt_widgets" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
-]
-provides-extras = ["official-host-camera", "official-host-microphone", "official-openbci-ganglion"]
-
-[[package]]
-name = "modlink-studio-qml"
-version = "0.2.0"
-source = { editable = "apps/modlink_studio_qml" }
-dependencies = [
-    { name = "modlink-core" },
-    { name = "modlink-ui-qt-qml" },
-    { name = "pyqt6" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "modlink-ui-qt-qml", editable = "packages/modlink_ui_qt_qml" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-]
-
-[[package]]
-name = "modlink-ui-qt-qml"
-version = "0.2.0"
-source = { editable = "packages/modlink_ui_qt_qml" }
-dependencies = [
-    { name = "modlink-core" },
-    { name = "modlink-qt-bridge" },
-    { name = "modlink-sdk" },
-    { name = "numpy" },
-    { name = "pyqt6" },
-    { name = "scipy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "modlink-qt-bridge", editable = "packages/modlink_qt_bridge" },
-    { name = "modlink-sdk", editable = "packages/modlink_sdk" },
-    { name = "numpy", specifier = ">=2.3.3" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "scipy", specifier = ">=1.15.2" },
-]
-
-[[package]]
-name = "modlink-ui-qt-widgets"
-version = "0.2.0"
-source = { editable = "packages/modlink_ui_qt_widgets" }
-dependencies = [
-    { name = "modlink-core" },
-    { name = "modlink-qt-bridge" },
-    { name = "pyqt6" },
-    { name = "pyqt6-fluent-widgets" },
-    { name = "pyqtgraph" },
-    { name = "scipy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "modlink-core", editable = "packages/modlink_core" },
-    { name = "modlink-qt-bridge", editable = "packages/modlink_qt_bridge" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
-    { name = "pyqtgraph", specifier = ">=0.13.7" },
-    { name = "scipy", specifier = ">=1.14.1" },
-]
-
-[[package]]
-name = "modlink-workspace"
-version = "0.2.0"
-source = { editable = "." }
-dependencies = [
-    { name = "modlink-studio" },
-    { name = "modlink-studio-qml" },
-]
-
-[package.optional-dependencies]
-official-host-camera = [
-    { name = "modlink-plugin-host-camera" },
-]
-official-host-microphone = [
-    { name = "modlink-plugin-host-microphone" },
-]
-official-openbci-ganglion = [
-    { name = "modlink-plugin-openbci-ganglion" },
+    { name = "bleak" },
+    { name = "brainflow" },
+    { name = "pyserial" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
-    { name = "modlink-server" },
     { name = "pdoc" },
     { name = "pre-commit" },
     { name = "pyinstaller" },
@@ -669,18 +436,25 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "modlink-plugin-host-camera", marker = "extra == 'official-host-camera'", editable = "plugins/host-camera" },
-    { name = "modlink-plugin-host-microphone", marker = "extra == 'official-host-microphone'", editable = "plugins/host-microphone" },
-    { name = "modlink-plugin-openbci-ganglion", marker = "extra == 'official-openbci-ganglion'", editable = "plugins/openbci-ganglion" },
-    { name = "modlink-studio", editable = "apps/modlink_studio" },
-    { name = "modlink-studio-qml", editable = "apps/modlink_studio_qml" },
+    { name = "bleak", marker = "extra == 'official-openbci-ganglion'" },
+    { name = "brainflow", marker = "extra == 'official-openbci-ganglion'" },
+    { name = "fastapi", specifier = ">=0.118.0" },
+    { name = "numpy", specifier = ">=2.3.3" },
+    { name = "opencv-python", marker = "extra == 'official-host-camera'", specifier = ">=4.11.0" },
+    { name = "platformdirs", specifier = ">=4.9.4" },
+    { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
+    { name = "pyqtgraph", specifier = ">=0.13.7" },
+    { name = "pyserial", marker = "extra == 'official-openbci-ganglion'" },
+    { name = "scipy", specifier = ">=1.15.2" },
+    { name = "sounddevice", marker = "extra == 'official-host-microphone'" },
+    { name = "uvicorn", specifier = ">=0.37.0" },
 ]
 provides-extras = ["official-host-camera", "official-host-microphone", "official-openbci-ganglion"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "modlink-server", editable = "apps/modlink_server" },
     { name = "pdoc", specifier = ">=16.0.0" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyinstaller", specifier = ">=6.16.0" },

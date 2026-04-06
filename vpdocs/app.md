@@ -2,7 +2,7 @@
 
 App 层负责把已经存在的 SDK、Core、UI 和 bridge 装配成真正可启动的宿主程序。它的职责不是重新定义协议，而是把现有能力组合成最终入口。
 
-在 `0.2.0` 中，宿主入口已经明确分成三条：
+在 `0.2.0` 中，宿主入口在实现上仍然分成三条，但对外公开分发统一收口到 `modlink-studio` 一个主包：
 
 - `modlink_studio`：主桌面宿主，使用 `modlink_ui_qt_widgets`
 - `modlink_studio_qml`：QML 宿主，使用 `modlink_ui_qt_qml`
@@ -43,6 +43,8 @@ python -m modlink_studio_qml
 
 `modlink_server` 当前主要面向前端联调和宿主边界验证，而不是普通终端用户的默认入口。
 
+这三个入口在 `0.2.x-0.3.x` 阶段都会由同一个 `modlink-studio` distribution 提供，而不是拆成多个公开 PyPI 包。
+
 ## App 层到底负责什么
 
 以桌面宿主为例，App 层当前会做这些事：
@@ -79,8 +81,8 @@ python -m modlink_studio_qml
 
 宿主不会在运行时临时下载插件，也不会要求最终用户拼接本地路径。当前模型是“先安装，再发现”：
 
-- 官方插件通过 `modlink-studio[...]` extras 安装
-- 外部 driver 用普通 `pip install` 或 `pip install -e` 安装到同一个 Python 环境
+- 内置官方驱动通过 `modlink-studio[...]` extras 补齐第三方依赖
+- 外部 driver 在当前阶段主要通过源码环境和本地安装联调到同一个 Python 环境
 - 宿主启动时扫描当前环境里的 `modlink.drivers`
 
 一个外部 driver 的典型联调方式是：
@@ -101,7 +103,7 @@ python -m modlink_studio
 
 外部 driver 更合理的依赖边界是：
 
-- 默认依赖 `modlink-sdk`
+- SDK 契约当前仍在仓库内明确存在
 - 只有确实需要运行时服务时，才额外依赖 `modlink-core`
 
 这样可以让 driver 依赖最小稳定接口，而不是反向绑死在整个宿主应用上。
@@ -118,7 +120,7 @@ App 层当前明确保留 fail-fast 策略：
 
 ## 仓库内联调
 
-在 monorepo 根目录联调时，可以通过根项目 extras 启动宿主：
+在 monorepo 根目录联调时，可以通过主包 extras 启动宿主：
 
 ```bash
 uv run --extra official-host-camera modlink-studio

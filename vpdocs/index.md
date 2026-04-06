@@ -19,7 +19,7 @@ features:
     details: 0.2.0 正式发布后将通过 PyPI 分发；发布前会先完成一次 TestPyPI rehearsal。
   - icon: 🔌
     title: Driver 接入
-    details: 外部 driver 优先依赖 modlink-sdk，通过 modlink.drivers entry point 被宿主发现。
+    details: 外部 driver 优先依赖仓库内的 SDK 契约，通过 modlink.drivers entry point 被宿主发现。
   - icon: 🧠
     title: 纯 Python Runtime
     details: SDK 与 Core 已从 Qt 运行时语义中拆开，宿主围绕统一流模型和采集后端工作。

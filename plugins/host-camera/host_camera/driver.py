@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import threading
 import time
+from types import ModuleType
 
-import cv2
 import numpy as np
 
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
@@ -20,7 +20,7 @@ class WebcamDriver(Driver):
     def __init__(self) -> None:
         super().__init__()
         self._camera_index: int | None = None
-        self._cap: cv2.VideoCapture | None = None
+        self._cap: object | None = None
         self._thread: threading.Thread | None = None
         self._running = False
         self._seq = 0
@@ -51,6 +51,7 @@ class WebcamDriver(Driver):
         if provider != "video":
             raise ValueError("Host camera driver provider must be 'video'")
 
+        cv2 = _require_cv2()
         results: list[SearchResult] = []
         for index in range(10):
             # Try to open camera with default backend
@@ -92,6 +93,7 @@ class WebcamDriver(Driver):
         if self._running:
             return
 
+        cv2 = _require_cv2()
         # Open camera with default backend (auto-detect best backend)
         self._cap = cv2.VideoCapture(self._camera_index)
         if not self._cap.isOpened():
@@ -119,6 +121,7 @@ class WebcamDriver(Driver):
             self._cap = None
 
     def _capture_loop(self) -> None:
+        cv2 = _require_cv2()
         while self._running and self._cap is not None:
             ret, frame = self._cap.read()
             if not ret:
@@ -159,3 +162,14 @@ class WebcamDriver(Driver):
                 self._seq += 1
 
         self._running = False
+
+
+def _require_cv2() -> ModuleType:
+    try:
+        import cv2
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "Host Camera requires optional dependency 'opencv-python'. "
+            "Install modlink-studio[official-host-camera]."
+        ) from exc
+    return cv2

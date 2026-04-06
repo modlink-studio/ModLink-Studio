@@ -1,10 +1,10 @@
-# Host Camera Plugin
+# Host Camera Driver
 
-本插件把本机内置或外接摄像头接入 `ModLink Studio`，并向宿主提供视频流。
+本驱动把本机内置或外接摄像头接入 `ModLink Studio`，并向宿主提供视频流。
 
-## 包接口
+## 接入方式
 
-- 正式分发名：`modlink-plugin-host-camera`
+- 内置于 `modlink-studio` 主包
 - 宿主 extra：`official-host-camera`
 - entry point：`host-camera`
 
@@ -12,12 +12,12 @@
 
 - 本机摄像头预览
 - 视频流接入与录制
-- 作为官方示例视频插件进行开发联调
+- 作为官方示例视频驱动进行开发联调
 
-## 从已发布包安装
+## 启用依赖
 
 ```bash
-python -m pip install "modlink-studio[official-host-camera]" --extra-index-url https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/
+python -m pip install "modlink-studio[official-host-camera]"
 ```
 
 ## 在仓库里联调
