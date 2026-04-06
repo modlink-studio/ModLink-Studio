@@ -3,13 +3,49 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from threading import Event, RLock, Thread, current_thread
 
 from .models import FrameEnvelope, SearchResult, StreamDescriptor
 
 
-class Driver(QObject):
+class DriverContext:
+    """Runtime callbacks exposed to one driver instance.
+
+    The host may close a context during shutdown. After closure, late frames
+    and late connection-lost notifications are ignored so helper threads
+    cannot mutate host state after teardown.
+    """
+
+    def __init__(
+        self,
+        *,
+        frame_sink: Callable[[FrameEnvelope], object | None],
+        connection_lost_sink: Callable[[object], None],
+    ) -> None:
+        self._frame_sink = frame_sink
+        self._connection_lost_sink = connection_lost_sink
+        self._lock = RLock()
+        self._closed = False
+
+    def emit_frame(self, frame: FrameEnvelope) -> bool:
+        with self._lock:
+            if self._closed:
+                return False
+            result = self._frame_sink(frame)
+            return result is not False
+
+    def emit_connection_lost(self, detail: object) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._connection_lost_sink(detail)
+
+    def _close(self) -> None:
+        with self._lock:
+            self._closed = True
+
+
+class Driver:
     """Base class for all ModLink drivers.
 
     A driver instance represents one host-managed device endpoint. The host
@@ -26,236 +62,147 @@ class Driver(QObject):
     - one driver instance manages at most one active device connection.
     """
 
-    sig_frame = pyqtSignal(FrameEnvelope)
-    """Emitted when a new payload chunk is available.
-
-    ``FrameEnvelope.stream_id`` is derived from ``device_id`` and ``modality``.
-    The derived value must match one of the driver's registered
-    ``StreamDescriptor.stream_id`` values.
-    """
-
-    sig_connection_lost = pyqtSignal(object)
-    """Emitted when a previously connected device becomes unavailable.
-
-    The payload is intentionally unconstrained so drivers can include
-    transport-specific diagnostics.
-    """
-
     supported_providers: tuple[str, ...] = ()
-    """Provider identifiers accepted by ``search()``.
-
-    The host passes the selected provider string through unchanged.
-    """
+    """Provider identifiers accepted by ``search()``."""
 
     @property
     def device_id(self) -> str:
-        """Return the stable identifier of this driver instance.
-
-        The value must be non-empty, stable for the lifetime of the instance,
-        independent of connection state, and use ``name.XX`` form such as
-        ``my_driver.01``.
-        """
         raise NotImplementedError(f"{type(self).__name__} must implement device_id")
 
     def __init__(self) -> None:
-        super().__init__()
-        self._emissions_enabled = True
-        self.destroyed.connect(self._on_destroyed)
+        self._context: DriverContext | None = None
 
     @property
     def display_name(self) -> str:
-        """Return the human-readable driver label.
-
-        The default implementation reuses ``device_id``.
-        """
         return self.device_id
 
-    def on_thread_started(self) -> None:
-        """Optional hook called after the driver worker thread starts.
+    def bind(self, context: DriverContext) -> None:
+        """Attach the host runtime context to this driver instance."""
+        self._context = context
 
-        Most drivers do not need to override this. It mainly exists for cases
-        where thread-local objects, such as ``QTimer``, must be created on the
-        driver thread itself.
-        """
+    def on_runtime_started(self) -> None:
+        """Optional hook called after the driver worker thread starts."""
 
     def descriptors(self) -> list[StreamDescriptor]:
-        """Return the streams exposed by this driver.
-
-        Hosts may call this before a device is connected. The returned
-        descriptors should remain stable for the lifetime of the driver
-        instance.
-        """
         raise NotImplementedError(f"{type(self).__name__} must implement descriptors")
 
-    def shutdown(self) -> None:
-        """Run best-effort shutdown cleanup.
+    def on_shutdown(self) -> None:
+        """Optional hook called before the driver worker thread exits.
 
-        The default implementation stops streaming and then disconnects the
-        device. ``NotImplementedError`` from either operation is ignored so the
-        method remains safe for partial driver implementations.
+        Override to release resources, close connections, etc.
         """
-        self._emissions_enabled = False
-        try:
-            self.stop_streaming()
-        except NotImplementedError:
-            pass
-        try:
-            self.disconnect_device()
-        except NotImplementedError:
-            pass
 
     def emit_frame(self, frame: FrameEnvelope) -> bool:
-        """Emit a frame unless the driver is already shutting down.
+        return self._require_context().emit_frame(frame)
 
-        Drivers may receive late callbacks from transport threads after the
-        host has started teardown. In that window the underlying QObject may be
-        gone already, so direct ``sig_frame.emit(...)`` calls can raise
-        ``RuntimeError``. This helper turns that race into a dropped frame.
-        """
-        if not self._emissions_enabled:
-            return False
-        try:
-            self.sig_frame.emit(frame)
-        except RuntimeError:
-            self._emissions_enabled = False
-            return False
-        return True
+    def emit_connection_lost(self, detail: object) -> None:
+        self._require_context().emit_connection_lost(detail)
 
-    def emit_connection_lost(self, payload: object) -> bool:
-        """Emit a connection-lost event unless teardown already started."""
-        if not self._emissions_enabled:
-            return False
-        try:
-            self.sig_connection_lost.emit(payload)
-        except RuntimeError:
-            self._emissions_enabled = False
-            return False
-        return True
-
-    def _on_destroyed(self, *_args: object) -> None:
-        self._emissions_enabled = False
+    def _require_context(self) -> DriverContext:
+        if self._context is None:
+            raise RuntimeError("driver is not bound to a runtime context")
+        return self._context
 
     def search(self, provider: str) -> list[SearchResult]:
-        """Return discovery candidates for ``provider``.
-
-        This is a one-shot call. Each returned ``SearchResult`` is suitable for
-        presentation in a selection UI and may later be passed back to
-        ``connect_device()``.
-        """
         raise NotImplementedError(f"{type(self).__name__} must implement search")
 
     def connect_device(self, config: SearchResult) -> None:
-        """Connect to a previously discovered device candidate.
-
-        ``config`` is normally one ``SearchResult`` returned by ``search()``.
-        The method should establish communication and prepare runtime
-        resources, but it must not start live streaming yet.
-        """
         raise NotImplementedError(
             f"{type(self).__name__} must implement connect_device if it supports connecting"
         )
 
     def disconnect_device(self) -> None:
-        """Disconnect the current device.
-
-        The method should be idempotent and leave the driver in a consistent
-        disconnected state.
-        """
         raise NotImplementedError(
             f"{type(self).__name__} must implement disconnect_device if it supports connecting"
         )
 
     def start_streaming(self) -> None:
-        """Start live streaming.
-
-        The method should return quickly and begin producing ``sig_frame``
-        emissions through callbacks, timers, or another non-blocking mechanism.
-        """
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement start_streaming"
-        )
+        raise NotImplementedError(f"{type(self).__name__} must implement start_streaming")
 
     def stop_streaming(self) -> None:
-        """Stop live streaming and release stream-specific resources."""
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement stop_streaming"
-        )
+        raise NotImplementedError(f"{type(self).__name__} must implement stop_streaming")
 
 
 DriverFactory = Callable[[], Driver]
 
 
 class LoopDriver(Driver):
-    """Convenience base class for timer-driven loop-style drivers.
+    """Convenience base class for bounded polling drivers with a helper thread.
 
-    ``LoopDriver`` is intended for common polling-style devices where one
-    short method can be called repeatedly to check for fresh data. It already
-    satisfies the normal ``Driver`` streaming contract, so it works with the
-    existing runtime without any core changes.
-
-    Typical subclass responsibilities:
-
-    - implement ``search()``, ``connect_device()``, ``disconnect_device()``,
-      and ``descriptors()`` as usual
-    - implement ``loop()`` for one short iteration
-    - optionally override ``loop_interval_ms``
-    - optionally implement ``on_loop_started()`` and ``on_loop_stopped()``
+    This helper favors simple driver code over strict shutdown guarantees.
+    ``loop()`` should stay bounded and return quickly. Long blocking or
+    non-interruptible I/O belongs in a custom ``Driver`` implementation.
+    The host only guarantees that frames and connection-lost callbacks are
+    ignored after shutdown; it does not guarantee the helper thread has
+    already finished by the time teardown returns.
     """
 
     loop_interval_ms = 10
-    """Driver-level timer cadence used by ``start_streaming()``.
-
-    This is not a stream sample rate. A single loop may emit zero, one, or
-    multiple payloads, and different streams may still run at different
-    effective rates within the same driver.
-    """
 
     def __init__(self) -> None:
         super().__init__()
-        self._loop_timer: QTimer | None = None
+        self._loop_lock = RLock()
+        self._loop_thread: Thread | None = None
+        self._loop_stop: Event | None = None
 
-    def on_thread_started(self) -> None:
-        """Create the loop timer on the driver worker thread."""
-        self._loop_timer = QTimer(self)
-        self._loop_timer.timeout.connect(self.loop)
+    @property
+    def is_looping(self) -> bool:
+        with self._loop_lock:
+            thread = self._loop_thread
+            return thread is not None and thread.is_alive()
 
     def start_streaming(self) -> None:
-        """Start timer-driven looping.
-
-        The default implementation calls ``on_loop_started()`` once and then
-        schedules repeated ``loop()`` calls on the driver thread.
-        """
-        if self._loop_timer is None:
-            raise RuntimeError("loop timer is not ready")
-        if self._loop_timer.isActive():
-            return
-
+        with self._loop_lock:
+            thread = self._loop_thread
+            if thread is not None and thread.is_alive():
+                return
         self.on_loop_started()
-        self._loop_timer.start(int(self.loop_interval_ms))
+        stop_event = Event()
+        thread = Thread(
+            target=self._run_loop_thread,
+            args=(stop_event,),
+            name=f"modlink.loop.{self.device_id.strip()}",
+            daemon=True,
+        )
+        with self._loop_lock:
+            self._loop_stop = stop_event
+            self._loop_thread = thread
+        thread.start()
 
     def stop_streaming(self) -> None:
-        """Stop timer-driven looping.
-
-        The default implementation stops future ``loop()`` calls and then
-        calls ``on_loop_stopped()`` once.
-        """
-        if self._loop_timer is None or not self._loop_timer.isActive():
+        with self._loop_lock:
+            stop_event = self._loop_stop
+            thread = self._loop_thread
+        if stop_event is None or thread is None:
             return
-
-        self._loop_timer.stop()
-        self.on_loop_stopped()
+        stop_event.set()
+        if thread is not current_thread():
+            thread.join(timeout=2.0)
 
     def on_loop_started(self) -> None:
-        """Optional hook called once before the loop timer starts."""
+        """Optional hook called once before loop execution starts."""
 
     def on_loop_stopped(self) -> None:
-        """Optional hook called once after the loop timer stops."""
+        """Optional hook called once after loop execution stops."""
 
     def loop(self) -> None:
-        """Run one short loop iteration.
-
-        The method should stay short and non-blocking. It may emit one or more
-        frames, or no frames if no fresh data is available. Think of this as
-        an Arduino-style ``loop()`` running on the driver thread.
-        """
         raise NotImplementedError(f"{type(self).__name__} must implement loop")
+
+    def on_shutdown(self) -> None:
+        """Best-effort shutdown hook for the helper loop thread."""
+        self.stop_streaming()
+
+    def _run_loop_thread(self, stop_event: Event) -> None:
+        interval_seconds = max(0.0, float(self.loop_interval_ms)) / 1000.0
+        try:
+            while not stop_event.wait(interval_seconds):
+                self.loop()
+        except Exception as exc:
+            self.emit_connection_lost(f"LOOP_FAILED: {type(exc).__name__}: {exc}")
+        finally:
+            with self._loop_lock:
+                if self._loop_stop is stop_event:
+                    self._loop_stop = None
+                if self._loop_thread is current_thread():
+                    self._loop_thread = None
+            self.on_loop_stopped()

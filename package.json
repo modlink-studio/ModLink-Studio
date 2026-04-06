@@ -1,12 +1,23 @@
 {
-    "name": "modlink-vitepress-docs",
+    "name": "modlink-monorepo",
     "private": true,
     "type": "module",
+    "workspaces": [
+        "tools/*"
+    ],
     "scripts": {
         "docs:vp:dev": "vitepress dev vpdocs",
         "docs:vp:build": "vitepress build vpdocs",
         "docs:vp:preview": "vitepress preview vpdocs",
-        "docs:pdoc:build": "uv run python -m pdoc packages/modlink_sdk/modlink_sdk packages/modlink_core/modlink_core packages/modlink_ui/modlink_ui apps/modlink_studio/modlink_studio -o vpdocs/public/pdoc"
+        "docs:pdoc:build": "uv run python -m pdoc packages/modlink_sdk/modlink_sdk packages/modlink_core/modlink_core packages/modlink_plugin_manager/modlink_plugin_manager packages/modlink_ui_qt_widgets/modlink_ui_qt_widgets packages/modlink_ui_qt_qml/modlink_ui_qt_qml apps/modlink_studio/modlink_studio apps/modlink_studio_qml/modlink_studio_qml -o vpdocs/public/pdoc",
+        "scaffold:dev": "npm --workspace @modlink-studio/plugin-scaffold run dev",
+        "scaffold:build": "npm --workspace @modlink-studio/plugin-scaffold run build",
+        "scaffold:lint": "npm --workspace @modlink-studio/plugin-scaffold run lint",
+        "scaffold:lint:fix": "npm --workspace @modlink-studio/plugin-scaffold run lint:fix",
+        "scaffold:format": "npm --workspace @modlink-studio/plugin-scaffold run format",
+        "scaffold:test": "npm --workspace @modlink-studio/plugin-scaffold run test",
+        "scaffold:pack": "npm --workspace @modlink-studio/plugin-scaffold run pack:check",
+        "scaffold:publish:dry-run": "npm --workspace @modlink-studio/plugin-scaffold run publish:dry-run"
     },
     "devDependencies": {
         "vitepress": "^1.6.3",

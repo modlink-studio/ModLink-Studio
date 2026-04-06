@@ -1,56 +1,228 @@
 from __future__ import annotations
 
+import logging
+import queue
+import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import Future
 from pathlib import Path
 
-from PyQt6.QtCore import (
-    QObject,
-    QStandardPaths,
-    QThread,
-    Qt,
-    pyqtSignal,
-    pyqtSlot,
-)
+from platformdirs import user_documents_path
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
-from ..bus import FrameSubscription, StreamBus
+from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
+from ..event_stream import StreamClosedError
+from ..events import (
+    AcquisitionSnapshot,
+    BackendEvent,
+    RecordingFailedEvent,
+)
 from ..settings.service import SettingsService
 from .storage import RecordingStorage
 
 ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
+ACQUISITION_CONSUMER_NAME = "acquisition"
+AcquisitionCommand = tuple[Callable[[], None], Future[None]]
+
+logger = logging.getLogger(__name__)
 
 
-class AcquisitionWorker(QObject):
-    sig_error = pyqtSignal(str)
-    sig_event = pyqtSignal(object)
-    sig_state_changed = pyqtSignal(str)
+class AcquisitionBackend:
+    """Threaded acquisition backend that records bus frames to disk."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        bus: StreamBus,
+        *,
+        settings: SettingsService,
+        publish_event: Callable[[BackendEvent], None],
+        parent: object | None = None,
+    ) -> None:
+        self._bus = bus
+        self._settings = settings
+        self._publish_event = publish_event
+        self._parent = parent
+        self._command_queue: queue.Queue[AcquisitionCommand | object] = queue.Queue()
+        self._shutdown_sentinel = object()
+        self._thread: threading.Thread | None = None
+        self._frame_stream: FrameStream | None = None
         self._state = "idle"
+        self._started = False
+        self._accepting_commands = False
+        self._worker_exit_error: Exception | None = None
         self._storage: RecordingStorage | None = None
+        self._lock = threading.RLock()
 
-    @pyqtSlot(object)
-    def on_frame(self, frame: object) -> None:
+    @property
+    def root_dir(self) -> Path:
+        return _resolve_root_dir(self._settings)
+
+    @property
+    def is_started(self) -> bool:
+        thread = self._thread
+        return self._started and thread is not None and thread.is_alive()
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @property
+    def is_recording(self) -> bool:
+        return self._state == "recording"
+
+    def snapshot(self) -> AcquisitionSnapshot:
+        return AcquisitionSnapshot(
+            state=self._state,
+            is_started=self.is_started,
+            is_recording=self.is_recording,
+            root_dir=str(self.root_dir),
+        )
+
+    def start(self) -> None:
+        if self.is_started:
+            self._started = True
+            self._accepting_commands = True
+            return
+        if self._frame_stream is None or self._frame_stream.closed:
+            self._frame_stream = self._open_frame_stream()
+        thread = threading.Thread(
+            target=self._run,
+            name="modlink.acquisition",
+            daemon=True,
+        )
+        self._thread = thread
+        self._worker_exit_error = None
+        self._accepting_commands = True
+        self._started = True
+        thread.start()
+
+    def start_recording(
+        self,
+        session_name: str,
+        recording_label: str | None = None,
+    ) -> Future[None]:
+        return self._submit_command(
+            self._start_recording_worker,
+            str(self.root_dir),
+            session_name,
+            recording_label,
+            self._bus.descriptors(),
+        )
+
+    def stop_recording(self) -> Future[None]:
+        return self._submit_command(self._stop_recording_worker)
+
+    def add_marker(self, label: str | None = None) -> Future[None]:
+        return self._submit_command(self._add_marker_worker, label)
+
+    def add_segment(
+        self,
+        start_ns: int,
+        end_ns: int,
+        label: str | None = None,
+    ) -> Future[None]:
+        return self._submit_command(
+            self._add_segment_worker,
+            start_ns,
+            end_ns,
+            label,
+        )
+
+    def shutdown(self, *, timeout_ms: int = 3000) -> None:
+        with self._lock:
+            self._accepting_commands = False
+            thread = self._thread
+            worker_exit_error = self._worker_exit_error
+
+        if thread is None or not thread.is_alive():
+            self._finalize_shutdown()
+            if worker_exit_error is not None:
+                self._worker_exit_error = None
+                raise worker_exit_error
+            return
+
+        self._command_queue.put(self._shutdown_sentinel)
+        thread.join(max(0, timeout_ms) / 1000)
+
+        if thread.is_alive():
+            raise TimeoutError(f"acquisition shutdown timed out after {timeout_ms}ms")
+
+        self._finalize_shutdown()
+        worker_exit_error = self._take_worker_exit_error()
+        if worker_exit_error is not None:
+            raise worker_exit_error
+
+    def _run(self) -> None:
+        exit_error: Exception | None = None
+        while True:
+            try:
+                if self._drain_commands():
+                    return
+
+                frame_stream = self._frame_stream
+                if frame_stream is None:
+                    time.sleep(0.01)
+                    continue
+
+                try:
+                    frame = frame_stream.read(timeout=0.05)
+                except queue.Empty:
+                    continue
+                except StreamClosedError:
+                    if not self._started:
+                        return
+                    logger.warning("Acquisition frame stream closed unexpectedly; reopening stream")
+                    self._frame_stream = self._open_frame_stream()
+                    continue
+                except FrameStreamOverflowError as exc:
+                    self._handle_frame_stream_overflow(exc.consumer_name)
+                    continue
+
+                if not self.is_recording:
+                    continue
+                self._on_frame_worker(frame)
+            except Exception as exc:
+                logger.exception("Acquisition worker exited with an unexpected error")
+                exit_error = exc
+                break
+
+        with self._lock:
+            self._worker_exit_error = exit_error
+            self._started = False
+            self._accepting_commands = False
+
+    def _drain_commands(self) -> bool:
+        while True:
+            try:
+                item = self._command_queue.get_nowait()
+            except queue.Empty:
+                return False
+
+            if item is self._shutdown_sentinel:
+                try:
+                    self._shutdown_worker()
+                finally:
+                    self._fail_pending_commands("ACQ_SHUTDOWN")
+                return True
+
+            command, _future = item
+            command()
+
+    def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
-            self.sig_error.emit(
-                f"ACQ_INVALID_FRAME: expected FrameEnvelope, got {type(frame).__name__}"
-            )
             return
         if self._storage is None:
             return
 
         try:
             self._storage.append_frame(frame)
-        except Exception as exc:
-            self.sig_error.emit(
-                f"ACQ_WRITE_FAILED: stream_id={frame.stream_id}: {type(exc).__name__}: {exc}"
-            )
-            return
+        except Exception:
+            logger.exception("Recording append failed; marking recording as failed")
+            self._fail_recording_worker("write_failed")
 
-    @pyqtSlot(str, str, object, object)
-    def start_recording(
+    def _start_recording_worker(
         self,
         root_dir: str,
         session_name: str,
@@ -58,19 +230,15 @@ class AcquisitionWorker(QObject):
         recording_descriptors: object,
     ) -> None:
         if self._storage is not None:
-            self.sig_error.emit("ACQ_ALREADY_RECORDING")
-            return
+            raise RuntimeError("ACQ_ALREADY_RECORDING")
 
         if not session_name.strip():
-            self.sig_error.emit("ACQ_INVALID_SESSION_NAME")
-            return
+            raise RuntimeError("ACQ_INVALID_SESSION_NAME")
 
         if not isinstance(recording_descriptors, dict) or not all(
-            isinstance(value, StreamDescriptor)
-            for value in recording_descriptors.values()
+            isinstance(value, StreamDescriptor) for value in recording_descriptors.values()
         ):
-            self.sig_error.emit("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
-            return
+            raise RuntimeError("ACQ_INVALID_DESCRIPTOR_SNAPSHOT")
 
         started_at_ns = time.time_ns()
         try:
@@ -83,89 +251,64 @@ class AcquisitionWorker(QObject):
             )
         except Exception as exc:
             self._storage = None
-            self.sig_error.emit(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}")
-            return
+            raise RuntimeError(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}") from exc
 
         self._set_state("recording")
-        self.sig_event.emit(
-            {
-                "kind": "recording_started",
-                "session_name": session_name,
-                "recording_id": self._storage.recording_id,
-                "recording_path": str(self._storage.recording_dir),
-                "recording_label": recording_label or None,
-                "ts_ns": started_at_ns,
-            }
-        )
 
-    @pyqtSlot()
-    def stop_recording(self) -> None:
+    def _stop_recording_worker(self) -> None:
+        self._stop_recording_worker_with_policy(publish_failure=True)
+
+    def _stop_recording_worker_with_policy(self, *, publish_failure: bool) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_STOP_IGNORED: not recording")
-            return
+            raise RuntimeError("ACQ_STOP_IGNORED: not recording")
 
         stopped_at_ns = time.time_ns()
         storage = self._storage
         self._storage = None
 
-        try:
-            storage.finalize(stopped_at_ns=stopped_at_ns)
-        except Exception as exc:
-            self.sig_error.emit(f"ACQ_STOP_FAILED: {type(exc).__name__}: {exc}")
-        finally:
-            self._set_state("idle")
-
-        self.sig_event.emit(
-            {
-                "kind": "recording_stopped",
-                "session_name": storage.session_name,
-                "recording_id": storage.recording_id,
-                "recording_path": str(storage.recording_dir),
-                "frame_counts_by_stream": storage.frame_counts_by_stream,
-                "ts_ns": stopped_at_ns,
-            }
+        failure_reason = self._finalize_recording_storage(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            status="completed",
         )
+        self._set_state("idle")
+        if failure_reason is not None:
+            if publish_failure:
+                self._publish_recording_failed(
+                    storage,
+                    stopped_at_ns=stopped_at_ns,
+                    reason=failure_reason,
+                )
+            raise RuntimeError(f"ACQ_STOP_FAILED: {failure_reason}")
 
-    @pyqtSlot(object)
-    def add_marker(self, label: object) -> None:
+    def _add_marker_worker(self, label: object) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_MARKER_REJECTED: not recording")
-            return
+            raise RuntimeError("ACQ_MARKER_REJECTED: not recording")
 
         timestamp_ns = time.time_ns()
         normalized_label = label or None
         try:
             self._storage.add_marker(timestamp_ns=timestamp_ns, label=normalized_label)
         except Exception as exc:
-            self.sig_error.emit(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}")
-            return
+            raise RuntimeError(f"ACQ_MARKER_FAILED: {type(exc).__name__}: {exc}") from exc
 
-        self.sig_event.emit(
-            {
-                "kind": "marker_added",
-                "session_name": self._storage.session_name,
-                "recording_id": self._storage.recording_id,
-                "timestamp_ns": timestamp_ns,
-                "label": normalized_label,
-            }
-        )
-
-    @pyqtSlot(object, object, object)
-    def add_segment(self, start_ns: object, end_ns: object, label: object) -> None:
+    def _add_segment_worker(
+        self,
+        start_ns: object,
+        end_ns: object,
+        label: object,
+    ) -> None:
         if self._storage is None:
-            self.sig_error.emit("ACQ_SEGMENT_REJECTED: not recording")
-            return
+            raise RuntimeError("ACQ_SEGMENT_REJECTED: not recording")
 
         try:
             start_value = int(start_ns)
             end_value = int(end_ns)
         except (TypeError, ValueError):
-            self.sig_error.emit("ACQ_INVALID_SEGMENT_RANGE")
-            return
+            raise RuntimeError("ACQ_INVALID_SEGMENT_RANGE")
 
         if start_value > end_value:
-            self.sig_error.emit("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
-            return
+            raise RuntimeError("ACQ_INVALID_SEGMENT_RANGE: start_ns > end_ns")
 
         normalized_label = label or None
         try:
@@ -175,184 +318,157 @@ class AcquisitionWorker(QObject):
                 label=normalized_label,
             )
         except Exception as exc:
-            self.sig_error.emit(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}")
-            return
+            raise RuntimeError(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}") from exc
 
-        self.sig_event.emit(
-            {
-                "kind": "segment_added",
-                "session_name": self._storage.session_name,
-                "recording_id": self._storage.recording_id,
-                "start_ns": start_value,
-                "end_ns": end_value,
-                "label": normalized_label,
-            }
+    def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
+        logger.warning("Acquisition frame stream overflowed for consumer '%s'", consumer_name)
+        if self._storage is not None:
+            self._fail_recording_worker("frame_stream_overflow")
+        self._replace_frame_stream()
+
+    def _replace_frame_stream(self) -> None:
+        previous_stream = self._frame_stream
+        self._frame_stream = self._open_frame_stream()
+        if previous_stream is not None:
+            previous_stream.close()
+
+    def _open_frame_stream(self) -> FrameStream:
+        return self._bus.open_frame_stream(
+            maxsize=256,
+            drop_policy="error",
+            consumer_name=ACQUISITION_CONSUMER_NAME,
         )
 
-    @pyqtSlot()
-    def shutdown(self) -> None:
+    def _shutdown_worker(self) -> None:
         if self._storage is not None:
-            self.stop_recording()
+            self._stop_recording_worker_with_policy(publish_failure=False)
+
+    def _fail_recording_worker(self, reason: str) -> None:
+        storage = self._storage
+        if storage is None:
+            return
+
+        stopped_at_ns = time.time_ns()
+        self._storage = None
+        final_reason = self._finalize_recording_storage(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            status="failed",
+        )
+        self._set_state("idle")
+        self._publish_recording_failed(
+            storage,
+            stopped_at_ns=stopped_at_ns,
+            reason=final_reason or reason,
+        )
+
+    def _finalize_recording_storage(
+        self,
+        storage: RecordingStorage,
+        *,
+        stopped_at_ns: int,
+        status: str,
+    ) -> str | None:
+        try:
+            storage.finalize(stopped_at_ns=stopped_at_ns, status=status)
+            return None
+        except Exception:
+            logger.exception(
+                "Recording finalize failed for %s (status=%s)",
+                storage.recording_dir,
+                status,
+            )
+            try:
+                storage.write_manifest(stopped_at_ns=stopped_at_ns, status="failed")
+            except Exception:
+                logger.exception(
+                    "Recording failure manifest write also failed for %s",
+                    storage.recording_dir,
+                )
+                pass
+            return "finalize_failed"
+
+    def _publish_recording_failed(
+        self,
+        storage: RecordingStorage,
+        *,
+        stopped_at_ns: int,
+        reason: str,
+    ) -> None:
+        self._publish_event(
+            RecordingFailedEvent(
+                session_name=storage.session_name,
+                recording_id=storage.recording_id,
+                recording_path=str(storage.recording_dir),
+                frame_counts_by_stream=storage.frame_counts_by_stream,
+                reason=reason,
+                ts_ns=stopped_at_ns,
+            )
+        )
 
     def _set_state(self, state: str) -> None:
-        if state == self._state:
-            return
-        self._state = state
-        self.sig_state_changed.emit(state)
+        with self._lock:
+            if state == self._state:
+                return
+            self._state = state
 
-
-class AcquisitionBackend(QObject):
-    """Threaded acquisition backend that records bus frames to disk."""
-
-    sig_error = pyqtSignal(str)
-    sig_event = pyqtSignal(object)
-    sig_state_changed = pyqtSignal(str)
-
-    _request_start_recording = pyqtSignal(str, str, object, object)
-    _request_stop_recording = pyqtSignal()
-    _request_add_marker = pyqtSignal(object)
-    _request_add_segment = pyqtSignal(object, object, object)
-    _request_shutdown = pyqtSignal()
-
-    def __init__(
+    def _submit_command(
         self,
-        bus: StreamBus,
-        *,
-        parent: QObject | None = None,
-    ) -> None:
-        super().__init__(parent=parent)
-        self._bus = bus
-        self._settings = SettingsService.instance()
-        self._thread = QThread(self)
-        self._thread.setObjectName("modlink.acquisition")
-        self._worker = AcquisitionWorker()
-        self._frame_subscription: FrameSubscription | None = None
-        self._state = "idle"
+        worker_method: Callable[..., None],
+        *args: object,
+    ) -> Future[None]:
+        future: Future[None] = Future()
+        if not self.is_started:
+            future.set_exception(RuntimeError("ACQ_NOT_STARTED"))
+            return future
+        if not self._accepting_commands:
+            future.set_exception(RuntimeError("ACQ_SHUTTING_DOWN"))
+            return future
+
+        def _run_command() -> None:
+            try:
+                worker_method(*args)
+            except Exception as exc:
+                if not future.done():
+                    future.set_exception(exc)
+                return
+            if not future.done():
+                future.set_result(None)
+
+        self._command_queue.put((_run_command, future))
+        return future
+
+    def _fail_pending_commands(self, message: str) -> None:
+        while True:
+            try:
+                item = self._command_queue.get_nowait()
+            except queue.Empty:
+                return
+            if item is self._shutdown_sentinel:
+                continue
+            _command, future = item
+            if future is None or future.done():
+                continue
+            future.set_exception(RuntimeError(message))
+
+    def _finalize_shutdown(self) -> None:
+        self._set_state("idle")
         self._started = False
+        self._accepting_commands = True
+        self._thread = None
+        if self._frame_stream is not None:
+            self._frame_stream.close()
+            self._frame_stream = None
 
-        self._worker.moveToThread(self._thread)
-
-        self._request_start_recording.connect(
-            self._worker.start_recording,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_stop_recording.connect(
-            self._worker.stop_recording,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_add_marker.connect(
-            self._worker.add_marker,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_add_segment.connect(
-            self._worker.add_segment,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._request_shutdown.connect(
-            self._worker.shutdown,
-            Qt.ConnectionType.QueuedConnection,
-        )
-
-        self._worker.sig_error.connect(self.sig_error.emit)
-        self._worker.sig_event.connect(self.sig_event.emit)
-        self._worker.sig_state_changed.connect(self._on_state_changed)
-        self._thread.finished.connect(self._worker.deleteLater)
-
-    @property
-    def root_dir(self) -> Path:
-        return _resolve_root_dir(self._settings)
-
-    @property
-    def is_started(self) -> bool:
-        return self._started and self._thread.isRunning()
-
-    def start(self) -> None:
-        if self._thread.isRunning():
-            self._started = True
-            return
-        self._frame_subscription = self._bus.subscribe(
-            self._worker.on_frame,
-            connection_type=Qt.ConnectionType.QueuedConnection,
-        )
-        self._thread.start()
-        self._started = True
-
-    @property
-    def state(self) -> str:
-        return self._state
-
-    @property
-    def is_recording(self) -> bool:
-        return self._state == "recording"
-
-    def start_recording(
-        self,
-        session_name: str,
-        recording_label: str | None = None,
-    ) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        recording_descriptors = self._bus.descriptors()
-        root_dir = _resolve_root_dir(self._settings)
-        self._request_start_recording.emit(
-            str(root_dir),
-            session_name,
-            recording_label,
-            recording_descriptors,
-        )
-
-    def stop_recording(self) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_stop_recording.emit()
-
-    def add_marker(self, label: str | None = None) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_add_marker.emit(label)
-
-    def add_segment(
-        self,
-        start_ns: int,
-        end_ns: int,
-        label: str | None = None,
-    ) -> None:
-        if not self._thread.isRunning():
-            self.sig_error.emit("ACQ_NOT_STARTED")
-            return
-        self._request_add_segment.emit(start_ns, end_ns, label)
-
-    def shutdown(self, *, timeout_ms: int = 3000) -> None:
-        if self._frame_subscription is not None:
-            self._frame_subscription.close()
-            self._frame_subscription = None
-
-        if not self._thread.isRunning():
-            self._state = "idle"
-            self._started = False
-            return
-
-        self._request_shutdown.emit()
-        self._thread.quit()
-        if not self._thread.wait(timeout_ms):
-            self.sig_error.emit(f"ACQ_STOP_TIMEOUT: timeout_ms={timeout_ms}")
-
-        self._state = "idle"
-        self._started = False
-
-    @pyqtSlot(str)
-    def _on_state_changed(self, state: str) -> None:
-        self._state = state
-        self.sig_state_changed.emit(state)
+    def _take_worker_exit_error(self) -> Exception | None:
+        with self._lock:
+            error = self._worker_exit_error
+            self._worker_exit_error = None
+            return error
 
 
 def _default_root_dir() -> Path:
-    documents_dir = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.DocumentsLocation
-    )
+    documents_dir = user_documents_path()
     if documents_dir:
         return Path(documents_dir) / "ModLink Studio" / "data"
     return Path.home() / "ModLink Studio" / "data"
@@ -361,7 +477,5 @@ def _default_root_dir() -> Path:
 def _resolve_root_dir(settings: SettingsService) -> Path:
     root_dir = settings.get(ACQUISITION_ROOT_DIR_KEY)
     if root_dir is None:
-        resolved_root_dir = _default_root_dir()
-        settings.set(ACQUISITION_ROOT_DIR_KEY, str(resolved_root_dir), persist=False)
-        return resolved_root_dir
+        return _default_root_dir()
     return Path(root_dir)

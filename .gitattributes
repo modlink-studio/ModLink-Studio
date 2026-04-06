@@ -1,0 +1,26 @@
+* text=auto eol=lf
+
+*.py text eol=lf diff=python
+*.pyi text eol=lf diff=python
+
+*.{ts,tsx,js,jsx,mjs,cjs} text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.whl binary
+*.pyz binary

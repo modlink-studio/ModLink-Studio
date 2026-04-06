@@ -6,15 +6,15 @@ from importlib.resources import files
 from pathlib import Path
 
 import pyqtgraph as pg
-from PyQt6.QtGui import QIcon
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from qfluentwidgets import Theme, setTheme
 
 from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
 from modlink_core.settings.service import SettingsService
-from modlink_ui import MainWindow
+from modlink_qt_bridge import QtModLinkBridge
+from modlink_ui_qt_widgets import MainWindow
 
 
 def _load_app_icon() -> QIcon:
@@ -59,16 +59,33 @@ def _create_application(argv: Sequence[str] | None = None) -> QApplication:
     return app
 
 
+def _shutdown_bridge_with_prompt(bridge: QtModLinkBridge) -> None:
+    try:
+        bridge.shutdown()
+    except Exception as exc:
+        QMessageBox.critical(
+            None,
+            "ModLink Studio",
+            f"关闭后台资源时发生错误。\n\n{exc}",
+        )
+
+
 def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
     app = _create_application()
     pg.setConfigOptions(useOpenGL=True)
     setTheme(Theme.AUTO)
-    SettingsService(parent=app)
+    settings = SettingsService(parent=app)
     driver_factories = discover_driver_factories()
-    engine = ModLinkEngine(driver_factories=driver_factories, parent=app)
-    window = MainWindow(engine=engine)
+    runtime = ModLinkEngine(
+        driver_factories=driver_factories,
+        settings=settings,
+        parent=app,
+    )
+    bridge = QtModLinkBridge(runtime, parent=app)
+    app.aboutToQuit.connect(lambda: _shutdown_bridge_with_prompt(bridge))
+    window = MainWindow(engine=bridge)
     window.setWindowIcon(_load_app_icon())
     window.show()
     raise SystemExit(app.exec())

@@ -1,0 +1,26 @@
+[project]
+name = "modlink-qt-bridge"
+version = "0.2.0"
+description = "Qt bridge for the ModLink backend event model"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.13"
+dependencies = [
+    "modlink-core",
+    "pyqt6>=6.10.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/modlink-studio/ModLink-Studio"
+Repository = "https://github.com/modlink-studio/ModLink-Studio"
+Documentation = "https://modlink-studio.github.io"
+Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
+
+[tool.uv.sources]
+modlink-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

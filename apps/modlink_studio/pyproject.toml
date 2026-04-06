@@ -1,14 +1,13 @@
 [project]
-name = "modlink-studio"
-version = "0.1.0"
-description = "Host application for ModLink Studio"
+name = "modlink-studio-internal"
+version = "0.2.0rc2"
+description = "Internal packaging stub for the Qt Widgets ModLink Studio host"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
-    "modlink-plugin-scaffold",
-    "modlink-ui",
+    "modlink_ui_qt_widgets",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
 ]
@@ -18,23 +17,13 @@ Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
-
-[project.optional-dependencies]
-official-host-camera = ["modlink-plugin-host-camera"]
-official-host-microphone = ["modlink-plugin-host-microphone"]
-official-openbci-ganglion = ["modlink-plugin-openbci-ganglion"]
 
 [project.gui-scripts]
 modlink-studio = "modlink_studio.app:main"
 
 [tool.uv.sources]
 modlink-core = { workspace = true }
-modlink-plugin-scaffold = { workspace = true }
-modlink-ui = { workspace = true }
-modlink-plugin-host-camera = { path = "../../plugins/host-camera", editable = true }
-modlink-plugin-host-microphone = { path = "../../plugins/host-microphone", editable = true }
-modlink-plugin-openbci-ganglion = { path = "../../plugins/openbci-ganglion", editable = true }
+modlink_ui_qt_widgets = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

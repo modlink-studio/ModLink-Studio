@@ -1,123 +1,166 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtSignal
+import logging
+from collections.abc import Callable
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 
 from modlink_sdk import DriverFactory, FrameEnvelope, SearchResult, StreamDescriptor
 
-from .runtime import DriverRuntime
+from ...events import (
+    BackendEvent,
+    DriverConnectionLostEvent,
+    DriverExecutorFailedEvent,
+    DriverSnapshot,
+)
+from .executor import DriverExecutor
+from .session import DriverSession
 from .state import DeviceState
-from .task import DriverTask
+
+logger = logging.getLogger(__name__)
 
 
-class DriverPortal(QObject):
+class DriverPortal:
     """Public driver-facing gateway used by the rest of the system."""
-
-    sig_error = pyqtSignal(str)
-    sig_frame = pyqtSignal(FrameEnvelope)
-    sig_state_changed = pyqtSignal(object)
-    sig_connection_lost = pyqtSignal(object)
 
     def __init__(
         self,
         driver_factory: DriverFactory,
         *,
-        thread_name: str | None = None,
-        parent: QObject | None = None,
+        publish_event: Callable[[BackendEvent], None],
+        frame_sink: Callable[[FrameEnvelope], object | None] | None = None,
+        parent: object | None = None,
     ) -> None:
-        super().__init__(parent=parent)
-        self._runtime = DriverRuntime(
+        self._parent = parent
+        self._publish_event = publish_event
+        self._frame_sink = frame_sink
+        self._session = DriverSession(
             driver_factory,
-            thread_name=thread_name,
-            parent=self,
+            on_connection_lost=self._on_connection_lost,
+            on_frame=self._on_session_frame,
+            parent=parent,
         )
-        self._state = DeviceState(
-            device_id=self._runtime.driver_id,
-            display_name=self._runtime.display_name,
-            parent=self,
+        self._executor = DriverExecutor(
+            f"modlink.driver.{self.driver_id.strip()}",
+            on_exit=self._on_executor_exit,
         )
-
-        self._runtime.sig_error.connect(self.sig_error.emit)
-        self._runtime.sig_frame.connect(self.sig_frame.emit)
-        self._runtime.sig_connection_lost.connect(
-            self._state._mark_connection_lost
-        )
-
-        self._state.sig_state_changed.connect(self.sig_state_changed.emit)
-        self._state.sig_connection_lost.connect(self.sig_connection_lost.emit)
 
     @property
     def driver_id(self) -> str:
-        return self._runtime.driver_id
+        return self._session.driver_id
 
     @property
     def display_name(self) -> str:
-        return self._runtime.display_name
+        return self._session.display_name
 
     @property
     def supported_providers(self) -> tuple[str, ...]:
-        return self._runtime.supported_providers
+        return self._session.supported_providers
 
     @property
     def is_running(self) -> bool:
-        return self._runtime.is_running
+        return self._executor.is_running
 
     @property
     def is_connected(self) -> bool:
-        return self._state.is_connected
+        return self._session.state.is_connected
 
     @property
     def is_streaming(self) -> bool:
-        return self._state.is_streaming
+        return self._session.state.is_streaming
 
     @property
     def state(self) -> DeviceState:
-        return self._state
+        return self._session.state
+
+    def snapshot(self) -> DriverSnapshot:
+        return self._session.snapshot(is_running=self.is_running)
 
     def descriptors(self) -> list[StreamDescriptor]:
-        return self._runtime.descriptors()
+        return self._session.descriptors()
 
-    def start(self) -> None:
-        self._runtime.start()
+    def start(self, *, timeout_ms: int = 5000) -> None:
+        self._executor.start()
+        startup = self._executor.submit(self._session.on_executor_started)
+        try:
+            startup.result(max(0.0, timeout_ms) / 1000.0)
+        except FutureTimeoutError as exc:
+            try:
+                self.stop(timeout_ms=timeout_ms)
+            except Exception:
+                pass
+            raise TimeoutError(
+                f"driver startup timed out after {timeout_ms}ms: {self.driver_id}"
+            ) from exc
+        except Exception:
+            try:
+                self.stop(timeout_ms=timeout_ms)
+            except Exception:
+                pass
+            raise
 
     def stop(self, *, timeout_ms: int = 3000) -> None:
-        self._runtime.stop(timeout_ms=timeout_ms)
-        self._state._mark_disconnected()
+        self._session.close_context()
+        if not self.is_running:
+            self._session.mark_stopped()
+            return
 
-    def search(self, provider: str) -> DriverTask:
-        return self._runtime.search(provider)
+        first_error: Exception | None = None
+        shutdown = self._executor.submit(self._session.on_executor_stopped)
+        try:
+            shutdown.result(max(0.0, timeout_ms) / 1000.0)
+        except FutureTimeoutError:
+            first_error = TimeoutError(
+                f"driver shutdown timed out after {timeout_ms}ms: {self.driver_id}"
+            )
+        except Exception as exc:
+            first_error = exc
 
-    def connect_device(self, config: SearchResult) -> DriverTask:
-        task = self._runtime.connect_device(config)
-        task.sig_done.connect(lambda: self._on_connect_done(task))
-        return task
+        if not self._executor.stop(timeout_ms=timeout_ms) and first_error is None:
+            first_error = TimeoutError(
+                f"driver executor stop timed out after {timeout_ms}ms: {self.driver_id}"
+            )
 
-    def disconnect_device(self) -> DriverTask:
-        task = self._runtime.disconnect_device()
-        task.sig_done.connect(lambda: self._on_disconnect_done(task))
-        return task
+        if first_error is not None:
+            raise first_error
 
-    def start_streaming(self) -> DriverTask:
-        task = self._runtime.start_streaming()
-        task.sig_done.connect(lambda: self._on_start_streaming_done(task))
-        return task
+    def search(self, provider: str) -> Future[object | None]:
+        return self._executor.submit(self._session.search, provider)
 
-    def stop_streaming(self) -> DriverTask:
-        task = self._runtime.stop_streaming()
-        task.sig_done.connect(lambda: self._on_stop_streaming_done(task))
-        return task
+    def connect_device(self, config: SearchResult) -> Future[object | None]:
+        return self._executor.submit(self._session.connect_device, config)
 
-    def _on_connect_done(self, task: DriverTask) -> None:
-        if task.error is None:
-            self._state._mark_connected()
+    def disconnect_device(self) -> Future[object | None]:
+        return self._executor.submit(self._session.disconnect_device)
 
-    def _on_disconnect_done(self, task: DriverTask) -> None:
-        if task.error is None:
-            self._state._mark_disconnected()
+    def start_streaming(self) -> Future[object | None]:
+        return self._executor.submit(self._session.start_streaming)
 
-    def _on_start_streaming_done(self, task: DriverTask) -> None:
-        if task.error is None:
-            self._state._mark_streaming_started()
+    def stop_streaming(self) -> Future[object | None]:
+        return self._executor.submit(self._session.stop_streaming)
 
-    def _on_stop_streaming_done(self, task: DriverTask) -> None:
-        if task.error is None:
-            self._state._mark_streaming_stopped()
+    def _on_session_frame(self, frame: FrameEnvelope) -> object | None:
+        if self._frame_sink is None:
+            return None
+        return self._frame_sink(frame)
+
+    def _on_connection_lost(self, detail: object | None) -> None:
+        self._publish_event(DriverConnectionLostEvent(driver_id=self.driver_id, detail=detail))
+
+    def _on_executor_exit(self, stop_reason: Exception | None) -> None:
+        self._session.close_context()
+        self._session.mark_stopped()
+        if stop_reason is None:
+            return
+        logger.error(
+            "Driver executor exited unexpectedly for '%s': %s: %s",
+            self.driver_id,
+            type(stop_reason).__name__,
+            stop_reason,
+        )
+        self._publish_event(
+            DriverExecutorFailedEvent(
+                driver_id=self.driver_id,
+                detail=f"{type(stop_reason).__name__}: {stop_reason}",
+            )
+        )

@@ -1,0 +1,47 @@
+{
+  "name": "@modlink-studio/plugin-scaffold",
+  "version": "0.2.0",
+  "description": "Interactive React + Ink scaffold generator for ModLink Python driver plugins",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "bin": {
+    "modlink-plugin-scaffold": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.tsx",
+    "build": "tsup",
+    "start": "node dist/cli.js",
+    "lint": "biome check src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
+    "lint:fix": "biome check --write src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
+    "format": "biome format --write src tests package.json tsconfig.json tsup.config.ts vitest.config.ts biome.json",
+    "test": "vitest run",
+    "pack:check": "npm pack",
+    "publish:dry-run": "npm publish --dry-run --access public"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "ink": "^6.8.0",
+    "react": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "ink-testing-library": "^4.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  }
+}

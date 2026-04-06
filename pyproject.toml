@@ -1,54 +1,88 @@
 [project]
-name = "modlink-workspace"
-version = "0.1.0"
-description = "Workspace root for ModLink Studio"
+name = "modlink-studio"
+version = "0.2.0rc2"
+description = "Host application bundle for ModLink Studio"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
-dependencies = ["modlink-studio"]
+dependencies = [
+    "numpy>=2.3.3",
+    "packaging>=25.0",
+    "platformdirs>=4.9.4",
+    "pyqt6>=6.10.2",
+    "pyqt6-fluent-widgets>=1.11.1",
+    "pyqtgraph>=0.13.7",
+    "scipy>=1.15.2",
+    "fastapi>=0.118.0",
+    "uvicorn>=0.37.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/modlink-studio/ModLink-Studio"
 Repository = "https://github.com/modlink-studio/ModLink-Studio"
 Documentation = "https://modlink-studio.github.io"
 Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
-Packages = "https://dl.cloudsmith.io/public/xylt-space/modlink-studio/python/simple/"
+Packages = "https://pypi.org/project/modlink-studio/"
 
-[project.optional-dependencies]
-official-host-camera = ["modlink-plugin-host-camera"]
-official-host-microphone = ["modlink-plugin-host-microphone"]
-official-openbci-ganglion = ["modlink-plugin-openbci-ganglion"]
+[project.gui-scripts]
+modlink-studio = "modlink_studio.app:main"
+modlink-studio-qml = "modlink_studio_qml.app:main"
+
+[project.scripts]
+modlink-server = "modlink_server.app:main"
+modlink-plugin = "modlink_plugin_manager.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
 
-[tool.uv.sources]
-modlink-studio = { workspace = true }
-modlink-plugin-scaffold = { workspace = true }
-modlink-core = { workspace = true }
-modlink-sdk = { workspace = true }
-modlink-ui = { workspace = true }
-modlink-plugin-host-camera = { path = "plugins/host-camera", editable = true }
-modlink-plugin-host-microphone = { path = "plugins/host-microphone", editable = true }
-modlink-plugin-openbci-ganglion = { path = "plugins/openbci-ganglion", editable = true }
-
-[tool.uv.workspace]
-members = [
-    "apps/modlink_studio",
-    "apps/modlink_plugin_scaffold",
-    "packages/modlink_sdk",
-    "packages/modlink_core",
-    "packages/modlink_ui",
-]
-
 [dependency-groups]
 dev = [
-    "black>=26.3.1",
-    "modlink-plugin-scaffold",
+    "httpx>=0.28.1",
     "pdoc>=16.0.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
     "pyinstaller>=6.16.0",
     "rich>=14.3.3",
+    "ruff>=0.11.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "N802",   # camelCase function names (Qt overrides, pyqtProperty)
+    "N815",   # mixedCase class attributes (pyqtSignal)
+    "N814",   # camelCase imports as constants (FluentIcon as FIF)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"packages/modlink_qt_bridge/**" = ["N"]
+"packages/modlink_ui_qt_widgets/**" = ["N"]
+"packages/modlink_ui_qt_qml/**" = ["N"]
+"apps/modlink_studio/**" = ["N"]
+"apps/modlink_studio_qml/**" = ["N"]
+"**/tests/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "modlink_sdk",
+    "modlink_core",
+    "modlink_ui_qt_widgets",
+    "modlink_ui_qt_qml",
+    "modlink_qt_bridge",
+    "modlink_plugin_manager",
 ]
 
 [build-system]
@@ -56,4 +90,41 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = []
+include-package-data = false
+
+[tool.setuptools.package-data]
+modlink_studio = ["app_icon.png"]
+modlink_ui_qt_qml = ["qml/*.qml", "qml/**/*.qml"]
+
+[tool.setuptools.packages.find]
+where = [
+    "apps/modlink_studio",
+    "apps/modlink_studio_qml",
+    "apps/modlink_server",
+    "packages/modlink_sdk",
+    "packages/modlink_core",
+"packages/modlink_qt_bridge",
+"packages/modlink_plugin_manager",
+"packages/modlink_ui_qt_widgets",
+"packages/modlink_ui_qt_qml",
+]
+include = [
+    "modlink_studio*",
+    "modlink_studio_qml*",
+    "modlink_server*",
+    "modlink_sdk*",
+    "modlink_core*",
+    "modlink_qt_bridge*",
+    "modlink_plugin_manager*",
+    "modlink_ui_qt_widgets*",
+    "modlink_ui_qt_qml*",
+]
+namespaces = false
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    ".pytest_cache",
+    ".tmp-tests",
+    "_tmp_runtime*",
+    "pytest-cache-files-*",
+]

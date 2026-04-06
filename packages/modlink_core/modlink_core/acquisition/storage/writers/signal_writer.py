@@ -41,9 +41,7 @@ class SignalStreamRecordingWriter(BaseStreamRecordingWriter):
             ):
                 self._channel_headers = list(channel_names)
             else:
-                self._channel_headers = [
-                    f"channel_{index}" for index in range(channel_count)
-                ]
+                self._channel_headers = [f"channel_{index}" for index in range(channel_count)]
             self._csv_writer.writerow(
                 [
                     "timestamp_ns",

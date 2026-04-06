@@ -1,118 +1,173 @@
 from __future__ import annotations
 
+import copy
 import json
+import logging
+import os
+import tempfile
 import time
-from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
-from PyQt6.QtCore import QObject, QStandardPaths, pyqtSignal
+from platformdirs import user_data_path
+
+from ..events import BackendEvent, SettingChangedEvent
+
+logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
-class SettingChangedEvent:
-    key: str
-    value: Any
-    ts: float
+class SettingsService:
+    """Settings service shared by one engine or host instance."""
 
-
-class SettingsService(QObject):
-    """Global settings service shared across runtime modules."""
-
-    _instance: SettingsService | None = None
-
-    sig_setting_changed = pyqtSignal(object)
-    sig_settings_saved = pyqtSignal()
-
-    @classmethod
-    def instance(cls) -> SettingsService:
-        if cls._instance is None:
-            return cls()
-        return cls._instance
-
-    def __init__(self, path: Path | None = None, parent: QObject | None = None) -> None:
-        super().__init__(parent=parent)
-        existing = type(self)._instance
-        if existing is not None and existing is not self:
-            raise RuntimeError(
-                "SettingsService already exists; use SettingsService.instance()"
-            )
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        publish_event: Callable[[BackendEvent], None] | None = None,
+        parent: object | None = None,
+    ) -> None:
+        self._parent = parent
         self._path = path or self._resolve_path()
+        self._lock = RLock()
         self._settings = self._read_payload()
-        type(self)._instance = self
+        self._publish_event = publish_event
+
+    def bind_event_publisher(
+        self,
+        publish_event: Callable[[BackendEvent], None] | None,
+    ) -> None:
+        self._publish_event = publish_event
 
     def get(self, key: str, default: Any = None) -> Any:
-        current = self._settings
-        for part in self._parts(key):
-            if not isinstance(current, dict) or part not in current:
-                return default
-            current = current[part]
-        return current
+        with self._lock:
+            current = self._settings
+            for part in self._parts(key):
+                if not isinstance(current, dict) or part not in current:
+                    return default
+                current = current[part]
+            return copy.deepcopy(current)
 
     def set(self, key: str, value: Any, *, persist: bool = True) -> None:
         parts = self._parts(key)
-        current = self._settings
-        for part in parts[:-1]:
-            nested = current.get(part)
-            if not isinstance(nested, dict):
-                nested = {}
-                current[part] = nested
-            current = nested
-        current[parts[-1]] = value
-        self.sig_setting_changed.emit(
-            SettingChangedEvent(key=key, value=value, ts=time.time())
-        )
-        if persist:
-            self.save()
+        with self._lock:
+            current = self._settings
+            for part in parts[:-1]:
+                nested = current.get(part)
+                if not isinstance(nested, dict):
+                    nested = {}
+                    current[part] = nested
+                current = nested
+            current[parts[-1]] = copy.deepcopy(value)
+            if persist:
+                self._save_locked()
+        self._publish_setting_changed(key=key, value=value)
 
     def remove(self, key: str, *, persist: bool = True) -> None:
         parts = self._parts(key)
-        current = self._settings
-        for part in parts[:-1]:
-            nested = current.get(part)
-            if not isinstance(nested, dict):
+        with self._lock:
+            current = self._settings
+            for part in parts[:-1]:
+                nested = current.get(part)
+                if not isinstance(nested, dict):
+                    return
+                current = nested
+            if parts[-1] not in current:
                 return
-            current = nested
-        if parts[-1] not in current:
-            return
-        current.pop(parts[-1], None)
-        self.sig_setting_changed.emit(
-            SettingChangedEvent(key=key, value=None, ts=time.time())
-        )
-        if persist:
-            self.save()
+            current.pop(parts[-1], None)
+            if persist:
+                self._save_locked()
+        self._publish_setting_changed(key=key, value=None)
 
     def snapshot(self) -> dict[str, Any]:
-        return json.loads(json.dumps(self._settings, ensure_ascii=False))
+        with self._lock:
+            return json.loads(json.dumps(self._settings, ensure_ascii=False))
 
     def save(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
-            json.dumps(self._settings, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        self.sig_settings_saved.emit()
+        with self._lock:
+            self._save_locked()
+
+    def _publish_setting_changed(self, *, key: str, value: Any) -> None:
+        if self._publish_event is None:
+            return
+        self._publish_event(SettingChangedEvent(key=key, value=value, ts=time.time()))
 
     def _read_payload(self) -> dict[str, Any]:
-        try:
-            if self._path.exists():
-                payload = json.loads(self._path.read_text(encoding="utf-8"))
-                if isinstance(payload, dict):
-                    return payload
-        except (OSError, json.JSONDecodeError):
-            pass
-        return {}
+        with self._lock:
+            try:
+                if self._path.exists():
+                    raw_payload = self._path.read_text(encoding="utf-8")
+                    payload = json.loads(raw_payload)
+                    if isinstance(payload, dict):
+                        return payload
+                    logger.warning(
+                        "Settings file did not contain a JSON object; resetting in memory: %s",
+                        self._path,
+                    )
+                    return {}
+            except json.JSONDecodeError as exc:
+                backup_path = self._backup_corrupt_payload(raw_payload)
+                logger.warning(
+                    "Settings file contained invalid JSON and was reset in memory: %s "
+                    "(backup: %s, error: %s)",
+                    self._path,
+                    backup_path,
+                    exc,
+                )
+            except (OSError, UnicodeDecodeError) as exc:
+                logger.warning(
+                    "Settings file could not be read and was reset in memory: %s (%s: %s)",
+                    self._path,
+                    type(exc).__name__,
+                    exc,
+                )
+            return {}
 
     def _resolve_path(self) -> Path:
-        base_dir = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppDataLocation
-        )
-        if not base_dir:
-            return Path.home() / ".modlink-studio" / "settings.json"
-        return Path(base_dir) / "modlink_settings.json"
+        return user_data_path("ModLink Studio", appauthor=False) / "modlink_settings.json"
 
     def _parts(self, key: str) -> list[str]:
         normalized = [part.strip() for part in str(key).split(".") if part.strip()]
         if not normalized:
             raise ValueError("setting key must not be empty")
         return normalized
+
+    def _backup_corrupt_payload(self, raw_payload: str) -> Path | None:
+        backup_path = self._path.with_name(f"{self._path.name}.corrupt-{time.time_ns()}.json")
+        try:
+            backup_path.write_text(raw_payload, encoding="utf-8")
+        except OSError as exc:
+            logger.warning(
+                "Failed to write corrupt settings backup for %s to %s (%s: %s)",
+                self._path,
+                backup_path,
+                type(exc).__name__,
+                exc,
+            )
+            return None
+        return backup_path
+
+    def _save_locked(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(self._settings, ensure_ascii=False, indent=2)
+        fd, temp_path = tempfile.mkstemp(
+            prefix=f"{self._path.name}.",
+            suffix=".tmp",
+            dir=str(self._path.parent),
+        )
+        temp_file = Path(temp_path)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+            for attempt in range(5):
+                try:
+                    temp_file.replace(self._path)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.01 * (attempt + 1))
+        finally:
+            if temp_file.exists():
+                temp_file.unlink(missing_ok=True)

@@ -4,8 +4,12 @@
 
 第一版的核心原则只有两条：
 
-- 外部 driver 项目优先依赖 `modlink-sdk`
+- 外部 driver 项目优先依赖 `modlink-sdk` 这一层契约
 - 安装后通过 `modlink.drivers` entry point 被宿主发现
+
+当前文档以 `0.2.0` 主线为准。`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
+
+需要特别说明的是：`0.2.0` 的公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink-sdk` 这一层契约在仓库中已经稳定存在，但不会作为 `0.2.0` 的独立公开 PyPI 包同步发布。
 
 开发前，请先完成宿主环境安装，见 [安装与发布](/install)。
 
@@ -32,7 +36,9 @@
 - `search()`：当前能找到哪些候选设备
 - `connect_device()` / `disconnect_device()`：连接生命周期
 - `start_streaming()` / `stop_streaming()`：数据流生命周期
-- `sig_frame`：实时发出 `FrameEnvelope`
+- `bind(context)`：接入宿主注入的 `DriverContext`
+- `emit_frame()`：向宿主发出 `FrameEnvelope`
+- `emit_connection_lost()` / `report_error()` / `set_status()`：回传运行时事件
 
 适合这类设备：
 
@@ -42,6 +48,19 @@
 
 如果你还不确定设备是不是标准轮询模式，优先先用 `Driver`。它是最直接的抽象，也更适合在早期先把设备协议跑通。
 
+### `DriverContext`
+
+`DriverContext` 是宿主在 `bind(context)` 阶段注入给 driver 的运行时出口。`0.2.0` 起，driver 与宿主的正式交互通道就是这组 callback，而不是 Qt signal。
+
+最常用的方法有：
+
+- `emit_frame(frame)`：把 `FrameEnvelope` 交给宿主
+- `emit_connection_lost(detail)`：通知连接丢失
+- `report_error(message)`：上报非致命运行时错误
+- `set_status(status, detail=None)`：发布 driver 状态
+
+通常推荐直接使用 `Driver` 基类已经提供的同名 helper：`self.emit_frame(...)`、`self.emit_connection_lost(...)`、`self.report_error(...)`、`self.set_status(...)`。
+
 ### `LoopDriver`
 
 `LoopDriver` 的基类也是 `Driver`。它不是另一套平行体系，而是在 `Driver` 之上，为轮询型设备提供的一个已经封装好的 helper。
@@ -50,7 +69,7 @@
 
 `LoopDriver` 默认已经帮你接好了：
 
-- 基于 `QTimer` 的循环调度
+- 基于 driver 独立线程的周期调度
 - `start_streaming()` / `stop_streaming()` 的默认实现
 - `on_loop_started()` / `on_loop_stopped()` 这两个可选钩子
 
@@ -78,20 +97,30 @@
 
 ## 用脚手架起步
 
-安装 `modlink-studio` 后，`modlink-plugin-scaffold` 会一起进入同一个 Python 环境。
+`modlink-plugin-scaffold` 现在作为独立 npm 开发工具维护，位于仓库的 `tools/` 目录中；它不再作为 `modlink-studio` 的运行时依赖自动安装。
 
 ```bash
-modlink-plugin-scaffold --zh
+npx @modlink-studio/plugin-scaffold --zh
+```
+
+如果你正在仓库里联调脚手架本身：
+
+```bash
+npm install
+npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 ```
 
 这个脚手架适合“新建一个独立 driver 项目”的场景。它会交互式生成：
 
 - 基础包结构
 - `pyproject.toml`
-- `driver.py`
-- `factory.py`
+- `README.md`
+- `LICENSE`
+- `.gitignore`
+- `<plugin_name>/driver.py`
+- `<plugin_name>/factory.py`
 - `modlink.drivers` entry point
-- 一份可继续完善的 README
+- `tests/test_smoke.py`
 
 脚手架只负责把项目骨架和 SDK 契约接好，不会替代真实设备协议实现。生成项目后，通常还需要你继续补完：
 
@@ -106,7 +135,7 @@ modlink-plugin-scaffold --zh
 3. 实现 `descriptors()`
 4. 实现 `search()`
 5. 实现连接和数据提供逻辑
-6. 通过 `sig_frame` 发出 `FrameEnvelope`
+6. 通过 `emit_frame()` 发出 `FrameEnvelope`
 
 优先先定住两件事：
 
@@ -232,11 +261,13 @@ modlink-plugin-scaffold --zh
 1. 创建 driver
 2. 读取 `device_id` / `display_name`
 3. 读取 `descriptors()`
-4. 启动 driver worker thread
-5. 调 `search()`
-6. 调 `connect_device()`
-7. 调 `start_streaming()`
-8. 后续调 `stop_streaming()` / `disconnect_device()` / `shutdown()`
+4. 宿主调用 `bind(context)`
+5. 启动 driver worker thread
+6. 调 `on_runtime_started()`
+7. 调 `search()`
+8. 调 `connect_device()`
+9. 调 `start_streaming()`
+10. 后续调 `stop_streaming()` / `disconnect_device()` / `shutdown()`
 
 ## 插件项目怎么组织
 
@@ -256,7 +287,7 @@ my_driver/
 ```toml
 [project]
 name = "my-driver"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
   "modlink-sdk",
   "numpy>=2.3.3",
@@ -273,6 +304,8 @@ my-driver = "my_driver.factory:create_driver"
 - 宿主只关心 `modlink.drivers` 和 SDK 契约
 
 `factory.py` 的职责也应该保持简单：它负责暴露给宿主加载的工厂函数，而不是在这里实现设备协议逻辑。
+
+当前阶段更推荐在源码或本地联调环境中验证 driver：
 
 安装方式：
 
@@ -337,7 +370,6 @@ my-driver = "my_driver.factory:create_driver"
 当前宿主还会继续校验工厂返回值：
 
 - 返回对象必须是 `Driver`
-- 返回的 `Driver` 不能预先挂上 `QObject` parent
 - `driver.device_id` 不能为空
 
 所以如果 entry point 不是零参数工厂，或者工厂没有返回一个合法 `Driver`，宿主会在启动加载阶段直接报错。
@@ -371,16 +403,12 @@ name.XX
 - `host_camera.01:video`
 - `openbci_ganglion.01:eeg`
 
-## 官方插件命名
+## 官方驱动命名与插件安装
 
-第一版官方插件使用下面这组正式名：
-
-- `modlink-plugin-host-camera`
-- `modlink-plugin-host-microphone`
-- `modlink-plugin-openbci-ganglion`
-
-它们对应的 entry point 分别是：
+当前仓库内维护的官方驱动使用下面这组 entry point：
 
 - `host-camera`
 - `host-microphone`
 - `openbci-ganglion`
+
+在 `0.2.x` 当前阶段，这些 entry point 主要通过 `modlink-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。
