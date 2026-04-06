@@ -25,7 +25,7 @@ jobs:
 
       - name: Build modlink-studio distribution
         run: |
-          rm -rf dist
+          rm -rf build dist modlink_studio.egg-info
           mkdir -p dist/modlink-studio
           uv build -o dist/modlink-studio
 

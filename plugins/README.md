@@ -5,7 +5,7 @@
 从 `0.2.0` 开始，这些插件不会作为独立 PyPI 包公开发布，也不会直接内置到 `modlink-studio` wheel 中。正式安装路径是：
 
 - 先安装 `modlink-studio`
-- 再运行 `modlink-studio-plugin install <plugin_id>` 从 GitHub Release 安装对应插件 wheel
+- 再运行 `modlink-plugin install <plugin_id>` 从 GitHub Pages 插件索引解析版本，并从 GitHub Release 安装对应插件 wheel
 
 仓库里的这些目录主要用于开发、联调和 GitHub Release 资产构建。
 

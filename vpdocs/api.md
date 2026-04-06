@@ -11,6 +11,7 @@
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
 - UI 包当前分为 `modlink_ui_qt_widgets` 和 `modlink_ui_qt_qml`
+- 插件管理 CLI 当前由 `modlink_plugin_manager` 提供
 
 ## Web API 入口
 
@@ -26,6 +27,7 @@
 
 - <a href="/pdoc/modlink_sdk.html" target="_self">modlink_sdk</a>
 - <a href="/pdoc/modlink_core.html" target="_self">modlink_core</a>
+- <a href="/pdoc/modlink_plugin_manager.html" target="_self">modlink_plugin_manager</a>
 - <a href="/pdoc/modlink_ui_qt_widgets.html" target="_self">modlink_ui_qt_widgets</a>
 - <a href="/pdoc/modlink_ui_qt_qml.html" target="_self">modlink_ui_qt_qml</a>
 - <a href="/pdoc/modlink_studio.html" target="_self">modlink_studio</a>

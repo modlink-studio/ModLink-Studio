@@ -4,8 +4,8 @@
 
 ## 接入方式
 
-- 通过 `modlink-studio-plugin install host-microphone` 安装到当前环境
-- 当前这一条安装命令属于 `modlink-studio-plugin` 的第一阶段能力；后续会被并入更完整的插件管理流程
+- 通过 `modlink-plugin install host-microphone` 安装到当前环境
+- 当前这一条安装命令属于 `modlink-plugin` 的第一阶段能力；后续会被并入更完整的插件管理流程
 - entry point：`host-microphone`
 
 ## 适用场景
@@ -17,7 +17,7 @@
 ## 安装方式
 
 ```bash
-modlink-studio-plugin install host-microphone
+modlink-plugin install host-microphone
 ```
 
 ## 在仓库里联调

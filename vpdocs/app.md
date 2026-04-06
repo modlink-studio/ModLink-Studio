@@ -81,7 +81,7 @@ python -m modlink_studio_qml
 
 宿主不会在运行时临时发现“未安装的插件”。当前模型是“先安装，再发现”：
 
-- 插件通过 `modlink-studio-plugin install ...` 安装到当前环境
+- 插件通过 `modlink-plugin install ...` 安装到当前环境
 - 外部 driver 在当前阶段主要通过源码环境和本地安装联调到同一个 Python 环境
 - 宿主启动时扫描当前环境里的 `modlink.drivers`
 

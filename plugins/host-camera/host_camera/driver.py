@@ -170,6 +170,6 @@ def _require_cv2() -> ModuleType:
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "Host Camera requires optional dependency 'opencv-python'. "
-            "Run `modlink-studio-plugin install host-camera`."
+            "Run `modlink-plugin install host-camera`."
         ) from exc
     return cv2

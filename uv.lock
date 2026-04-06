@@ -295,11 +295,12 @@ wheels = [
 
 [[package]]
 name = "modlink-studio"
-version = "0.2.0rc1"
+version = "0.2.0rc2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "numpy" },
+    { name = "packaging" },
     { name = "platformdirs" },
     { name = "pyqt6" },
     { name = "pyqt6-fluent-widgets" },
@@ -323,6 +324,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.118.0" },
     { name = "numpy", specifier = ">=2.3.3" },
+    { name = "packaging", specifier = ">=25.0" },
     { name = "platformdirs", specifier = ">=4.9.4" },
     { name = "pyqt6", specifier = ">=6.10.2" },
     { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },

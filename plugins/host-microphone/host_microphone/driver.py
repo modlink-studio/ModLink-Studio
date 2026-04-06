@@ -136,6 +136,6 @@ def _require_sounddevice() -> ModuleType:
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "Host Microphone requires optional dependency 'sounddevice'. "
-            "Run `modlink-studio-plugin install host-microphone`."
+            "Run `modlink-plugin install host-microphone`."
         ) from exc
     return sd

@@ -1,6 +1,6 @@
 [project]
 name = "modlink-studio"
-version = "0.2.0rc1"
+version = "0.2.0rc2"
 description = "Host application bundle for ModLink Studio"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -8,6 +8,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.3.3",
+    "packaging>=25.0",
     "platformdirs>=4.9.4",
     "pyqt6>=6.10.2",
     "pyqt6-fluent-widgets>=1.11.1",
@@ -30,7 +31,7 @@ modlink-studio-qml = "modlink_studio_qml.app:main"
 
 [project.scripts]
 modlink-server = "modlink_server.app:main"
-modlink-studio-plugin = "modlink_studio.plugin_cli:main"
+modlink-plugin = "modlink_plugin_manager.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -81,6 +82,7 @@ known-first-party = [
     "modlink_ui_qt_widgets",
     "modlink_ui_qt_qml",
     "modlink_qt_bridge",
+    "modlink_plugin_manager",
 ]
 
 [build-system]
@@ -101,9 +103,10 @@ where = [
     "apps/modlink_server",
     "packages/modlink_sdk",
     "packages/modlink_core",
-    "packages/modlink_qt_bridge",
-    "packages/modlink_ui_qt_widgets",
-    "packages/modlink_ui_qt_qml",
+"packages/modlink_qt_bridge",
+"packages/modlink_plugin_manager",
+"packages/modlink_ui_qt_widgets",
+"packages/modlink_ui_qt_qml",
 ]
 include = [
     "modlink_studio*",
@@ -112,6 +115,7 @@ include = [
     "modlink_sdk*",
     "modlink_core*",
     "modlink_qt_bridge*",
+    "modlink_plugin_manager*",
     "modlink_ui_qt_widgets*",
     "modlink_ui_qt_qml*",
 ]

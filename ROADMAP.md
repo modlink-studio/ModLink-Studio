@@ -34,8 +34,10 @@
 - [x] `modlink-studio-qml` 命令可以继续保留，但应来自同一个 `modlink-studio` distribution，而不是单独的公开分发包
 - [x] 官方驱动不在 0.2.x-0.3.x 阶段以独立公开包名发布
 - [x] 官方驱动也不直接内置在公开的 `modlink-studio` wheel 中，避免用户在未选择设备能力时就安装到全部官方驱动实现
-- [x] `modlink-studio-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
-- [ ] 将 `modlink-studio-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
+- [x] `modlink-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
+- [x] 插件索引改为 GitHub Pages JSON manifest，不再写死在宿主代码中
+- [x] 当前预发布演练版本统一提升到 `0.2.0rc2`；正式 PyPI 稳定版保留 `0.2.0`
+- [ ] 将 `modlink-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
 - [x] 0.2.x-0.3.x 阶段不要求把所有官方驱动立即拆成独立仓库；源码继续保留在 monorepo 的 `plugins/` 目录，是否拆仓按后续维护边界再评估
 - [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
 
@@ -98,7 +100,7 @@
 3. 看到实时流预览
 4. 开始录制，添加 marker，停止录制
 5. 明确看到录制结果保存到了哪里，录制文件结构清晰、元数据完整
-6. 需要额外安装的插件能力通过 `modlink-studio-plugin install ...` 获取；主包保持单一公开安装入口
+6. 需要额外安装的插件能力通过 `modlink-plugin install ...` 获取；主包保持单一公开安装入口
 ```
 
 ---
@@ -324,7 +326,7 @@ packages/modlink_ai/
   ├── 协议自动编排
   ├── AI 助手 UI 面板
   ├── 上下文感知的建议系统
-  └── 将 `modlink-studio-plugin` 扩展为更完整的插件管理工具
+  └── 将 `modlink-plugin` 扩展为更完整的插件管理工具
       │
       ▼
 0.5.x  生态扩展

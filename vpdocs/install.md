@@ -10,6 +10,8 @@
 - 正式公开发布渠道将切到 **PyPI**
 - 发布前会先完成一次 **TestPyPI rehearsal**
 - `TestPyPI` 只用于发布链路演练，不作为日常安装源
+- 当前这轮预发布验证统一使用 `0.2.0rc2`
+- 正式稳定版仍将使用 `0.2.0`
 
 ## 0.2.0 升级说明
 
@@ -44,30 +46,36 @@ python -m modlink_studio
 
 ## 安装插件
 
-插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令，从 GitHub Release 安装对应插件 wheel。
+插件不通过 PyPI extras 安装。正式发布后，主包安装完成后使用独立插件管理命令；命令会先从 GitHub Pages 插件索引读取可用版本，再从 GitHub Release 安装对应插件 wheel。
 
 当前第一阶段，这个命令集主要覆盖官方驱动；后续会继续扩展成更通用的插件管理工具：
 
 ```bash
-modlink-studio-plugin list
+modlink-plugin list
 ```
 
 ```bash
-modlink-studio-plugin install host-camera
+modlink-plugin install host-camera
 ```
 
 ```bash
-modlink-studio-plugin install host-microphone
+modlink-plugin install host-microphone
 ```
 
 ```bash
-modlink-studio-plugin install openbci-ganglion
+modlink-plugin install openbci-ganglion
 ```
 
 如果不再需要某个插件：
 
 ```bash
-modlink-studio-plugin uninstall host-camera
+modlink-plugin uninstall host-camera
+```
+
+如果想看当前环境里已经安装了哪些 ModLink 插件：
+
+```bash
+modlink-plugin list --installed
 ```
 
 ## 从源码运行
@@ -134,8 +142,9 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 正式发布前的检查重点包括：
 
 - TestPyPI rehearsal 能完整跑通
+- 当前 rehearsal 版本统一为 `0.2.0rc2`
 - PyPI 目标安装命令在干净环境中可用
-- 插件安装 CLI 可从与当前主包版本匹配的 GitHub Release 获取 wheel
+- 插件安装 CLI 可从 GitHub Pages 插件索引解析兼容版本，并从 GitHub Release 获取 wheel
 - `modlink-studio` 命令入口正常
 
 ## 常见问题
@@ -150,7 +159,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 ### 已安装主应用但看不到某个插件
 
-主应用不会默认安装所有插件。当前第一阶段主要是官方驱动，需要显式运行 `modlink-studio-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
+主应用不会默认安装所有插件。当前第一阶段主要是官方驱动，需要显式运行 `modlink-plugin install <plugin_id>`，或者在源码工作区里手动把插件目录安装进当前环境。
 
 ### 系统里找不到 `modlink-studio` 命令
 

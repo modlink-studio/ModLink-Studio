@@ -31,6 +31,8 @@
 
 这一版本正式发布时，公开安装入口也会切到 **PyPI**；`TestPyPI` 只用于发布前 rehearsal，不作为日常安装源。
 
+当前这轮预发布验证统一使用 `0.2.0rc2`；正式稳定版仍保留为 `0.2.0`。
+
 ---
 
 ### Breaking Changes
@@ -170,9 +172,9 @@
 当前阶段的插件安装方式：
 
 - 先安装 `modlink-studio`
-- 再运行 `modlink-studio-plugin install <plugin_id>`
+- 再运行 `modlink-plugin install <plugin_id>`
 
-当前命令集主要覆盖官方驱动；后续版本会继续扩展为更通用的插件管理工具。
+当前命令集主要覆盖官方驱动；插件索引已经改为远端 JSON manifest，后续版本会继续扩展为更通用的插件管理工具。
 
 ---
 
@@ -213,7 +215,7 @@
 - preview streams
 - start / stop acquisition
 - record and save
-- install plugins through `modlink-studio-plugin`
+- install plugins through `modlink-plugin`
 
 这一版本是后续能力的结构基础：
 

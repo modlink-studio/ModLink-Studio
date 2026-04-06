@@ -411,4 +411,4 @@ name.XX
 - `host-microphone`
 - `openbci-ganglion`
 
-在 `0.2.x` 当前阶段，这些 entry point 主要通过 `modlink-studio-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。
+在 `0.2.x` 当前阶段，这些 entry point 主要通过 `modlink-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。
