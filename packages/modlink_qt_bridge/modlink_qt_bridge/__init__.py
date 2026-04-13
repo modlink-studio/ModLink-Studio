@@ -1,17 +1,17 @@
 from .bridge import (
-    QtAcquisitionBridge,
     QtBusBridge,
     QtDriverPortal,
     QtDriverTask,
     QtModLinkBridge,
+    QtRecordingBridge,
     QtSettingsBridge,
 )
 
 __all__ = [
-    "QtAcquisitionBridge",
     "QtBusBridge",
     "QtDriverPortal",
     "QtDriverTask",
     "QtModLinkBridge",
+    "QtRecordingBridge",
     "QtSettingsBridge",
 ]

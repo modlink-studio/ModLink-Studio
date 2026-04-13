@@ -33,12 +33,12 @@ class AcquisitionController(QObject):
         self._segment_label = ""
         self._segment_started_ns: int | None = None
         self._pending_recording_stop_notice = False
-        self._last_known_recording_state = self._engine.acquisition.is_recording
+        self._last_known_recording_state = self._engine.recording.is_recording
         self._last_started_session_name = ""
 
-        self._engine.acquisition.sig_state_changed.connect(self._on_recording_state_changed)
-        self._engine.acquisition.sig_error.connect(self._on_error)
-        self._engine.acquisition.sig_recording_failed.connect(self._on_recording_failed)
+        self._engine.recording.sig_state_changed.connect(self._on_recording_state_changed)
+        self._engine.recording.sig_error.connect(self._on_error)
+        self._engine.recording.sig_recording_failed.connect(self._on_recording_failed)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=sessionNameChanged)
@@ -59,7 +59,7 @@ class AcquisitionController(QObject):
 
     @pyqtProperty(bool, notify=isRecordingChanged)
     def isRecording(self) -> bool:
-        return self._engine.acquisition.is_recording
+        return self._engine.recording.is_recording
 
     @pyqtProperty(bool, notify=isSegmentActiveChanged)
     def isSegmentActive(self) -> bool:
@@ -72,7 +72,7 @@ class AcquisitionController(QObject):
     @pyqtProperty(str, notify=outputDirectoryChanged)
     def outputDirectory(self) -> str:
         session_name = self._session_name.strip() or "<session_name>"
-        return str(Path(self._engine.acquisition.root_dir) / f"session_{session_name}")
+        return str(Path(self._engine.recording.root_dir) / f"session_{session_name}")
 
     @pyqtProperty(str, notify=primaryActionTextChanged)
     def primaryActionText(self) -> str:
@@ -120,7 +120,7 @@ class AcquisitionController(QObject):
         if self.isRecording:
             self._pending_recording_stop_notice = True
             self._clear_segment(notify=True)
-            self._engine.acquisition.stop_recording()
+            self._engine.recording.stop_recording()
             return
 
         session_name = self._session_name.strip()
@@ -131,7 +131,7 @@ class AcquisitionController(QObject):
         self._last_started_session_name = session_name
         self._pending_recording_stop_notice = False
         recording_label = self._recording_label.strip() or None
-        self._engine.acquisition.start_recording(session_name, recording_label)
+        self._engine.recording.start_recording(session_name, recording_label)
 
     @pyqtSlot()
     def insertMarker(self) -> None:
@@ -141,7 +141,7 @@ class AcquisitionController(QObject):
             self.setSessionName(session_name)
 
         marker_label = self._marker_label.strip() or session_name
-        self._engine.acquisition.add_marker(marker_label)
+        self._engine.recording.add_marker(marker_label)
 
     @pyqtSlot()
     def toggleSegment(self) -> None:
@@ -155,7 +155,7 @@ class AcquisitionController(QObject):
         end_ns = time.time_ns()
         label = self._segment_label.strip() or None
         self._clear_segment(notify=True)
-        self._engine.acquisition.add_segment(
+        self._engine.recording.add_segment(
             start_ns=start_ns,
             end_ns=end_ns,
             label=label,
@@ -243,7 +243,7 @@ class AcquisitionController(QObject):
         if not session_name:
             return "录制已完成。"
 
-        session_dir = Path(self._engine.acquisition.root_dir) / f"session_{session_name}"
+        session_dir = Path(self._engine.recording.root_dir) / f"session_{session_name}"
         recording_dirs = (
             sorted(
                 (path for path in session_dir.iterdir() if path.is_dir()),

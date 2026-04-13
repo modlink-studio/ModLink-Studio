@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 
-from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY, AcquisitionBackend
+from modlink_core.acquisition.backend import RECORDING_ROOT_DIR_KEY, RecordingBackend
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import (
@@ -18,7 +18,7 @@ from modlink_core.event_stream import (
     StreamClosedError,
 )
 from modlink_core.events import (
-    AcquisitionSnapshot,
+    RecordingSnapshot,
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
     DriverSnapshot,
@@ -305,7 +305,7 @@ class QtSettingsBridge(QObject):
             self.sig_setting_changed.emit(SettingChangedEvent(key=key, value=value, ts=time.time()))
 
 
-class QtAcquisitionBridge(QObject):
+class QtRecordingBridge(QObject):
     sig_state_changed = pyqtSignal(str)
     sig_error = pyqtSignal(str)
     sig_recording_failed = pyqtSignal(object)
@@ -314,7 +314,7 @@ class QtAcquisitionBridge(QObject):
 
     def __init__(
         self,
-        backend: AcquisitionBackend,
+        backend: RecordingBackend,
         settings: QtSettingsBridge,
         parent: QObject | None = None,
     ) -> None:
@@ -333,7 +333,7 @@ class QtAcquisitionBridge(QObject):
 
     @property
     def root_dir(self) -> Path:
-        configured = self._settings.get(ACQUISITION_ROOT_DIR_KEY)
+        configured = self._settings.get(RECORDING_ROOT_DIR_KEY)
         resolved = configured or self._snapshot.root_dir
         return Path(str(resolved))
 
@@ -349,7 +349,7 @@ class QtAcquisitionBridge(QObject):
     def is_recording(self) -> bool:
         return self._snapshot.is_recording
 
-    def snapshot(self) -> AcquisitionSnapshot:
+    def snapshot(self) -> RecordingSnapshot:
         return self._snapshot
 
     def start_recording(
@@ -375,7 +375,7 @@ class QtAcquisitionBridge(QObject):
             self._backend.add_segment(start_ns=start_ns, end_ns=end_ns, label=label)
         )
 
-    def _apply_snapshot(self, snapshot: AcquisitionSnapshot) -> None:
+    def _apply_snapshot(self, snapshot: RecordingSnapshot) -> None:
         self._snapshot = snapshot
         self.sig_state_changed.emit(snapshot.state)
 
@@ -428,8 +428,8 @@ class QtModLinkBridge(QObject):
         )
         self.settings = QtSettingsBridge(engine.settings, parent=self)
         self.bus = QtBusBridge(engine.bus, parent=self)
-        self.acquisition = QtAcquisitionBridge(
-            engine.acquisition,
+        self.recording = QtRecordingBridge(
+            engine.recording,
             self.settings,
             parent=self,
         )
@@ -490,8 +490,8 @@ class QtModLinkBridge(QObject):
 
     def _dispatch_event(self, event: object) -> None:
         if isinstance(event, RecordingFailedEvent):
-            self.acquisition._refresh_snapshot()
-            self.acquisition._emit_recording_failed(event)
+            self.recording._refresh_snapshot()
+            self.recording._emit_recording_failed(event)
             return
 
         if isinstance(event, SettingChangedEvent):
@@ -513,7 +513,7 @@ class QtModLinkBridge(QObject):
             return
 
     def _resync_all(self) -> None:
-        self.acquisition._apply_snapshot(self._engine.acquisition_snapshot())
+        self.recording._apply_snapshot(self._engine.recording_snapshot())
         self.settings._resync_snapshot(self._engine.settings_snapshot())
         snapshots = {snapshot.driver_id: snapshot for snapshot in self._engine.driver_snapshots()}
         for driver_id, portal in self._driver_portals.items():

@@ -15,7 +15,7 @@ class DriverSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
-class AcquisitionSnapshot:
+class RecordingSnapshot:
     state: str
     is_started: bool
     is_recording: bool

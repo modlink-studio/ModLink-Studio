@@ -98,7 +98,7 @@ class AcquisitionViewModel(QObject):
         )
         self._pending_segment_start_ns: int | None = None
         self._pending_recording_stop_notice = False
-        self._last_known_recording_state = self.engine.acquisition.is_recording
+        self._last_known_recording_state = self.engine.recording.is_recording
         self._last_started_session_name = ""
         self._settings = self.engine.settings
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
@@ -108,9 +108,9 @@ class AcquisitionViewModel(QObject):
             )
         )
 
-        self.engine.acquisition.sig_state_changed.connect(self._on_state_changed)
-        self.engine.acquisition.sig_error.connect(self._on_error)
-        self.engine.acquisition.sig_recording_failed.connect(self._on_recording_failed)
+        self.engine.recording.sig_state_changed.connect(self._on_state_changed)
+        self.engine.recording.sig_error.connect(self._on_error)
+        self.engine.recording.sig_recording_failed.connect(self._on_recording_failed)
 
     @property
     def state(self) -> AcquisitionPanelState:
@@ -122,7 +122,7 @@ class AcquisitionViewModel(QObject):
 
     @property
     def is_recording(self) -> bool:
-        return self.engine.acquisition.is_recording
+        return self.engine.recording.is_recording
 
     @property
     def is_segment_active(self) -> bool:
@@ -214,7 +214,7 @@ class AcquisitionViewModel(QObject):
         return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
     def build_output_directory(self, session_name: str | None = None) -> str:
-        root_dir = Path(self.engine.acquisition.root_dir)
+        root_dir = Path(self.engine.recording.root_dir)
         preview_session_name = session_name or self._values.session_name or "<session_name>"
         return str(root_dir / f"session_{preview_session_name}")
 
@@ -241,7 +241,7 @@ class AcquisitionViewModel(QObject):
         if self.is_recording:
             self._pending_recording_stop_notice = True
             self._clear_pending_segment(notify=True)
-            self.engine.acquisition.stop_recording()
+            self.engine.recording.stop_recording()
             return
 
         session_name = self.get_field_value("session_name").strip()
@@ -252,7 +252,7 @@ class AcquisitionViewModel(QObject):
         self._last_started_session_name = session_name
         self._pending_recording_stop_notice = False
         recording_label = self.get_field_value("recording_label").strip() or None
-        self.engine.acquisition.start_recording(session_name, recording_label)
+        self.engine.recording.start_recording(session_name, recording_label)
 
     def request_insert_marker(self) -> None:
         session_name = self.get_field_value("session_name").strip()
@@ -261,7 +261,7 @@ class AcquisitionViewModel(QObject):
             self.set_field_value("session_name", session_name)
 
         marker_label = self.get_field_value("marker_label").strip() or session_name
-        self.engine.acquisition.add_marker(marker_label)
+        self.engine.recording.add_marker(marker_label)
 
     def request_toggle_segment(self) -> None:
         if self._pending_segment_start_ns is None:
@@ -273,7 +273,7 @@ class AcquisitionViewModel(QObject):
         end_ns = time.time_ns()
         segment_label = self.get_field_value("segment_label").strip() or None
         self._clear_pending_segment(notify=True)
-        self.engine.acquisition.add_segment(
+        self.engine.recording.add_segment(
             start_ns=start_ns,
             end_ns=end_ns,
             label=segment_label,
@@ -330,7 +330,7 @@ class AcquisitionViewModel(QObject):
         if not session_name:
             return "录制已完成。"
 
-        session_dir = Path(self.engine.acquisition.root_dir) / f"session_{session_name}"
+        session_dir = Path(self.engine.recording.root_dir) / f"session_{session_name}"
         recording_dirs = (
             sorted(
                 (path for path in session_dir.iterdir() if path.is_dir()),

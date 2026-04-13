@@ -74,12 +74,12 @@ class _EngineStub:
         self,
         bus: _BusStub,
         settings: QtSettingsBridge,
-        acquisition: _AcquisitionStub,
+        recording: _AcquisitionStub,
         driver_portals: tuple[object, ...] = (),
     ) -> None:
         self.bus = bus
         self.settings = settings
-        self.acquisition = acquisition
+        self.recording = recording
         self._driver_portals = driver_portals
 
     def driver_portals(self) -> tuple[object, ...]:

@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from modlink_core import AcquisitionBackend, SettingsService, StreamBus
+from modlink_core import RecordingBackend, SettingsService, StreamBus
 from modlink_core.acquisition.storage.manager import RecordingStorage
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
@@ -24,16 +24,16 @@ from modlink_core.settings.service import SettingsService as SettingsServiceType
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 
-class TinyFrameStreamAcquisitionBackend(AcquisitionBackend):
+class TinyFrameStreamRecordingBackend(RecordingBackend):
     def _open_frame_stream(self):
         return self._bus.open_frame_stream(
             maxsize=1,
             drop_policy="error",
-            consumer_name="acquisition",
+            consumer_name="recording",
         )
 
 
-class SlowShutdownAcquisitionBackend(AcquisitionBackend):
+class SlowShutdownRecordingBackend(RecordingBackend):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.allow_shutdown = threading.Event()
@@ -102,13 +102,13 @@ class StreamBusConnectionTest(unittest.TestCase):
         recorder_stream.close()
         preview_stream.close()
 
-    def test_acquisition_backend_stops_recording_on_frame_stream_overflow(self) -> None:
+    def test_recording_backend_stops_recording_on_frame_stream_overflow(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
-        backend = TinyFrameStreamAcquisitionBackend(
+        backend = TinyFrameStreamRecordingBackend(
             bus,
             settings=settings,
             publish_event=broker.publish,
@@ -142,7 +142,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         backend.shutdown()
         event_stream.close()
 
-    def test_acquisition_backend_publishes_failed_recording_on_write_error(self) -> None:
+    def test_recording_backend_publishes_failed_recording_on_write_error(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
@@ -157,7 +157,7 @@ class StreamBusConnectionTest(unittest.TestCase):
             "modlink_core.acquisition.backend.RecordingStorage",
             FailingAppendStorage,
         ):
-            backend = AcquisitionBackend(
+            backend = RecordingBackend(
                 bus,
                 settings=settings,
                 publish_event=broker.publish,
@@ -182,7 +182,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         backend.shutdown()
         event_stream.close()
 
-    def test_acquisition_backend_publishes_failed_recording_on_finalize_error(self) -> None:
+    def test_recording_backend_publishes_failed_recording_on_finalize_error(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
@@ -197,7 +197,7 @@ class StreamBusConnectionTest(unittest.TestCase):
             "modlink_core.acquisition.backend.RecordingStorage",
             FailingFinalizeStorage,
         ):
-            backend = AcquisitionBackend(
+            backend = RecordingBackend(
                 bus,
                 settings=settings,
                 publish_event=broker.publish,
@@ -224,7 +224,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         backend.shutdown()
         event_stream.close()
 
-    def test_acquisition_backend_shutdown_propagates_finalize_failure_without_events(self) -> None:
+    def test_recording_backend_shutdown_propagates_finalize_failure_without_events(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
@@ -239,7 +239,7 @@ class StreamBusConnectionTest(unittest.TestCase):
             "modlink_core.acquisition.backend.RecordingStorage",
             FailingFinalizeStorage,
         ):
-            backend = AcquisitionBackend(
+            backend = RecordingBackend(
                 bus,
                 settings=settings,
                 publish_event=broker.publish,
@@ -264,19 +264,19 @@ class StreamBusConnectionTest(unittest.TestCase):
         )
         event_stream.close()
 
-    def test_acquisition_backend_shutdown_timeout_does_not_pretend_stopped(self) -> None:
+    def test_recording_backend_shutdown_timeout_does_not_pretend_stopped(self) -> None:
         broker = BackendEventBroker()
         bus = StreamBus(event_broker=broker)
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
-        backend = SlowShutdownAcquisitionBackend(
+        backend = SlowShutdownRecordingBackend(
             bus,
             settings=settings,
             publish_event=broker.publish,
         )
         backend.start()
 
-        with self.assertRaisesRegex(TimeoutError, "acquisition shutdown timed out"):
+        with self.assertRaisesRegex(TimeoutError, "recording shutdown timed out"):
             backend.shutdown(timeout_ms=10)
 
         self.assertTrue(backend.is_started)
@@ -284,13 +284,13 @@ class StreamBusConnectionTest(unittest.TestCase):
         _wait_for(lambda: not backend.is_started, timeout=1.0)
         backend.shutdown(timeout_ms=100)
 
-    def test_acquisition_backend_writes_completed_manifest_on_normal_stop(self) -> None:
+    def test_recording_backend_writes_completed_manifest_on_normal_stop(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
-        backend = AcquisitionBackend(
+        backend = RecordingBackend(
             bus,
             settings=settings,
             publish_event=broker.publish,
@@ -316,12 +316,12 @@ class StreamBusConnectionTest(unittest.TestCase):
         backend.shutdown()
         event_stream.close()
 
-    def test_acquisition_commands_fail_through_future(self) -> None:
+    def test_recording_commands_fail_through_future(self) -> None:
         broker = BackendEventBroker()
         bus = StreamBus(event_broker=broker)
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
-        backend = AcquisitionBackend(
+        backend = RecordingBackend(
             bus,
             settings=settings,
             publish_event=broker.publish,
@@ -351,12 +351,12 @@ class StreamBusConnectionTest(unittest.TestCase):
         self.assertEqual(60, settings_b.get("ui.preview.rate_hz"))
         self.assertNotEqual(settings_a.snapshot(), settings_b.snapshot())
 
-    def test_acquisition_root_dir_read_does_not_mutate_settings(self) -> None:
+    def test_recording_root_dir_read_does_not_mutate_settings(self) -> None:
         broker = BackendEventBroker()
         event_stream = broker.open_stream()
         bus = StreamBus(event_broker=broker)
         settings = _build_empty_settings_service()
-        backend = AcquisitionBackend(
+        backend = RecordingBackend(
             bus,
             settings=settings,
             publish_event=broker.publish,

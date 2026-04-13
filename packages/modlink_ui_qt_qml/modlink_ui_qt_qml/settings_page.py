@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.acquisition.backend import ACQUISITION_ROOT_DIR_KEY
+from modlink_core.acquisition.backend import RECORDING_ROOT_DIR_KEY
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
@@ -34,7 +34,7 @@ class SettingsPageController(QObject):
 
     @pyqtProperty(str, notify=saveDirectoryChanged)
     def saveDirectory(self) -> str:
-        current = self._settings.get(ACQUISITION_ROOT_DIR_KEY)
+        current = self._settings.get(RECORDING_ROOT_DIR_KEY)
         return str(current or "")
 
     @pyqtProperty(int, notify=previewRefreshRateHzChanged)
@@ -60,7 +60,7 @@ class SettingsPageController(QObject):
         if not normalized:
             self.messageRaised.emit("保存目录不能为空。")
             return
-        self._settings.set(ACQUISITION_ROOT_DIR_KEY, normalized)
+        self._settings.set(RECORDING_ROOT_DIR_KEY, normalized)
         self.messageRaised.emit("保存目录已更新。")
 
     @pyqtSlot(int)
@@ -90,7 +90,7 @@ class SettingsPageController(QObject):
 
     def _on_setting_changed(self, event: object) -> None:
         key = getattr(event, "key", None)
-        if key == ACQUISITION_ROOT_DIR_KEY:
+        if key == RECORDING_ROOT_DIR_KEY:
             self.saveDirectoryChanged.emit()
         elif key == UI_PREVIEW_REFRESH_RATE_HZ_KEY:
             self.previewRefreshRateHzChanged.emit()

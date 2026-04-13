@@ -12,7 +12,7 @@ from uuid import uuid4
 import numpy as np
 
 from modlink_core import ModLinkEngine
-from modlink_core.acquisition import AcquisitionBackend
+from modlink_core.acquisition import RecordingBackend
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
@@ -671,15 +671,15 @@ class PurePythonRuntimeTest(unittest.TestCase):
         driver.allow_start.set()
         self.assertTrue(driver.shutdown_called.wait(1.0))
 
-    def test_engine_starts_acquisition_after_drivers(self) -> None:
+    def test_engine_starts_recording_after_drivers(self) -> None:
         call_order: list[str] = []
         driver_a = DemoLifecycleHookDriver("demo_order_a.01")
         driver_b = DemoLifecycleHookDriver("demo_order_b.01")
 
-        original_start = AcquisitionBackend.start
+        original_start = RecordingBackend.start
 
-        def _record_start(backend: AcquisitionBackend) -> None:
-            call_order.append("acquisition")
+        def _record_start(backend: RecordingBackend) -> None:
+            call_order.append("recording")
             original_start(backend)
 
         def _wrap_started(driver: DemoLifecycleHookDriver, driver_id: str):
@@ -693,7 +693,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         driver_b.on_runtime_started = _wrap_started(driver_b, "demo_order_b.01")  # type: ignore[method-assign]
 
         with patch(
-            "modlink_core.runtime.engine.AcquisitionBackend.start",
+            "modlink_core.runtime.engine.RecordingBackend.start",
             autospec=True,
             side_effect=_record_start,
         ):
@@ -703,7 +703,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             )
 
         self.assertEqual(
-            ["demo_order_a.01", "demo_order_b.01", "acquisition"],
+            ["demo_order_a.01", "demo_order_b.01", "recording"],
             call_order,
         )
         engine.shutdown()
@@ -711,16 +711,16 @@ class PurePythonRuntimeTest(unittest.TestCase):
     def test_engine_shutdown_attempts_all_children_and_raises_first_error(self) -> None:
         failing_driver = DemoFailingShutdownDriver()
         healthy_driver = DemoLifecycleHookDriver("demo_shutdown_ok.01")
-        acquisition_called = threading.Event()
+        recording_called = threading.Event()
 
-        original_shutdown = AcquisitionBackend.shutdown
+        original_shutdown = RecordingBackend.shutdown
 
-        def _record_shutdown(backend: AcquisitionBackend, *args, **kwargs) -> None:
-            acquisition_called.set()
+        def _record_shutdown(backend: RecordingBackend, *args, **kwargs) -> None:
+            recording_called.set()
             original_shutdown(backend, *args, **kwargs)
 
         with patch(
-            "modlink_core.runtime.engine.AcquisitionBackend.shutdown",
+            "modlink_core.runtime.engine.RecordingBackend.shutdown",
             autospec=True,
             side_effect=_record_shutdown,
         ):
@@ -732,7 +732,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 engine.shutdown()
 
         self.assertTrue(healthy_driver.stopped_event.wait(1.0))
-        self.assertTrue(acquisition_called.wait(1.0))
+        self.assertTrue(recording_called.wait(1.0))
 
     def test_engine_rolls_back_started_drivers_when_startup_fails(self) -> None:
         started_driver = DemoLifecycleHookDriver("demo_started.01")
@@ -754,9 +754,9 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 side_effect=_spy_remove,
             ),
             patch(
-                "modlink_core.runtime.engine.AcquisitionBackend.start",
+                "modlink_core.runtime.engine.RecordingBackend.start",
                 autospec=True,
-            ) as acquisition_start,
+            ) as recording_start,
         ):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 ModLinkEngine(
@@ -765,7 +765,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 )
 
         self.assertTrue(started_driver.stopped_event.wait(1.0))
-        self.assertFalse(acquisition_start.called)
+        self.assertFalse(recording_start.called)
         self.assertEqual(
             {
                 next(iter(started_driver.descriptors())).stream_id,
@@ -798,9 +798,9 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 side_effect=_spy_remove,
             ),
             patch(
-                "modlink_core.runtime.engine.AcquisitionBackend.start",
+                "modlink_core.runtime.engine.RecordingBackend.start",
                 autospec=True,
-            ) as acquisition_start,
+            ) as recording_start,
         ):
             with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
                 ModLinkEngine(
@@ -811,7 +811,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         hanging_driver.allow_start.set()
         self.assertTrue(started_driver.stopped_event.wait(1.0))
         self.assertTrue(hanging_driver.shutdown_called.wait(1.0))
-        self.assertFalse(acquisition_start.called)
+        self.assertFalse(recording_start.called)
         self.assertEqual(
             {
                 next(iter(started_driver.descriptors())).stream_id,

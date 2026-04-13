@@ -123,7 +123,7 @@ def create_app(
         return {
             "ok": True,
             "driver_count": len(engine.driver_portals()),
-            "acquisition": _json_payload(engine.acquisition_snapshot()),
+            "acquisition": _json_payload(engine.recording_snapshot()),
         }
 
     @app.get("/drivers")
@@ -191,7 +191,7 @@ def create_app(
     @app.get("/acquisition")
     def acquisition_snapshot(request: Request) -> dict[str, Any]:
         engine = _engine(request)
-        return _json_payload(engine.acquisition_snapshot())
+        return _json_payload(engine.recording_snapshot())
 
     @app.post("/acquisition/start-recording")
     async def start_recording(
@@ -200,7 +200,7 @@ def create_app(
     ) -> dict[str, bool]:
         engine = _engine(request)
         await _await_future(
-            engine.acquisition.start_recording(
+            engine.recording.start_recording(
                 session_name=body.session_name,
                 recording_label=body.recording_label,
             )
@@ -210,20 +210,20 @@ def create_app(
     @app.post("/acquisition/stop-recording")
     async def stop_recording(request: Request) -> dict[str, bool]:
         engine = _engine(request)
-        await _await_future(engine.acquisition.stop_recording())
+        await _await_future(engine.recording.stop_recording())
         return {"ok": True}
 
     @app.post("/acquisition/markers")
     async def add_marker(body: MarkerRequest, request: Request) -> dict[str, bool]:
         engine = _engine(request)
-        await _await_future(engine.acquisition.add_marker(body.label))
+        await _await_future(engine.recording.add_marker(body.label))
         return {"ok": True}
 
     @app.post("/acquisition/segments")
     async def add_segment(body: SegmentRequest, request: Request) -> dict[str, bool]:
         engine = _engine(request)
         await _await_future(
-            engine.acquisition.add_segment(
+            engine.recording.add_segment(
                 start_ns=body.start_ns,
                 end_ns=body.end_ns,
                 label=body.label,

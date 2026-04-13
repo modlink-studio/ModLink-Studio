@@ -70,9 +70,9 @@
 }
 ```
 
-### `AcquisitionSnapshot`
+### `RecordingSnapshot`
 
-`GET /acquisition` 和 `GET /health` 里的 `acquisition` 字段返回的是 `AcquisitionSnapshot`：
+`GET /acquisition` 和 `GET /health` 里的 `acquisition` 字段返回的是 `RecordingSnapshot`：
 
 ```json
 {

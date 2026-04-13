@@ -134,6 +134,10 @@ data/
   - 负责将 recording 重建为可播放的流数据源
   - 负责在 replay 域内承载导出能力，而不是将导出逻辑分散到采集或 UI 层
 
+当前状态：
+
+- `RecordingBackend` 命名收敛进行中：先把当前 Core runtime 中的 `AcquisitionBackend` 语义收拢为 recording，再继续推进 writer / replay / export 的边界重构
+
 **架构原则：**
 
 - 0.3.0 的主结构优先服务新的 experiment/session/replay 语义，而不是被历史路径约定反向塑形
@@ -263,7 +267,7 @@ class Protocol:
 
 ### 3.2 架构设计
 
-**AI 层不侵入 Core 运行时。** 它是 Core 之上的一个独立服务，通过已有的 API（DriverPortal、AcquisitionBackend、SettingsService）操作，和用户手动操作走同一条路径。
+**AI 层不侵入 Core 运行时。** 它是 Core 之上的一个独立服务，通过已有的 API（DriverPortal、RecordingBackend、SettingsService）操作，和用户手动操作走同一条路径。
 
 ```
 ┌──────────────────────────┐
@@ -276,7 +280,7 @@ class Protocol:
 ├──────────────────────────┤
 │  ModLink Core (现有)      │
 │  Engine, DriverPortal,    │
-│  Acquisition, Settings    │
+│  Recording, Settings      │
 └──────────────────────────┘
 ```
 

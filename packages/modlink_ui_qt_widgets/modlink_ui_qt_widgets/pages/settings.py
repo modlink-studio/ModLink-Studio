@@ -32,7 +32,7 @@ class SettingsPage(BasePage):
         storage_group.addSettingCard(
             SaveDirectoryCard(
                 self.engine.settings,
-                self.engine.acquisition.root_dir,
+                self.engine.recording.root_dir,
                 storage_group,
             )
         )

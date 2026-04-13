@@ -6,12 +6,12 @@ from typing import Any
 
 from modlink_sdk import DriverFactory
 
-from ..acquisition import AcquisitionBackend
+from ..acquisition import RecordingBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
 from ..event_stream import BackendEventBroker, EventStream
 from ..events import (
-    AcquisitionSnapshot,
+    RecordingSnapshot,
     DriverSnapshot,
 )
 from ..settings import SettingsService
@@ -36,7 +36,7 @@ class ModLinkEngine:
         self._settings = settings or SettingsService(parent=parent)
         self._settings.bind_event_publisher(self._event_broker.publish)
         self.bus = StreamBus(event_broker=self._event_broker, parent=self)
-        self._acquisition = AcquisitionBackend(
+        self._recording = RecordingBackend(
             self.bus,
             settings=self._settings,
             publish_event=self._event_broker.publish,
@@ -48,7 +48,7 @@ class ModLinkEngine:
             for factory in driver_factories:
                 portal = self._attach_driver(factory)
                 attached_portals.append(portal)
-            self._acquisition.start()
+            self._recording.start()
         except Exception as exc:
             logger.exception("Engine startup failed; rolling back attached services")
             self._rollback_startup(attached_portals, exc)
@@ -59,11 +59,11 @@ class ModLinkEngine:
         return self._settings
 
     @property
-    def acquisition(self) -> AcquisitionBackend:
-        return self._acquisition
+    def recording(self) -> RecordingBackend:
+        return self._recording
 
-    def acquisition_snapshot(self) -> AcquisitionSnapshot:
-        return self._acquisition.snapshot()
+    def recording_snapshot(self) -> RecordingSnapshot:
+        return self._recording.snapshot()
 
     def driver_portals(self) -> tuple[DriverPortal, ...]:
         return tuple(self._driver_portals.values())
@@ -123,11 +123,11 @@ class ModLinkEngine:
 
         self._driver_portals.clear()
         try:
-            self._acquisition.shutdown()
+            self._recording.shutdown()
         except Exception as exc:
-            logger.exception("Engine startup rollback failed while shutting down acquisition")
+            logger.exception("Engine startup rollback failed while shutting down recording")
             cleanup_failures.append(
-                f"cleanup failed while shutting down acquisition: {type(exc).__name__}: {exc}"
+                f"cleanup failed while shutting down recording: {type(exc).__name__}: {exc}"
             )
 
         for note in cleanup_failures:
@@ -144,9 +144,9 @@ class ModLinkEngine:
                     first_error = exc
         self._driver_portals.clear()
         try:
-            self._acquisition.shutdown()
+            self._recording.shutdown()
         except Exception as exc:
-            logger.exception("Engine shutdown failed while shutting down acquisition")
+            logger.exception("Engine shutdown failed while shutting down recording")
             if first_error is None:
                 first_error = exc
         if first_error is not None:

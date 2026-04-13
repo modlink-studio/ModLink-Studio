@@ -15,22 +15,22 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
 from ..event_stream import StreamClosedError
 from ..events import (
-    AcquisitionSnapshot,
+    RecordingSnapshot,
     BackendEvent,
     RecordingFailedEvent,
 )
 from ..settings.service import SettingsService
 from .storage import RecordingStorage
 
-ACQUISITION_ROOT_DIR_KEY = "acquisition.storage.root_dir"
-ACQUISITION_CONSUMER_NAME = "acquisition"
-AcquisitionCommand = tuple[Callable[[], None], Future[None]]
+RECORDING_ROOT_DIR_KEY = "acquisition.storage.root_dir"
+RECORDING_CONSUMER_NAME = "recording"
+RecordingCommand = tuple[Callable[[], None], Future[None]]
 
 logger = logging.getLogger(__name__)
 
 
-class AcquisitionBackend:
-    """Threaded acquisition backend that records bus frames to disk."""
+class RecordingBackend:
+    """Threaded recording backend that persists bus frames to disk."""
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class AcquisitionBackend:
         self._settings = settings
         self._publish_event = publish_event
         self._parent = parent
-        self._command_queue: queue.Queue[AcquisitionCommand | object] = queue.Queue()
+        self._command_queue: queue.Queue[RecordingCommand | object] = queue.Queue()
         self._shutdown_sentinel = object()
         self._thread: threading.Thread | None = None
         self._frame_stream: FrameStream | None = None
@@ -72,8 +72,8 @@ class AcquisitionBackend:
     def is_recording(self) -> bool:
         return self._state == "recording"
 
-    def snapshot(self) -> AcquisitionSnapshot:
-        return AcquisitionSnapshot(
+    def snapshot(self) -> RecordingSnapshot:
+        return RecordingSnapshot(
             state=self._state,
             is_started=self.is_started,
             is_recording=self.is_recording,
@@ -89,7 +89,7 @@ class AcquisitionBackend:
             self._frame_stream = self._open_frame_stream()
         thread = threading.Thread(
             target=self._run,
-            name="modlink.acquisition",
+            name="modlink.recording",
             daemon=True,
         )
         self._thread = thread
@@ -147,7 +147,7 @@ class AcquisitionBackend:
         thread.join(max(0, timeout_ms) / 1000)
 
         if thread.is_alive():
-            raise TimeoutError(f"acquisition shutdown timed out after {timeout_ms}ms")
+            raise TimeoutError(f"recording shutdown timed out after {timeout_ms}ms")
 
         self._finalize_shutdown()
         worker_exit_error = self._take_worker_exit_error()
@@ -173,7 +173,7 @@ class AcquisitionBackend:
                 except StreamClosedError:
                     if not self._started:
                         return
-                    logger.warning("Acquisition frame stream closed unexpectedly; reopening stream")
+                    logger.warning("Recording frame stream closed unexpectedly; reopening stream")
                     self._frame_stream = self._open_frame_stream()
                     continue
                 except FrameStreamOverflowError as exc:
@@ -184,7 +184,7 @@ class AcquisitionBackend:
                     continue
                 self._on_frame_worker(frame)
             except Exception as exc:
-                logger.exception("Acquisition worker exited with an unexpected error")
+                logger.exception("Recording worker exited with an unexpected error")
                 exit_error = exc
                 break
 
@@ -321,7 +321,7 @@ class AcquisitionBackend:
             raise RuntimeError(f"ACQ_SEGMENT_FAILED: {type(exc).__name__}: {exc}") from exc
 
     def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
-        logger.warning("Acquisition frame stream overflowed for consumer '%s'", consumer_name)
+        logger.warning("Recording frame stream overflowed for consumer '%s'", consumer_name)
         if self._storage is not None:
             self._fail_recording_worker("frame_stream_overflow")
         self._replace_frame_stream()
@@ -336,7 +336,7 @@ class AcquisitionBackend:
         return self._bus.open_frame_stream(
             maxsize=256,
             drop_policy="error",
-            consumer_name=ACQUISITION_CONSUMER_NAME,
+            consumer_name=RECORDING_CONSUMER_NAME,
         )
 
     def _shutdown_worker(self) -> None:
@@ -475,7 +475,7 @@ def _default_root_dir() -> Path:
 
 
 def _resolve_root_dir(settings: SettingsService) -> Path:
-    root_dir = settings.get(ACQUISITION_ROOT_DIR_KEY)
+    root_dir = settings.get(RECORDING_ROOT_DIR_KEY)
     if root_dir is None:
         return _default_root_dir()
     return Path(root_dir)

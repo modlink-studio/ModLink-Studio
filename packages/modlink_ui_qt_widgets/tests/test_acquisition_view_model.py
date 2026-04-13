@@ -65,9 +65,9 @@ class _AcquisitionStub(QObject):
 
 
 class _EngineStub:
-    def __init__(self, settings: QtSettingsBridge, acquisition: _AcquisitionStub) -> None:
+    def __init__(self, settings: QtSettingsBridge, recording: _AcquisitionStub) -> None:
         self.settings = settings
-        self.acquisition = acquisition
+        self.recording = recording
 
 
 class AcquisitionViewModelTests(unittest.TestCase):
