@@ -2,153 +2,143 @@
 
 ## 背景
 
-当前项目正处于 0.2.0 正式发布收口阶段，核心目标是从 0.1.x 的 Qt-style driver API 切换到纯 Python 运行时。技术重构已基本完成（SDK、Core、Bridge、Server），当前重点已经从大规模结构调整转为正式发布、安装验证与后续版本路线。本文档用于定义从 0.2.0 发布、再到后续实验工作流与 AI 辅助能力的版本路线。
+当前项目已经完成从 Qt-style driver API 到纯 Python 运行时的主线重构（SDK、Core、Bridge、Server）。基础采集、录制、保存链路已经具备稳定基线，后续路线重点转向实验工作流、回放能力与更高层的数据组织模型。本文档用于定义当前基线，以及后续版本的演进方向。
 
 ---
 
-## 一、0.2.0 发布目标：基础采集链路稳定可用
+## 一、当前基线
 
-**0.2.0 的发布目标是：安装、搜索设备、连接、采集、录制、保存这条基础链路稳定可用，关键流程不中断。**
+当前仓库以后续设计为前提，先确认以下基线已经成立：
 
-### 1.1 基础链路完整性检查
-
-以下是目前已就位和需要补齐的项目：
-
-| 链路环节 | 状态 | 需要做的事 |
-|---|---|---|
-| 安装与启动 | 基本就位 | TestPyPI rehearsal 已完成；正式 PyPI 发布前再确认目标安装命令可在干净环境中工作，且 `modlink-studio` 命令可用 |
-| 设备搜索 | 已就位 | Driver.search() → SearchResult → UI 展示 |
-| 设备连接 | 已就位 | 选择 SearchResult → Driver.connect_device() → 流描述发现 |
-| 流预览 | 已就位 | SignalStreamView / RasterView / VideoView |
-| 开始/停止采集 | 已就位 | AcquisitionBackend + UI 面板 |
-| 录制保存 | 已就位 | StorageManager → 文件系统 |
-| 录制回放 | 延后到 0.3.0 | 0.2.0 先保证录制格式稳定、元数据完整、保存结果可见 |
-| 插件安装 | 基本就位 | 主包提供 plugin CLI；当前先覆盖官方驱动，后续再扩展成更完整的插件管理工具 |
-
-### 1.1.1 0.2.x-0.3.x 发布包策略
-
-**已确认：至少到 0.3.0 之前，对外公开分发保持单主包策略。**
-
-- [x] `modlink-studio` 作为 0.2.x-0.3.x 阶段唯一公开的 PyPI 主包
-- [x] Qt Widgets UI、QML UI、Qt bridge 与运行时实现继续保留在主 monorepo 内部拆分，但不作为独立公开 PyPI 包名承诺
-- [x] `modlink-studio-qml` 命令可以继续保留，但应来自同一个 `modlink-studio` distribution，而不是单独的公开分发包
-- [x] 官方驱动不在 0.2.x-0.3.x 阶段以独立公开包名发布
-- [x] 官方驱动也不直接内置在公开的 `modlink-studio` wheel 中，避免用户在未选择设备能力时就安装到全部官方驱动实现
-- [x] `modlink-plugin ...` 形式的插件安装 CLI 与 GitHub 发布物分发链
-- [x] 插件索引改为 GitHub Pages JSON manifest，不再写死在宿主代码中
-- [x] `modlink-plugin` 默认索引源切到 `ModLink-Studio-Plugins` 的 GitHub Pages，而不是主仓库文档站根路径
-- [x] TestPyPI rehearsal 已完成，主仓库版本切换到正式版 `0.2.0` 发布收口
-- [ ] 将 `modlink-plugin` 从“官方驱动安装器”逐步扩展为更通用的插件管理工具（至少在 0.3.x-0.4.x 期间持续推进）
-- [x] 官方驱动源码、release 资产与插件索引已迁移到独立仓库 `ModLink-Studio-Plugins`；主仓库只保留主包与插件管理器
-- [ ] 是否在 0.4.0 之后重新开放更细粒度的公开分发边界，再根据实际生态需求单独评估
-
-### 1.2 0.2.0 发布门槛
-
-**P0 — 发布阻塞项：**
-
-- [x] **基础 UI 体验修复（已完成）**
-  - [x] 修复 `test_signal_preview.py` 中 SignalStreamView 构造签名不匹配的 pre-existing 问题
-  - [x] 确保 modlink_server 能在 dev 环境下跑测试（fastapi 依赖）
-  - [x] 首次启动引导：默认 widgets 主页面在没有可预览流时提供明确提示，而不是空白界面
-
-- [x] **录制链路稳定化（已完成）**
-  - [x] 录制完成后，UI 明确展示保存路径、session 名称、recording_id 等结果信息
-  - [x] `recording.json` / `markers.csv` / `segments.csv` / `streams/` 目录结构固定下来，作为 0.3.0 回放的输入基础
-  - [x] 录制失败时，错误原因和失败 recording 路径能被用户看到，而不是静默失败
-
-- [ ] **文档与发布准备（进行中）**
-- [x] README 更新 0.2.0 安装说明与工作区开发说明
-- [x] 0.2.0 CHANGELOG
-- [x] 文档站 breaking change 说明同步
-- [x] 单主包 `modlink-studio` 的 TestPyPI / PyPI 发布链落地
-- [x] 插件安装路径从 `extras -> 主包内置` 方案收口为 `plugin CLI -> GitHub 发布物`
-- [x] 官方插件迁移到独立仓库 `ModLink-Studio-Plugins`，主仓库不再托管插件源码与插件资产 workflow
-  - [x] TestPyPI rehearsal
-  - [ ] PyPI 发布前干净环境安装验证
-
-- [x] **运行时稳健性收口（已完成）**
-  - [x] Settings 文件损坏时不再静默丢设置，损坏内容会备份并记录 warning
-  - [x] `modlink_server` `/events` 增加 SSE keepalive comment，空闲连接不再长期静默
-  - [x] `modlink_core` / `modlink_server` / 官方驱动关键异常路径补齐最小 logging
-  - [x] Qt Widgets preview 完成最小主题适配，预览不再固定白底与固定次级文本颜色
-
-**P1 — 建议在 0.2.x 尽快完成：**
-
-- [ ] **设置面板完善**
-  - 录制输出目录选择（当前 UI 有但后端集成需确认完整）
-  - 默认采样率、缓冲区大小等全局设置
-
-- [ ] **录制元数据增强**
-  - recording.json 增加 `notes`（自由文本备注）字段
-  - recording.json 增加 `operator`（操作者标识）字段
-  - 这些字段在 0.3.0 的实验工作流中会成为必需品，0.2.0 先埋好结构
-
-### 1.3 0.2.0 范围外
-
-- 录制回放（整体延后到 0.3.0）
-- 实验协议（protocol）系统
-- 受试者管理
-- AI 辅助功能
-- Web 前端
-- QML UI 替代 Qt Widgets（保持两条线并行，不做切换）
-- 对外拆分发布 UI 实现层或官方驱动包（至少延后到 0.4.0 之后再评估）
-
-### 1.4 0.2.0 可用性标准
-
-```
-0.2.0 应达到以下可用性标准：
-1. pip install modlink-studio
-2. 启动应用，搜索并连接设备
-3. 看到实时流预览
-4. 开始录制，添加 marker，停止录制
-5. 明确看到录制结果保存到了哪里，录制文件结构清晰、元数据完整
-6. 需要额外安装的插件能力通过 `modlink-plugin install ...` 获取；默认索引与插件资产来自 `ModLink-Studio-Plugins`
-```
-
----
+- 安装、搜索设备、连接、实时预览、录制、保存链路已经可用
+- 当前 recording 产物已经具备稳定的 `recording.json` / `annotations/` / `streams/` 基础结构，可作为 replay 与数据整理的输入基线
+- 单主包 `modlink-studio` 的公开分发策略至少继续沿用到 `0.3.x`
+- 后续结构设计优先服务 `recording / session / experiment` 分层，不再把一次录制默认视为实验的一部分
+- 历史数据兼容通过薄读取层、导入器或 catalog 适配完成，而不是让旧路径约定持续塑造新主流程
 
 ## 二、0.3.0 — 实验工作流与回放
 
-**核心目标：从“能采集”升级为“能组织实验、管理会话、回看录制结果”。**
+**核心目标：从“能采集”升级为“能组织实验、管理会话、回看录制结果”，同时保留“非实验、即开即录”的轻量工作流。**
 
 **发布策略保持不变：0.3.0 继续沿用单主包 `modlink-studio` 的公开分发方式，不在此版本重新拆分 UI 实现层或官方驱动公开包；插件安装仍优先通过主包 CLI + GitHub 发布物完成。**
 
 ### 2.1 数据模型扩展
 
-当前 `recording.json` 只足够表达单次录制，需要进一步引入实验与会话层级：
+0.3.0 的主结构不再把“实验”强加给每一次录制。数据模型分成三层：
 
+- `recording`：一次开始到停止之间产生的原子采集资产，可以独立存在、独立回放
+- `session`：一次实际执行过程的组织单元，可关联多个 recordings、protocol、操作者、备注等
+- `experiment`：更高层的项目/研究/批次组织单元，可关联多个 sessions
+
+这三层关系是：
+
+```text
+Experiment（可选）
+└── Sessions[]
+    └── Recordings[]
+
+Recording（原子资产）
+├── metadata
+├── annotations
+└── streams[]
 ```
-Experiment（实验）
-├── Participant（受试者）
-│   ├── participant_id
-│   ├── demographics (年龄、性别、利手等，可扩展)
-│   └── custom_fields
-├── Session 1（一次实验会话）
-│   ├── session_id
-│   ├── protocol 引用
-│   ├── recordings[] (多次录制)
-│   └── notes
-├── Session 2
-└── ...
+
+第一版不强制把 `participant` 提升为单独顶层目录；优先将 participant 信息放入 `session.json`，等跨 session 复用需求明确后再拆分。
+
+### 2.1.1 存储结构
+
+0.3.0 的主目录结构调整为：
+
+```text
+data/
+├─ recordings/
+│  └─ rec_<id>/
+│     ├─ recording.json
+│     ├─ annotations/
+│     │  ├─ markers.csv
+│     │  └─ segments.csv
+│     └─ streams/
+│        └─ <stream_id>/
+│           ├─ stream.json
+│           ├─ chunks.csv
+│           └─ chunks/
+├─ sessions/
+│  └─ ses_<id>/
+│     └─ session.json
+└─ experiments/
+   └─ exp_<id>/
+      └─ experiment.json
 ```
+
+设计原则：
+
+- `recording` 是第一公民，可以不属于任何 session 或 experiment
+- `session` 通过 `recording_id` 引用多个 recordings，而不是把 recording 的内部结构绑死到 session 目录语义上
+- `experiment` 通过 `session_id` 引用多个 sessions
+- 路径键使用稳定的 `experiment_id` / `session_id` / `recording_id`，而不是展示名
+- `display_name`、`label`、`notes` 等保持在 metadata 中，不承担路径标识职责
+
+### 2.1.2 多模态 Recording 设计
+
+0.3.0 的 `recording` 需要天然支持多模态数据，因此它本身应被视为“一个多流 bundle”，而不是单流文件夹：
+
+- 一个 recording 可同时包含 signal / raster / field / video 等多条流
+- 每条流以 `stream_id` 为唯一目录键，避免 `device/modality` 多级路径在回放和索引时制造额外耦合
+- replay 读取只依赖 `recording` 和其中的 `streams/*`，不依赖上层 experiment/session 是否存在
+- recording 级 metadata 只描述整次录制；单流的权威描述放在 `streams/<stream_id>/stream.json`
+
+建议的 recording 级 manifest 字段包括：
+
+- `recording_id`
+- `status`
+- `started_at_ns`
+- `stopped_at_ns`
+- `session_id`（可空）
+- `experiment_id`（可空）
+- `protocol_stage_id`（可空）
+- `streams[]`（列出 recording 中包含的 stream_id 与路径）
+
+建议的单流 manifest 字段包括：
+
+- `stream_id`
+- `payload_type`
+- `descriptor`
+- `storage_kind`
+- `dtype`
+- `frame_count`
+- `sample_count`
+- `chunk_count`
+
+### 2.1.3 落盘格式方向
+
+为了降低 replay 成本并统一多模态读取路径，0.3.0 应继续收敛到“chunked payload + timestamp index”的落盘模型：
+
+- signal / raster / field / video 最终都应能通过统一的 chunk 读取路径恢复为 `FrameEnvelope`
+- 回放层不应依赖某一种 payload_type 的特例格式
+- 录制格式的首要目标是可回放、可索引、可增量读取，而不是优先追求人工直接编辑
 
 **关键文件改动：**
 
 - `packages/modlink_core/modlink_core/acquisition/storage/manager.py`
-  - 扩展存储目录结构，支持 experiment/participant/session 层级
-  - 向后兼容 0.2.0 的扁平 session_{name} 格式
-  - 保持 0.2.0 的 recording 目录作为最小可复用单元；0.3.0 是在其外层增加 experiment/session 包装，而不是推翻旧 recording
+  - 从 `session_{name}` 目录写入模式转为 `recordings/rec_<id>` 原子资产写入模式
+  - recording 不再默认绑定 experiment/session 目录层级
+  - 写入 recording 级 manifest 和单流 manifest
 
 - `packages/modlink_core/modlink_core/` 新增 `experiment/` 模块
   - `protocol.py` — 协议定义（阶段列表、每阶段参数、预期时长）
-  - `participant.py` — 受试者数据模型
-  - `session.py` — 会话数据模型（关联 experiment + participant）
+  - `session.py` — 会话数据模型
+  - `experiment.py` — 实验数据模型
 
-**兼容原则：**
+- `packages/modlink_core/modlink_core/acquisition/` 新增 replay / catalog 能力
+  - 负责列出 recordings / sessions / experiments
+  - 负责将 recording 重建为可播放的流数据源
+  - 负责在 replay 域内承载导出能力，而不是将导出逻辑分散到采集或 UI 层
 
-- 0.2.0 录出来的单个 recording 目录仍然有效，不因为 0.3.0 的 experiment/session 引入而失效
-- 0.3.0 的 session 只是把多个 recordings、notes、participant 信息组织起来
-- 旧 recording 可以被直接纳入 session，也可以作为 replay 的直接输入
+**架构原则：**
+
+- 0.3.0 的主结构优先服务新的 experiment/session/replay 语义，而不是被历史路径约定反向塑形
+- 历史 recording 的兼容通过薄读取层、导入器或 catalog 适配完成，而不是把旧格式分支散落到新主流程中
+- 旧 recording 仍可以被 replay 直接打开，也可以被 session 显式纳入
 
 ### 2.2 协议（Protocol）系统
 
@@ -174,26 +164,65 @@ class Protocol:
 
 ### 2.3 回放与复盘
 
-回放放在 0.3.0，而不是 0.2.0，原因是它天然属于实验工作流的一部分：录制完成后需要与 marker、segment、session 元数据一起查看和复盘。
+回放放在 0.3.0，是因为它天然属于实验工作流的一部分：录制完成后需要与 marker、segment、session 元数据一起查看和复盘。
 
 - Core 层新增 replay 模块，例如 `packages/modlink_core/modlink_core/acquisition/replay.py`
-- 输入直接使用 0.2.0 已稳定下来的 recording 目录格式
+- replay 的最小输入单元是 `recording`
+- 非实验录制与实验内录制都走同一条 replay 路径
+- replay backend 内部分为三层：
+  - `RecordingReader`：负责读取 recording、annotations、stream chunk 与时间索引
+  - `ReplayPlayer`：负责播放 / 暂停 / 停止 / 倍速等实时回放控制
+  - `ExportService`：负责非实时导出 job，和 player 共用 reader，但不走实时播放链路
 - 回放对外尽量复用实时流的 `StreamDescriptor + FrameEnvelope + StreamBus` 入口，降低 UI 重写成本
 - 第一版能力只做：
   - 打开 recording
   - 播放 / 暂停 / 停止 / 从头播放
   - 1x / 2x / 4x 倍速
   - marker / segment 联动展示
+  - 发起导出任务并查看导出状态
 - 第一版明确不做：
   - 时间轴任意拖拽
   - 多 recording 拼接
   - live / replay 混播
+
+### 2.3.1 导出能力
+
+导出属于 replay backend 的一部分，因为它和回放共用同一套 recording 读取能力；但导出不是 player 的职责。
+
+设计原则：
+
+- 采集落盘格式优先服务稳定写入、统一回放与可增量读取
+- 导出格式优先服务分析、共享、可视化与对外交换
+- 导出通过后台 job 运行，不要求实时
+- 导出产物默认写入独立的 `exports/` 目录，而不是回写原始 recording 目录
+- 导出格式扩展通过内建 exporter 注册表完成，不预先引入插件式复杂抽象
+
+第一版导出分成两类：
+
+- Analysis export
+  - `signal_csv`
+  - `signal_npz`
+  - `raster_npz`
+  - `field_npz`
+  - `video_frames_zip`
+- Presentation export
+  - `video_mp4`
+  - `raster_mp4`
+  - `field_mp4`
+  - `recording_bundle_zip`
+
+后续可继续扩展：
+
+- BIDS
+- NWB
+- 更完整的批量 session / experiment 导出
 
 ### 2.4 UI 变更
 
 - 实验管理页面（新建实验 → 填写受试者 → 选择协议 → 进入 session）
 - Session 内的录制面板升级：显示当前阶段、进度、下一步指引
 - Replay 页面或 replay 模式：打开 recording 后复用现有预览组件进行复盘
+- Replay 页面内增加导出区域或导出侧栏，支持选择格式、配置参数、查看导出任务进度
 - 受试者信息表单
 
 ---
@@ -303,22 +332,21 @@ packages/modlink_ai/
 ## 四、版本时间线
 
 ```
-0.2.x  基础采集链路稳定可用（当前）
-  ├── UI 体验修复
-  ├── 元数据增强（notes, operator）
-  ├── 录制链路稳定化（保存结果清晰可见）
-  ├── 单主包 PyPI 发布（`modlink-studio`）
-  ├── 官方驱动通过主包 CLI 安装（GitHub 发布物）
-  └── 文档 + 发布准备
+当前基线
+  ├── 基础采集链路稳定可用
+  ├── 当前 recording 格式可作为 replay 输入基线
+  ├── 单主包公开分发策略延续
+  └── 重点转向 experiment / session / replay
       │
       ▼
 0.3.x  实验工作流与回放
-  ├── Experiment / Participant / Session 数据模型
+  ├── Recording / Session / Experiment 分层模型
   ├── Protocol 定义和存储
   ├── 录制回放
+  ├── Replay backend 内建导出能力
   ├── UI：实验管理页面
-  ├── 存储结构升级（向后兼容）
-  ├── 录制文件格式标准化
+  ├── recording 原子资产化
+  ├── 多模态 recording 格式标准化
   └── 保持单主包公开分发
       │
       ▼
@@ -342,13 +370,14 @@ packages/modlink_ai/
 
 ## 五、当前优先级（按顺序）
 
-1. **锁定 0.2.0 发布范围（已完成）** — 明确 0.2.0 只承诺稳定采集、录制、保存，不再将回放继续纳入当前版本
-2. **首次启动体验（已完成）** — 默认页面在没有可预览流时给出清晰引导，而不是空白页
-3. **录制链路稳定化（已完成）** — UI 上明确显示保存路径、recording_id 与失败原因
-4. **运行时稳健性收口（已完成）** — settings 损坏备份、SSE keepalive、最小 logging 与 widgets preview 主题适配已完成
-5. **元数据字段预留（待开始）** — 在 recording.json 结构中提前埋好 notes、operator 等字段
-6. **文档与发布验证（进行中）** — 安装说明、CHANGELOG、文档站 breaking change 已更新，TestPyPI rehearsal 已完成；下一步完成正式 PyPI 发布前的干净环境安装验证
-7. **清理仓库（已完成）** — `deprecated/` 已移除；旧插件清理不再作为 0.2.0 阻塞项
+1. **敲定多层数据模型（进行中）** — 落定 `recording / session / experiment` 的边界、ID 规则与引用关系
+2. **完成 recording schema 设计（进行中）** — 明确 `recording.json`、单流 `stream.json`、annotations 与 chunk 索引的最小字段集
+3. **实现 recording catalog（待开始）** — 统一列出 recordings / sessions / experiments，作为 UI 和 server 的查询入口
+4. **实现 replay 核心链路（待开始）** — 基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，先完成播放 / 暂停 / 停止 / 倍速
+5. **设计并实现 export service（待开始）** — 在 replay backend 中支持导出 job、格式选择、进度与结果路径
+6. **推进多模态落盘格式统一（待开始）** — 收敛到统一的 chunked payload + timestamp index 读取路径，降低 replay 特例分支
+7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
+8. **保留历史数据导入路径（待开始）** — 通过薄读取层或导入器兼容旧 recording，而不是让旧结构继续塑造新主流程
 
 ---
 
