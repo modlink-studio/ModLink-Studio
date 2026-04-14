@@ -40,7 +40,7 @@ type Copy = {
   streamDeleteAction: string;
   streamMoveUpAction: string;
   streamMoveDownAction: string;
-  streamModalityLabel: string;
+  streamKeyLabel: string;
   streamDisplayNameLabel: string;
   streamPayloadLabel: string;
   streamSampleRateLabel: string;
@@ -89,7 +89,7 @@ type Copy = {
   pluginNameError: string;
   deviceIdError: string;
   providersError: string;
-  modalityError: string;
+  streamKeyError: string;
   positiveFloatError: string;
   positiveIntError: string;
   channelNamesError: string;
@@ -148,7 +148,7 @@ const en: Copy = {
   streamDeleteAction: "Delete stream",
   streamMoveUpAction: "Move stream up",
   streamMoveDownAction: "Move stream down",
-  streamModalityLabel: "Modality",
+  streamKeyLabel: "Stream key",
   streamDisplayNameLabel: "Stream display name",
   streamPayloadLabel: "Payload type",
   streamSampleRateLabel: "Sample rate / fps",
@@ -200,7 +200,7 @@ const en: Copy = {
     "streams.select": "Select which stream definition is currently shown on the right.",
     "streams.add": "Append a brand-new stream using the default values for its payload type.",
     "streams.delete": "Remove the selected stream from the generated driver project.",
-    "streams.modality": "Short stream key, for example eeg, imu, camera, or temperature.",
+    "streams.streamKey": "Short device-local stream key, for example eeg, imu, camera, or temperature.",
     "streams.displayName": "Visible stream name shown in the host UI and metadata.",
     "streams.payloadType": "Shape family for the emitted payload: signal, raster, field, or video.",
     "streams.sampleRateHz": "Nominal sample rate or frame rate written into the stream descriptor.",
@@ -252,7 +252,7 @@ const en: Copy = {
   pluginNameError: "Plugin name must contain at least one letter or number.",
   deviceIdError: "Device ID must match name.XX, for example my_driver.01.",
   providersError: "Provide at least one provider token.",
-  modalityError: "Modality must contain at least one letter or number.",
+  streamKeyError: "Stream key must contain at least one letter or number.",
   positiveFloatError: "Enter a positive number.",
   positiveIntError: "Enter a positive integer.",
   channelNamesError: "Provide at least one channel name.",
@@ -315,7 +315,7 @@ const zh: Copy = {
   streamDeleteAction: "删除 stream",
   streamMoveUpAction: "上移 stream",
   streamMoveDownAction: "下移 stream",
-  streamModalityLabel: "Modality",
+  streamKeyLabel: "Stream key",
   streamDisplayNameLabel: "Stream 显示名",
   streamPayloadLabel: "Payload type",
   streamSampleRateLabel: "采样率 / 帧率",
@@ -364,7 +364,7 @@ const zh: Copy = {
     "streams.select": "选择当前正在右侧编辑的 stream 定义。",
     "streams.add": "按当前默认配置新增一个 stream。",
     "streams.delete": "从生成项目里移除当前选中的 stream。",
-    "streams.modality": "简短的 stream key，例如 eeg、imu、camera、temperature。",
+    "streams.streamKey": "设备内唯一的简短 stream key，例如 eeg、imu、camera、temperature。",
     "streams.displayName": "显示在宿主界面和元数据里的 stream 名称。",
     "streams.payloadType": "输出数据的形状类型：signal、raster、field 或 video。",
     "streams.sampleRateHz": "写入 stream descriptor 的标称采样率或帧率。",
@@ -416,7 +416,7 @@ const zh: Copy = {
   pluginNameError: "插件名至少要包含一个字母或数字。",
   deviceIdError: "Device ID 必须符合 name.XX，例如 my_driver.01。",
   providersError: "至少提供一个 provider token。",
-  modalityError: "Modality 至少要包含一个字母或数字。",
+  streamKeyError: "Stream key 至少要包含一个字母或数字。",
   positiveFloatError: "请输入一个正数。",
   positiveIntError: "请输入一个正整数。",
   channelNamesError: "请至少提供一个 channel 名称。",

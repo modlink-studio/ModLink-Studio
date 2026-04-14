@@ -11,7 +11,7 @@
 当前仓库以后续设计为前提，先确认以下基线已经成立：
 
 - 安装、搜索设备、连接、实时预览、录制、保存链路已经可用
-- 当前 recording 产物已经具备稳定的 `recording.json` / `annotations/` / `streams/` 基础结构，可作为 replay 与数据整理的输入基线
+- 当前 recording 产物已经具备稳定的最小写盘结构：`recording.json` / `annotations/` / `streams/<stream_id>/stream.json` / `frames.csv` / `frames/*.npz`
 - 单主包 `modlink-studio` 的公开分发策略至少继续沿用到 `0.3.x`
 - 后续结构设计优先服务 `recording / session / experiment` 分层，不再把一次录制默认视为实验的一部分
 - 历史数据兼容通过薄读取层、导入器或 catalog 适配完成，而不是让旧路径约定持续塑造新主流程
@@ -47,7 +47,7 @@ Recording（原子资产）
 
 ### 2.1.1 存储结构
 
-0.3.0 的主目录结构调整为：
+0.3.0 当前已经落地的 recording 主目录结构为：
 
 ```text
 data/
@@ -60,8 +60,8 @@ data/
 │     └─ streams/
 │        └─ <stream_id>/
 │           ├─ stream.json
-│           ├─ chunks.csv
-│           └─ chunks/
+│           ├─ frames.csv
+│           └─ frames/
 ├─ sessions/
 │  └─ ses_<id>/
 │     └─ session.json
@@ -70,60 +70,51 @@ data/
       └─ experiment.json
 ```
 
-设计原则：
+当前设计原则：
 
 - `recording` 是第一公民，可以不属于任何 session 或 experiment
 - `session` 通过 `recording_id` 引用多个 recordings，而不是把 recording 的内部结构绑死到 session 目录语义上
 - `experiment` 通过 `session_id` 引用多个 sessions
 - 路径键使用稳定的 `experiment_id` / `session_id` / `recording_id`，而不是展示名
 - `display_name`、`label`、`notes` 等保持在 metadata 中，不承担路径标识职责
+- `modlink_core.storage` 当前先收敛为最小写盘工具层，不承担 finalize、catalog、replay reader 或旧格式兼容职责
 
 ### 2.1.2 多模态 Recording 设计
 
 0.3.0 的 `recording` 需要天然支持多模态数据，因此它本身应被视为“一个多流 bundle”，而不是单流文件夹：
 
 - 一个 recording 可同时包含 signal / raster / field / video 等多条流
-- 每条流以 `stream_id` 为唯一目录键，避免 `device/modality` 多级路径在回放和索引时制造额外耦合
+- 每条流以 `stream_id` 为唯一目录键，避免 `device/stream_key` 多级路径在回放和索引时制造额外耦合
 - replay 读取只依赖 `recording` 和其中的 `streams/*`，不依赖上层 experiment/session 是否存在
 - recording 级 metadata 只描述整次录制；单流的权威描述放在 `streams/<stream_id>/stream.json`
 
-建议的 recording 级 manifest 字段包括：
+当前 recording 级 manifest 只保留：
 
 - `recording_id`
-- `status`
-- `started_at_ns`
-- `stopped_at_ns`
-- `session_id`（可空）
-- `experiment_id`（可空）
-- `protocol_stage_id`（可空）
-- `streams[]`（列出 recording 中包含的 stream_id 与路径）
+- `recording_label`
+- `stream_ids`
 
-建议的单流 manifest 字段包括：
+当前单流 manifest 只保留：
 
 - `stream_id`
-- `payload_type`
 - `descriptor`
-- `storage_kind`
-- `dtype`
-- `frame_count`
-- `sample_count`
-- `chunk_count`
 
 ### 2.1.3 落盘格式方向
 
-为了降低 replay 成本并统一多模态读取路径，0.3.0 应继续收敛到“chunked payload + timestamp index”的落盘模型：
+当前 recording 落盘先收敛到最小 per-frame 写盘模型：
 
-- signal / raster / field / video 最终都应能通过统一的 chunk 读取路径恢复为 `FrameEnvelope`
-- 回放层不应依赖某一种 payload_type 的特例格式
-- 录制格式的首要目标是可回放、可索引、可增量读取，而不是优先追求人工直接编辑
+- signal / raster / field / video 统一写到 `frames/*.npz`
+- `frames.csv` 只记录 `frame_index,timestamp_ns,seq,file_name`
+- `.npz` 当前只保存 `data`
+- storage 首要目标先是稳定写盘与清晰边界；replay reader 再在后续版本单独设计
 
 **关键文件改动：**
 
 - `packages/modlink_core/modlink_core/storage/`
   - 作为 shared storage 后端承载 `recording / session / experiment` 的文件持久化
-  - 从 `session_{name}` 目录写入模式转为 `recordings/rec_<id>` 原子资产写入模式
+  - recording 写盘已收敛为 `RecordingStore.create_recording / append_frame / add_marker / add_segment`
   - recording 不再默认绑定 experiment/session 目录层级
-  - 写入 recording 级 manifest 和单流 manifest，并为 replay 预留读取接口
+  - 当前不暴露 session-style writer、finalize 或 replay/readback 接口
 
 - `packages/modlink_core/modlink_core/` 新增 `experiment/` 模块
   - `protocol.py` — 协议定义（阶段列表、每阶段参数、预期时长）
@@ -137,7 +128,9 @@ data/
 
 当前状态：
 
-- `modlink_core` 内部的 shared storage 第一阶段已完成：顶层 `modlink_core.storage` 已承载 `RecordingStore / SessionStore / ExperimentStore`，recording 写入路径已切到 `recordings/`，writer 已收敛为单一 `StreamRecordingWriter`，并补齐了 recording manifest、annotations、descriptor snapshot、chunk 读回 `FrameEnvelope` 的基础读取接口；外围 bridge / server / UI 还未跟进
+- `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 承载 `RecordingStore / SessionStore / ExperimentStore`，recording 写入路径已切到 `recordings/`，并且 `RecordingStore` 只保留函数式写接口
+- recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
+- replay reader、catalog、历史格式兼容都明确后置，不再让预建设的读接口提前塑造当前 storage 边界
 
 **架构原则：**
 
@@ -376,13 +369,13 @@ packages/modlink_ai/
 ## 五、当前优先级（按顺序）
 
 1. **敲定多层数据模型（进行中）** — 落定 `recording / session / experiment` 的边界、ID 规则与引用关系
-2. **完成 recording schema 设计（进行中）** — `modlink_core` 内部第一版 `recording.json`、单流 `stream.json`、annotations 与 chunk 索引已经落地，后续还需要结合 catalog / replay 再收 schema
-3. **实现 recording catalog（进行中）** — shared storage 已具备基础 `list/read` 能力，后续继续收口成统一的 recordings / sessions / experiments 查询入口
+2. **完成 recording schema 设计（进行中）** — `modlink_core` 内部最小 schema 已落地：`recording.json`、单流 `stream.json`、`frames.csv`、`frames/*.npz`、annotations；后续只在 replay 真实需求推动下再扩字段
+3. **实现 recording catalog（待开始）** — 当前 storage 已刻意删除预建设的 `list/read` recording 接口，后续再按真实查询需求设计 catalog
 4. **实现 replay 核心链路（待开始）** — 基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，先完成播放 / 暂停 / 停止 / 倍速
 5. **设计并实现 export service（待开始）** — 在 replay backend 中支持导出 job、格式选择、进度与结果路径
-6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到单一 `StreamRecordingWriter` + 统一的 chunked payload + timestamp index 主格式，后续继续围绕 replay/export 校正 reader 侧契约
+6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 `RecordingStore` 驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
 7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
-8. **保留历史数据导入路径（待开始）** — 通过薄读取层或导入器兼容旧 recording，而不是让旧结构继续塑造新主流程
+8. **保留历史数据导入路径（待开始）** — 当前主流程不兼容旧 recording；后续通过薄读取层或导入器兼容旧格式，而不是让旧结构继续塑造新主流程
 
 ---
 

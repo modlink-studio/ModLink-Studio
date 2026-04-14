@@ -76,15 +76,15 @@ class StreamPreviewPanelTests(unittest.TestCase):
         shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     @staticmethod
-    def _descriptor(modality: str, payload_type: str) -> StreamDescriptor:
+    def _descriptor(stream_key: str, payload_type: str) -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test.01",
-            modality=modality,
+            stream_key=stream_key,
             payload_type=payload_type,
             nominal_sample_rate_hz=30.0,
             chunk_size=1,
             channel_names=("c1",),
-            display_name=f"{modality} preview",
+            display_name=f"{stream_key} preview",
         )
 
     def test_initial_snapshot_creates_cards_for_existing_descriptors(self) -> None:
@@ -130,7 +130,7 @@ class StreamPreviewPanelTests(unittest.TestCase):
         bus.add_descriptor(late_descriptor)
         frame = FrameEnvelope(
             device_id=late_descriptor.device_id,
-            modality=late_descriptor.modality,
+            stream_key=late_descriptor.stream_key,
             timestamp_ns=123,
             data=np.zeros((1, 1, 1, 1), dtype=np.uint8),
         )

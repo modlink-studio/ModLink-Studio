@@ -13,10 +13,8 @@ from modlink_core.storage.io import (
     write_json,
     write_npz,
 )
-from modlink_core.storage.recordings import (
-    declared_chunk_size,
+from modlink_core.storage._recording_support import (
     descriptor_to_dict,
-    nominal_sample_rate_hz,
     normalize_data_array,
 )
 
@@ -57,7 +55,7 @@ def test_normalize_data_array_returns_contiguous_copy(frame_factory, descriptor_
     data = np.asfortranarray(np.arange(6, dtype=np.float32).reshape(2, 3))
     frame = frame_factory(descriptor, data=data)
 
-    normalized = normalize_data_array(frame, expected_ndim=2)
+    normalized = normalize_data_array(frame)
 
     np.testing.assert_array_equal(normalized, data)
     assert normalized.flags.c_contiguous
@@ -71,31 +69,16 @@ def test_normalize_data_array_rejects_object_dtype(frame_factory, descriptor_fac
     )
 
     with pytest.raises(ValueError, match="object dtype arrays are not supported"):
-        normalize_data_array(frame, expected_ndim=2)
+        normalize_data_array(frame)
 
 
-def test_normalize_data_array_rejects_wrong_dimension(frame_factory, descriptor_factory) -> None:
+def test_normalize_data_array_accepts_arbitrary_dimension(frame_factory, descriptor_factory) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
     frame = frame_factory(descriptor, data=np.arange(4, dtype=np.float32))
 
-    with pytest.raises(ValueError, match="expected data.ndim == 2, got 1"):
-        normalize_data_array(frame, expected_ndim=2)
+    normalized = normalize_data_array(frame)
 
-
-@pytest.mark.parametrize("value", ["abc", None, 0, -3])
-def test_declared_chunk_size_rejects_invalid_values(descriptor_factory, value: object) -> None:
-    descriptor = descriptor_factory(chunk_size=value)  # type: ignore[arg-type]
-
-    with pytest.raises(ValueError, match="descriptor.chunk_size must"):
-        declared_chunk_size(descriptor)
-
-
-@pytest.mark.parametrize("value", ["abc", None, 0, -1.0])
-def test_nominal_sample_rate_rejects_invalid_values(descriptor_factory, value: object) -> None:
-    descriptor = descriptor_factory(nominal_sample_rate_hz=value)  # type: ignore[arg-type]
-
-    with pytest.raises(ValueError, match="descriptor.nominal_sample_rate_hz must"):
-        nominal_sample_rate_hz(descriptor)
+    np.testing.assert_array_equal(normalized, np.arange(4, dtype=np.float32))
 
 
 def test_descriptor_to_dict_serializes_public_fields(descriptor_factory) -> None:
@@ -111,7 +94,7 @@ def test_descriptor_to_dict_serializes_public_fields(descriptor_factory) -> None
     assert payload == {
         "device_id": descriptor.device_id,
         "stream_id": descriptor.stream_id,
-        "modality": descriptor.modality,
+        "stream_key": descriptor.stream_key,
         "payload_type": "field",
         "nominal_sample_rate_hz": 10.0,
         "chunk_size": 4,

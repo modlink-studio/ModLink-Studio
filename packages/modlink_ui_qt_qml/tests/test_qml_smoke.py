@@ -30,7 +30,7 @@ class PreviewDemoDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=10.0,
                 chunk_size=4,
@@ -85,7 +85,7 @@ class PreviewDemoDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=10.0,
                 chunk_size=4,

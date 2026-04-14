@@ -14,7 +14,7 @@ def descriptor_factory():
         *,
         payload_type: str = "signal",
         device_id: str = "demo.01",
-        modality: str = "demo",
+        stream_key: str = "demo",
         nominal_sample_rate_hz: float = 10.0,
         chunk_size: int = 4,
         channel_names: tuple[str, ...] | None = None,
@@ -30,7 +30,7 @@ def descriptor_factory():
         )
         return StreamDescriptor(
             device_id=device_id,
-            modality=modality,
+            stream_key=stream_key,
             payload_type=payload_type,  # type: ignore[arg-type]
             nominal_sample_rate_hz=nominal_sample_rate_hz,
             chunk_size=chunk_size,
@@ -49,7 +49,6 @@ def frame_factory():
         *,
         timestamp_ns: int = 1_000_000_000,
         seq: int | None = 7,
-        extra: dict[str, object] | None = None,
         data: np.ndarray | None = None,
         dtype: np.dtype[Any] | type[np.generic] | type[object] | None = None,
         channel_count: int | None = None,
@@ -80,11 +79,10 @@ def frame_factory():
 
         return FrameEnvelope(
             device_id=descriptor.device_id,
-            modality=descriptor.modality,
+            stream_key=descriptor.stream_key,
             timestamp_ns=timestamp_ns,
             data=data,
             seq=seq,
-            extra={} if extra is None else dict(extra),
         )
 
     return build

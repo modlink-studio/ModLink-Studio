@@ -48,7 +48,7 @@ class ScrollAreaTransparencyTests(unittest.TestCase):
     def test_preview_settings_panel_does_not_apply_cascading_transparent_widget_rule(self) -> None:
         descriptor = StreamDescriptor(
             device_id="test.01",
-            modality="signal",
+            stream_key="signal",
             payload_type="signal",
             nominal_sample_rate_hz=250.0,
             chunk_size=16,

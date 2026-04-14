@@ -1,100 +1,111 @@
 from __future__ import annotations
 
+import csv
 import json
+from pathlib import Path
+
+import numpy as np
 
 from modlink_core.storage import ExperimentStore, RecordingStore, SessionStore
 
 
-def test_recording_storage_writes_new_recording_root_layout(
+def test_recording_storage_writes_minimal_recording_layout(
     tmp_path,
     descriptor_factory,
     frame_factory,
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=3, channel_names=("f3", "f4"))
     storage = RecordingStore(tmp_path)
-    writer = storage.open_writer(
+
+    recording_id = storage.create_recording(
         {descriptor.stream_id: descriptor},
         recording_label="baseline",
-        started_at_ns=1_700_000_000_123_456_789,
+    )
+    storage.append_frame(
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_700_000_000_123_456_789, seq=1),
     )
 
-    start_summary = writer.start_summary()
-    writer.append_frame(frame_factory(descriptor, timestamp_ns=1_700_000_000_123_456_789, seq=1))
-    stop_summary = writer.finalize(stopped_at_ns=1_700_000_001_123_456_789, status="completed")
+    recording_root = tmp_path / "recordings" / recording_id
+    stream_root = recording_root / "streams" / "demo.01_demo"
+    manifest = json.loads((recording_root / "recording.json").read_text(encoding="utf-8"))
+    stream_manifest = json.loads((stream_root / "stream.json").read_text(encoding="utf-8"))
+    frame_rows = _read_csv_rows(stream_root / "frames.csv")
 
-    assert start_summary.recording_id.startswith("rec_")
-    assert stop_summary.recording_id == start_summary.recording_id
-    assert writer.recording_dir == tmp_path / "recordings" / start_summary.recording_id
-
-    manifest = json.loads((writer.recording_dir / "recording.json").read_text(encoding="utf-8"))
-    assert manifest["recording_id"] == start_summary.recording_id
-    assert manifest["recording_label"] == "baseline"
-    assert manifest["status"] == "completed"
-    assert manifest["streams"] == [
-        {
+    assert recording_id.startswith("rec_")
+    assert manifest == {
+        "recording_id": recording_id,
+        "recording_label": "baseline",
+        "stream_ids": [descriptor.stream_id],
+    }
+    assert stream_manifest == {
+        "stream_id": descriptor.stream_id,
+        "descriptor": {
+            "device_id": descriptor.device_id,
             "stream_id": descriptor.stream_id,
-            "path": "streams/demo.01_demo",
+            "stream_key": descriptor.stream_key,
+            "payload_type": descriptor.payload_type,
+            "nominal_sample_rate_hz": descriptor.nominal_sample_rate_hz,
+            "chunk_size": descriptor.chunk_size,
+            "channel_names": list(descriptor.channel_names),
+            "display_name": descriptor.display_name,
+            "metadata": dict(descriptor.metadata),
+        },
+    }
+    assert frame_rows == [
+        {
+            "frame_index": "1",
+            "timestamp_ns": "1700000000123456789",
+            "seq": "1",
+            "file_name": "000001.npz",
         }
     ]
-    assert (writer.recording_dir / "streams" / "demo.01_demo" / "stream.json").is_file()
-    assert storage.read_recording_manifest(start_summary.recording_id)["recording_id"] == start_summary.recording_id
-    assert storage.read_stream_manifest(start_summary.recording_id, descriptor.stream_id)["stream_id"] == descriptor.stream_id
-    assert storage.read_descriptor_snapshot(start_summary.recording_id)[descriptor.stream_id] == descriptor
-    assert storage.list_recordings() == [manifest]
+    with np.load(stream_root / "frames" / "000001.npz") as archive:
+        assert set(archive.files) == {"data"}
 
 
-def test_recording_store_reads_annotations_and_frames(
+def test_recording_storage_writes_annotations_without_readback_api(
     tmp_path,
     descriptor_factory,
     frame_factory,
 ) -> None:
-    descriptor = descriptor_factory(payload_type="field", chunk_size=2, nominal_sample_rate_hz=20.0)
+    descriptor = descriptor_factory(payload_type="field", chunk_size=2)
     storage = RecordingStore(tmp_path)
-    writer = storage.open_writer(
+    recording_id = storage.create_recording(
         {descriptor.stream_id: descriptor},
         recording_label="replay_case",
-        started_at_ns=1_700_000_000_500_000_000,
-    )
-    frame = frame_factory(
-        descriptor,
-        timestamp_ns=1_700_000_000_500_000_000,
-        seq=17,
-        extra={"stage": "baseline"},
-        channel_count=2,
-        height=3,
-        width=4,
     )
 
-    writer.append_frame(frame)
-    writer.add_marker(timestamp_ns=1_700_000_000_500_000_123, label="start")
-    writer.add_segment(
-        start_ns=1_700_000_000_500_000_123,
-        end_ns=1_700_000_000_600_000_123,
-        label="segment_a",
+    storage.append_frame(
+        recording_id,
+        frame_factory(
+            descriptor,
+            timestamp_ns=1_700_000_000_500_000_000,
+            seq=17,
+            channel_count=2,
+            height=3,
+            width=4,
+        ),
     )
-    summary = writer.finalize(stopped_at_ns=1_700_000_001_500_000_000, status="completed")
+    storage.add_marker(recording_id, 1_700_000_000_500_000_123, "start")
+    storage.add_segment(
+        recording_id,
+        1_700_000_000_500_000_123,
+        1_700_000_000_600_000_123,
+        "segment_a",
+    )
 
-    assert storage.read_markers(summary.recording_id) == [
-        {"timestamp_ns": 1_700_000_000_500_000_123, "label": "start"}
+    recording_root = tmp_path / "recordings" / recording_id
+    assert _read_csv_rows(recording_root / "annotations" / "markers.csv") == [
+        {"timestamp_ns": "1700000000500000123", "label": "start"}
     ]
-    assert storage.read_segments(summary.recording_id) == [
+    assert _read_csv_rows(recording_root / "annotations" / "segments.csv") == [
         {
-            "start_ns": 1_700_000_000_500_000_123,
-            "end_ns": 1_700_000_000_600_000_123,
+            "start_ns": "1700000000500000123",
+            "end_ns": "1700000000600000123",
             "label": "segment_a",
         }
     ]
-
-    restored_frames = list(storage.iter_stream_frames(summary.recording_id, descriptor.stream_id))
-    assert len(restored_frames) == 1
-    restored = restored_frames[0]
-    assert restored.stream_id == descriptor.stream_id
-    assert restored.timestamp_ns == frame.timestamp_ns
-    assert restored.seq == 17
-    assert restored.extra == {"stage": "baseline"}
-    assert restored.data.dtype == frame.data.dtype
-    assert restored.data.shape == frame.data.shape
-    assert restored.data.tolist() == frame.data.tolist()
 
 
 def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) -> None:
@@ -157,3 +168,8 @@ def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -
     }
     assert storage.read_experiment(experiment_id) == payload
     assert storage.list_experiments() == [payload]
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))

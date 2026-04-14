@@ -49,7 +49,7 @@ class PreviewViewSettingsTypeTests(unittest.TestCase):
     def _descriptor(payload_type: str) -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test.01",
-            modality=payload_type,
+            stream_key=payload_type,
             payload_type=payload_type,
             nominal_sample_rate_hz=60.0,
             chunk_size=4,

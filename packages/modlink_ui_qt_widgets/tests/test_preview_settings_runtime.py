@@ -109,10 +109,10 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         shutil.rmtree(self._temp_dir, ignore_errors=True)
 
     @staticmethod
-    def _descriptor(modality: str, payload_type: str) -> StreamDescriptor:
+    def _descriptor(stream_key: str, payload_type: str) -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test.01",
-            modality=modality,
+            stream_key=stream_key,
             payload_type=payload_type,
             nominal_sample_rate_hz=60.0,
             chunk_size=4,

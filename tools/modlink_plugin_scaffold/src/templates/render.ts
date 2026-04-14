@@ -55,7 +55,7 @@ function renderDescriptor(stream: StreamSpec): string {
     : "";
   return `StreamDescriptor(
                 device_id=self.device_id,
-                modality="${stream.modality}",
+                stream_key="${stream.streamKey}",
                 payload_type="${stream.payloadType}",
                 nominal_sample_rate_hz=${stream.sampleRateHz},
                 chunk_size=${stream.chunkSize},
@@ -108,7 +108,7 @@ export function renderDriverPy(spec: DriverSpec): string {
   const descriptors = spec.streams.map(renderDescriptor).join(",\n");
   const shapeLines = spec.streams
     .map(
-      (stream) => `# - ${stream.modality} (${stream.payloadType}): ${renderExpectedShape(stream)}`,
+      (stream) => `# - ${stream.streamKey} (${stream.payloadType}): ${renderExpectedShape(stream)}`,
     )
     .join("\n");
 
@@ -173,21 +173,19 @@ ${descriptors}
 
     def emit_frame(
         self,
-        modality: str,
+        stream_key: str,
         data: np.ndarray,
         *,
         timestamp_ns: int | None = None,
         seq: int | None = None,
-        extra: dict[str, object] | None = None,
     ) -> None:
         super().emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
-                modality=modality,
+                stream_key=stream_key,
                 timestamp_ns=time.time_ns() if timestamp_ns is None else int(timestamp_ns),
                 data=np.ascontiguousarray(data),
                 seq=self._seq if seq is None else int(seq),
-                extra={} if extra is None else dict(extra),
             )
         )
 
@@ -261,7 +259,7 @@ export function renderReadme(spec: DriverSpec, language: Language): string {
   const streamLines = spec.streams
     .map(
       (stream) =>
-        `- **${stream.displayName}**: modality=\`${stream.modality}\` | payload=\`${stream.payloadType}\` | rate=\`${stream.sampleRateHz}\` | chunk=\`${stream.chunkSize}\` | shape=\`${renderExpectedShape(stream)}\``,
+        `- **${stream.displayName}**: stream_key=\`${stream.streamKey}\` | payload=\`${stream.payloadType}\` | rate=\`${stream.sampleRateHz}\` | chunk=\`${stream.chunkSize}\` | shape=\`${renderExpectedShape(stream)}\``,
     )
     .join("\n");
 
@@ -414,7 +412,7 @@ def test_create_driver_returns_ready_instance() -> None:
 
     descriptors = driver.descriptors()
     assert len(descriptors) == ${spec.streams.length}
-    assert descriptors[0].modality == "${firstStream?.modality ?? "stream_1"}"
+    assert descriptors[0].stream_key == "${firstStream?.streamKey ?? "stream_1"}"
 `;
 }
 

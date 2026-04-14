@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .utils import make_stream_id, normalize_device_id, normalize_modality
+from .utils import make_stream_id, normalize_device_id, normalize_stream_key
 
 type PayloadType = Literal["signal", "raster", "field", "video"]
 
@@ -49,8 +49,8 @@ class FrameEnvelope:
     device_id: str
     """Identifier of the device that produced this payload."""
 
-    modality: str
-    """High-level modality label for this payload, such as ``eeg`` or ``video``."""
+    stream_key: str
+    """Device-local stream key for this payload, such as ``eeg`` or ``video``."""
 
     stream_id: str = field(init=False)
     """Derived stable identifier of the stream that produced this payload."""
@@ -67,13 +67,10 @@ class FrameEnvelope:
     seq: int | None = None
     """Optional monotonically increasing sequence number."""
 
-    extra: dict[str, object] = field(default_factory=dict)
-    """Optional extension metadata forwarded unchanged by the host."""
-
     def __post_init__(self) -> None:
         self.device_id = normalize_device_id(self.device_id)
-        self.modality = normalize_modality(self.modality)
-        self.stream_id = make_stream_id(self.device_id, self.modality)
+        self.stream_key = normalize_stream_key(self.stream_key)
+        self.stream_id = make_stream_id(self.device_id, self.stream_key)
 
 
 @dataclass(slots=True)
@@ -87,8 +84,8 @@ class StreamDescriptor:
     device_id: str
     """Stable device identifier in ``name.XX`` form."""
 
-    modality: str
-    """High-level modality label, such as ``eeg``, ``accel``, or ``audio``."""
+    stream_key: str
+    """Device-local stream key, such as ``eeg``, ``accel``, or ``audio``."""
 
     stream_id: str = field(init=False)
     """Derived stable identifier for this stream."""
@@ -113,6 +110,6 @@ class StreamDescriptor:
 
     def __post_init__(self) -> None:
         self.device_id = normalize_device_id(self.device_id)
-        self.modality = normalize_modality(self.modality)
-        self.stream_id = make_stream_id(self.device_id, self.modality)
+        self.stream_key = normalize_stream_key(self.stream_key)
+        self.stream_id = make_stream_id(self.device_id, self.stream_key)
         self.metadata = dict(self.metadata)

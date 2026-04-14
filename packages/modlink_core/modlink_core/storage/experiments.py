@@ -51,7 +51,7 @@ class ExperimentStore:
     def read_experiment(self, experiment_id: str) -> dict[str, Any]:
         return read_json(experiment_manifest_path(self.root_dir, experiment_id))
 
-    def write_experiment(self, experiment_id: str, payload: dict[str, Any]) -> None:
+    def _write_experiment(self, experiment_id: str, payload: dict[str, Any]) -> None:
         normalized = dict(payload)
         normalized["schema_version"] = SCHEMA_VERSION
         normalized["experiment_id"] = experiment_id
@@ -82,4 +82,4 @@ class ExperimentStore:
         if session_id not in session_ids:
             session_ids.append(session_id)
         payload["updated_at_ns"] = int(time_ns() if updated_at_ns is None else updated_at_ns)
-        self.write_experiment(experiment_id, payload)
+        self._write_experiment(experiment_id, payload)

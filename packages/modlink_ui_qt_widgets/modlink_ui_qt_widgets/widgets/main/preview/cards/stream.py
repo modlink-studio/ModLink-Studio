@@ -85,7 +85,7 @@ class StreamPreviewCard(SimpleCardWidget):
         channel_count = len(descriptor.channel_names)
         parts = [
             descriptor.payload_type,
-            descriptor.modality,
+            descriptor.stream_key,
             f"{channel_count} ch",
             f"{sample_rate:.1f} Hz",
         ]

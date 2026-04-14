@@ -51,7 +51,7 @@ class SessionStore:
     def read_session(self, session_id: str) -> dict[str, Any]:
         return read_json(session_manifest_path(self.root_dir, session_id))
 
-    def write_session(self, session_id: str, payload: dict[str, Any]) -> None:
+    def _write_session(self, session_id: str, payload: dict[str, Any]) -> None:
         normalized = dict(payload)
         normalized["schema_version"] = SCHEMA_VERSION
         normalized["session_id"] = session_id
@@ -82,4 +82,4 @@ class SessionStore:
         if recording_id not in recording_ids:
             recording_ids.append(recording_id)
         payload["updated_at_ns"] = int(time_ns() if updated_at_ns is None else updated_at_ns)
-        self.write_session(session_id, payload)
+        self._write_session(session_id, payload)

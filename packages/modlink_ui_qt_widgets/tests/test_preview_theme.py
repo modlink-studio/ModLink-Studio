@@ -41,7 +41,7 @@ class PreviewThemeTests(unittest.TestCase):
     def _signal_descriptor() -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test_signal.01",
-            modality="eeg",
+            stream_key="eeg",
             payload_type="signal",
             nominal_sample_rate_hz=256.0,
             chunk_size=16,
@@ -52,7 +52,7 @@ class PreviewThemeTests(unittest.TestCase):
     def _field_descriptor() -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test_field.01",
-            modality="field",
+            stream_key="field",
             payload_type="field",
             nominal_sample_rate_hz=30.0,
             chunk_size=1,
@@ -63,7 +63,7 @@ class PreviewThemeTests(unittest.TestCase):
     def _raster_descriptor() -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test_raster.01",
-            modality="raster",
+            stream_key="raster",
             payload_type="raster",
             nominal_sample_rate_hz=100.0,
             chunk_size=8,

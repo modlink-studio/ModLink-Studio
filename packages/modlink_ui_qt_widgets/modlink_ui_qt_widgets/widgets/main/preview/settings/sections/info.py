@@ -34,7 +34,7 @@ class StreamPreviewInfoPanel(SimpleCardWidget):
         self._add_info_row(
             2,
             "类型",
-            f"{descriptor.payload_type} · {descriptor.modality}",
+            f"{descriptor.payload_type} · {descriptor.stream_key}",
         )
         self._add_info_row(
             3,

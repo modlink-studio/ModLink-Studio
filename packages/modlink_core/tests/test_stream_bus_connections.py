@@ -7,7 +7,6 @@ import time
 import unittest
 from concurrent.futures import Future
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -21,7 +20,6 @@ from modlink_core.events import (
     SettingChangedEvent,
 )
 from modlink_core.settings.service import SettingsService as SettingsServiceType
-from modlink_core.storage import RecordingWriteSession
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 
@@ -139,7 +137,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         manifest = json.loads(
             (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
         )
-        self.assertEqual("failed", manifest["status"])
+        self.assertEqual("overflow_case", manifest["recording_label"])
+        self.assertEqual([_demo_descriptor().stream_id], manifest["stream_ids"])
         self.assertFalse(hasattr(failure_event, "session_name"))
 
         backend.shutdown()
@@ -151,14 +150,9 @@ class StreamBusConnectionTest(unittest.TestCase):
         bus = StreamBus(event_broker=broker)
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
-
-        class FailingAppendWriteSession(RecordingWriteSession):
-            def append_frame(self, frame: FrameEnvelope) -> None:
-                raise RuntimeError("append failed")
-
         with patch(
-            "modlink_core.recording.backend.StorageBackend",
-            side_effect=_build_storage_backend_factory(FailingAppendWriteSession),
+            "modlink_core.recording.backend.RecordingStore.append_frame",
+            side_effect=RuntimeError("append failed"),
         ):
             backend = RecordingBackend(
                 bus,
@@ -176,7 +170,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         manifest = json.loads(
             (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
         )
-        self.assertEqual("failed", manifest["status"])
+        self.assertEqual("write_failure_case", manifest["recording_label"])
+        self.assertEqual([_demo_descriptor().stream_id], manifest["stream_ids"])
         self.assertFalse(
             any(
                 getattr(event, "kind", None) == "acquisition_state_changed"
@@ -184,89 +179,6 @@ class StreamBusConnectionTest(unittest.TestCase):
             )
         )
         backend.shutdown()
-        event_stream.close()
-
-    def test_recording_backend_publishes_failed_recording_on_finalize_error(self) -> None:
-        broker = BackendEventBroker()
-        event_stream = broker.open_stream()
-        bus = StreamBus(event_broker=broker)
-        bus.add_descriptor(_demo_descriptor())
-        settings = _build_settings_service()
-
-        class FailingFinalizeWriteSession(RecordingWriteSession):
-            def finalize(self, *, stopped_at_ns: int, status: str = "completed") -> None:
-                raise RuntimeError("finalize failed")
-
-        with patch(
-            "modlink_core.recording.backend.StorageBackend",
-            side_effect=_build_storage_backend_factory(FailingFinalizeWriteSession),
-        ):
-            backend = RecordingBackend(
-                bus,
-                settings=settings,
-                publish_event=broker.publish,
-            )
-            backend.start()
-            start_future = backend.start_recording("finalize_failure_case")
-            start_summary = start_future.result(1.0)
-            stop_future = backend.stop_recording()
-            failure_event = _wait_for_recording_failed(event_stream, timeout=1.0)
-
-        with self.assertRaisesRegex(RuntimeError, "ACQ_STOP_FAILED: finalize_failed"):
-            stop_future.result(1.0)
-        self.assertEqual("finalize_failed", failure_event.reason)
-        self.assertEqual(start_summary.recording_id, failure_event.recording_id)
-        manifest = json.loads(
-            (Path(failure_event.recording_path) / "recording.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual("failed", manifest["status"])
-        self.assertFalse(
-            any(
-                getattr(event, "kind", None) == "acquisition_state_changed"
-                for event in _drain_events(event_stream, timeout=0.05)
-            )
-        )
-        backend.shutdown()
-        event_stream.close()
-
-    def test_recording_backend_shutdown_propagates_finalize_failure_without_events(self) -> None:
-        broker = BackendEventBroker()
-        event_stream = broker.open_stream()
-        bus = StreamBus(event_broker=broker)
-        bus.add_descriptor(_demo_descriptor())
-        settings = _build_settings_service()
-
-        class FailingFinalizeWriteSession(RecordingWriteSession):
-            def finalize(self, *, stopped_at_ns: int, status: str = "completed") -> None:
-                raise RuntimeError("finalize failed")
-
-        with patch(
-            "modlink_core.recording.backend.StorageBackend",
-            side_effect=_build_storage_backend_factory(FailingFinalizeWriteSession),
-        ):
-            backend = RecordingBackend(
-                bus,
-                settings=settings,
-                publish_event=broker.publish,
-            )
-            backend.start()
-            start_future = backend.start_recording("shutdown_finalize_failure_case")
-            _ = start_future.result(1.0)
-            with self.assertRaisesRegex(RuntimeError, "ACQ_STOP_FAILED: finalize_failed"):
-                backend.shutdown()
-
-        self.assertFalse(
-            any(
-                isinstance(event, RecordingFailedEvent)
-                for event in _drain_events(event_stream, timeout=0.05)
-            )
-        )
-        self.assertFalse(
-            any(
-                getattr(event, "kind", None) == "acquisition_state_changed"
-                for event in _drain_events(event_stream, timeout=0.05)
-            )
-        )
         event_stream.close()
 
     def test_recording_backend_shutdown_timeout_does_not_pretend_stopped(self) -> None:
@@ -313,8 +225,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         recording_dir = Path(stop_summary.recording_path)
         self.assertEqual(recording_dir, Path(settings.get("storage.root_dir")) / "recordings" / stop_summary.recording_id)
         manifest = json.loads((recording_dir / "recording.json").read_text(encoding="utf-8"))
-        self.assertEqual("completed", manifest["status"])
-        self.assertEqual(stop_summary.frame_counts_by_stream, manifest["frame_counts_by_stream"])
+        self.assertEqual("completed_case", manifest["recording_label"])
+        self.assertEqual([_demo_descriptor().stream_id], manifest["stream_ids"])
         events = _drain_events(event_stream, timeout=0.05)
         self.assertFalse(
             any(getattr(event, "kind", None) == "acquisition_state_changed" for event in events)
@@ -424,7 +336,7 @@ class StreamBusConnectionTest(unittest.TestCase):
 def _demo_descriptor() -> StreamDescriptor:
     return StreamDescriptor(
         device_id="demo.01",
-        modality="demo",
+        stream_key="demo",
         payload_type="signal",
         nominal_sample_rate_hz=100.0,
         chunk_size=4,
@@ -435,7 +347,7 @@ def _demo_descriptor() -> StreamDescriptor:
 def _demo_frame(*, seq: int) -> FrameEnvelope:
     return FrameEnvelope(
         device_id="demo.01",
-        modality="demo",
+        stream_key="demo",
         timestamp_ns=time.time_ns(),
         data=np.ones((1, 4), dtype=np.float32),
         seq=seq,
@@ -479,33 +391,6 @@ def _wait_for_recording_failed(stream, *, timeout: float) -> RecordingFailedEven
                 return item
         time.sleep(0.01)
     raise AssertionError("RecordingFailedEvent was not published before timeout")
-
-
-def _build_storage_backend_factory(writer_cls: type[RecordingWriteSession]):
-    class _RecordingStore:
-        def __init__(self, root_dir: Path) -> None:
-            self._root_dir = Path(root_dir)
-
-        def open_writer(
-            self,
-            recording_descriptors: dict[str, StreamDescriptor],
-            *,
-            recording_label: str | None = None,
-            started_at_ns: int | None = None,
-            recording_id: str | None = None,
-        ) -> RecordingWriteSession:
-            return writer_cls(
-                self._root_dir,
-                recording_label=recording_label,
-                recording_descriptors=recording_descriptors,
-                started_at_ns=int(time.time_ns() if started_at_ns is None else started_at_ns),
-                recording_id=recording_id,
-            )
-
-    def _factory(root_dir: Path) -> SimpleNamespace:
-        return SimpleNamespace(recordings=_RecordingStore(Path(root_dir)))
-
-    return _factory
 
 
 def _build_settings_service() -> SettingsServiceType:

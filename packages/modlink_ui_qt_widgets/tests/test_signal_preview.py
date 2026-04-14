@@ -119,7 +119,7 @@ class SignalViewGeometryTests(unittest.TestCase):
     def _descriptor() -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test.01",
-            modality="eeg",
+            stream_key="eeg",
             payload_type="signal",
             nominal_sample_rate_hz=256.0,
             chunk_size=16,

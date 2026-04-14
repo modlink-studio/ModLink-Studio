@@ -161,13 +161,13 @@ export function getRowsForSection(
       zone: "stream-action",
     },
     {
-      key: "streams.modality",
+      key: "streams.streamKey",
       kind: "text",
-      label: copy.streamModalityLabel,
-      value: selectedStream.modality,
-      description: descriptionFor("streams.modality"),
+      label: copy.streamKeyLabel,
+      value: selectedStream.streamKey,
+      description: descriptionFor("streams.streamKey"),
       zone: "stream-basic",
-      error: errorFor(validation, `${streamPrefix}.modality`),
+      error: errorFor(validation, `${streamPrefix}.streamKey`),
     },
     {
       key: "streams.displayName",

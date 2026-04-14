@@ -32,7 +32,7 @@ class ApiDemoDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=10.0,
                 chunk_size=4,
@@ -74,7 +74,7 @@ class ApiDemoDriver(Driver):
         return self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 timestamp_ns=123,
                 data=np.ascontiguousarray([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32),
                 seq=seq,
@@ -147,6 +147,10 @@ def test_http_driver_endpoints_and_error_mapping(settings: SettingsService) -> N
         start = client.post(f"/drivers/{driver.device_id}/start-streaming")
         assert start.status_code == 200
 
+        descriptors = client.get("/streams/descriptors")
+        assert descriptors.status_code == 200
+        assert descriptors.json()[driver.descriptors()[0].stream_id]["stream_key"] == "demo"
+
         snapshot = client.get(f"/drivers/{driver.device_id}")
         assert snapshot.status_code == 200
         assert snapshot.json()["is_connected"] is True
@@ -169,12 +173,12 @@ def test_http_acquisition_settings_and_timeout_mapping(settings: SettingsService
         assert acquisition.status_code == 200
         assert acquisition.json()["state"] == "idle"
 
-        invalid_recording = client.post(
+        start_recording = client.post(
             "/acquisition/start-recording",
-            json={"session_name": "   ", "recording_label": None},
+            json={"recording_label": None},
         )
-        assert invalid_recording.status_code == 409
-        assert invalid_recording.json()["error"]["type"] == "RuntimeError"
+        assert start_recording.status_code == 200
+        assert start_recording.json() == {"ok": True}
 
         timeout_search = client.post(
             "/drivers/timeout_demo.01/search",
@@ -274,10 +278,12 @@ def test_websocket_frames_stream_encodes_signal_frame(settings: SettingsService)
 
     assert payload["kind"] == "frame"
     assert payload["stream_id"] == stream_id
+    assert payload["stream_key"] == "demo"
     assert payload["payload_type"] == "signal"
     assert payload["seq"] == 7
     assert payload["dtype"] == "float32"
     assert payload["shape"] == [1, 4]
+    assert "extra" not in payload
 
 
 def _read_sse_event(lines) -> tuple[str, dict[str, object]]:

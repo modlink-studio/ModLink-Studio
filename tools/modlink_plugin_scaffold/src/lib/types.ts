@@ -13,7 +13,7 @@ export type UiRowZone =
   | "stream-payload";
 
 export interface StreamDraft {
-  modality: string;
+  streamKey: string;
   displayName: string;
   payloadType: PayloadType;
   sampleRateHz: string;
@@ -41,7 +41,7 @@ export interface Draft {
 }
 
 export interface StreamSpec {
-  modality: string;
+  streamKey: string;
   displayName: string;
   payloadType: PayloadType;
   sampleRateHz: number;

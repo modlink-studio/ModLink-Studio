@@ -294,7 +294,7 @@ const StreamDetailsPane = React.memo(function StreamDetailsPane({
         <Text color="yellow" bold>
           [{copy.streamDetailsTitle}]
         </Text>
-        <Text dimColor> {currentStream.displayName || currentStream.modality}</Text>
+        <Text dimColor> {currentStream.displayName || currentStream.streamKey}</Text>
         <Text dimColor> · {copy.payloadOptions[currentStream.payloadType]}</Text>
       </Text>
       {renderGroup(

@@ -99,7 +99,7 @@
 最关键的字段有：
 
 - `device_id`
-- `modality`
+- `stream_key`
 - `payload_type`
 - `nominal_sample_rate_hz`
 - `chunk_size`

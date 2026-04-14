@@ -40,7 +40,7 @@ class DemoLoopDriver(LoopDriver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=100.0,
                 chunk_size=4,
@@ -69,7 +69,7 @@ class DemoLoopDriver(LoopDriver):
         self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 timestamp_ns=time.time_ns(),
                 data=np.ones((1, 4), dtype=np.float32) * self._seq,
                 seq=self._seq,
@@ -94,7 +94,7 @@ class DemoDisconnectingDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,
@@ -155,7 +155,7 @@ class DemoLateEmitLoopDriver(LoopDriver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,
@@ -185,7 +185,7 @@ class DemoLateEmitLoopDriver(LoopDriver):
         self.late_emit_result = self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 timestamp_ns=time.time_ns(),
                 data=np.ones((1, 1), dtype=np.float32),
                 seq=999,
@@ -205,7 +205,7 @@ class DemoFailingStartupDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,
@@ -250,7 +250,7 @@ class DemoImmediateEmitDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,
@@ -273,7 +273,7 @@ class DemoImmediateEmitDriver(Driver):
         self.last_emit_result = self.emit_frame(
             FrameEnvelope(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 timestamp_ns=time.time_ns(),
                 data=np.ones((1, 1), dtype=np.float32),
                 seq=1,
@@ -302,7 +302,7 @@ class DemoLifecycleHookDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,
@@ -419,7 +419,7 @@ class DemoHangingStartupDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=1.0,
                 chunk_size=1,

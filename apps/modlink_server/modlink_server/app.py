@@ -56,7 +56,6 @@ class ConnectRequest(BaseModel):
 
 
 class StartRecordingRequest(BaseModel):
-    session_name: str
     recording_label: str | None = None
 
 
@@ -200,10 +199,7 @@ def create_app(
     ) -> dict[str, bool]:
         engine = _engine(request)
         await _await_future(
-            engine.recording.start_recording(
-                session_name=body.session_name,
-                recording_label=body.recording_label,
-            )
+            engine.recording.start_recording(recording_label=body.recording_label)
         )
         return {"ok": True}
 
@@ -350,14 +346,13 @@ def _frame_payload(engine: ModLinkEngine, frame: Any) -> dict[str, Any]:
         "kind": "frame",
         "stream_id": frame.stream_id,
         "device_id": frame.device_id,
-        "modality": frame.modality,
+        "stream_key": frame.stream_key,
         "payload_type": descriptor.payload_type if descriptor is not None else None,
         "timestamp_ns": frame.timestamp_ns,
         "seq": frame.seq,
         "dtype": str(frame.data.dtype),
         "shape": list(frame.data.shape),
         "data_base64": base64.b64encode(frame.data.tobytes(order="C")).decode("ascii"),
-        "extra": jsonable_encoder(frame.extra),
     }
 
 

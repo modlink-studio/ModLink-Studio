@@ -106,7 +106,7 @@ class EmptyStateTests(unittest.TestCase):
     def _descriptor() -> StreamDescriptor:
         return StreamDescriptor(
             device_id="test.01",
-            modality="video",
+            stream_key="video",
             payload_type="video",
             nominal_sample_rate_hz=30.0,
             chunk_size=1,

@@ -169,7 +169,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 宿主会在连接前就调用 `descriptors()`，因此这里返回的信息应该在 driver 生命周期内保持稳定。
 
-先明确一件事：`stream_id` 不是手写字段，而是由 `device_id + modality` 自动派生出来的。  
+先明确一件事：`stream_id` 不是手写字段，而是由 `device_id + stream_key` 自动派生出来的。
 因此真正需要你决定的是下面这些字段。
 
 #### 强约束字段
@@ -179,8 +179,8 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 - `device_id`
   这是这个流所属的设备实例标识，必须满足 `name.XX` 形式，例如 `host_camera.01`。
   它会直接参与 `stream_id` 的生成。如果这个值变了，系统会把它视为另一个流。
-- `modality`
-  这是流的高层模态标签，例如 `eeg`、`audio`、`video`、`accel`。
+- `stream_key`
+  这是设备内唯一的流键，例如 `eeg`、`audio`、`video`、`accel`。
   它同样会参与 `stream_id` 的生成，因此应该使用稳定、可复用的名字，而不是临时描述。
 - `payload_type`
   这个字段不能任意写，当前只能从这四个值里选：
@@ -250,7 +250,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 
 实际接入时最重要的约束有三条：
 
-- `device_id + modality` 会派生出 `stream_id`，它必须能对应到某个 `StreamDescriptor`
+- `device_id + stream_key` 会派生出 `stream_id`，它必须能对应到某个 `StreamDescriptor`
 - `data` 的 shape 必须和该流的约定一致
 - `timestamp_ns` 需要有真实时间语义，不能只是随手填值
 
@@ -392,10 +392,10 @@ name.XX
 
 ### `stream_id`
 
-当前约定由 `device_id + modality` 自动派生：
+当前约定由 `device_id + stream_key` 自动派生：
 
 ```text
-{device_id}:{modality}
+{device_id}:{stream_key}
 ```
 
 例如：

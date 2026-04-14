@@ -40,7 +40,7 @@ class PreviewDemoDriver(Driver):
         return [
             StreamDescriptor(
                 device_id=self.device_id,
-                modality="demo",
+                stream_key="demo",
                 payload_type="signal",
                 nominal_sample_rate_hz=20.0,
                 chunk_size=4,
@@ -76,7 +76,7 @@ def qapp() -> QCoreApplication:
 def _signal_descriptor() -> StreamDescriptor:
     return StreamDescriptor(
         device_id="signal_demo.01",
-        modality="eeg",
+        stream_key="eeg",
         payload_type="signal",
         nominal_sample_rate_hz=100.0,
         chunk_size=4,
@@ -87,7 +87,7 @@ def _signal_descriptor() -> StreamDescriptor:
 def _raster_descriptor() -> StreamDescriptor:
     return StreamDescriptor(
         device_id="raster_demo.01",
-        modality="raster",
+        stream_key="raster",
         payload_type="raster",
         nominal_sample_rate_hz=50.0,
         chunk_size=2,
@@ -98,7 +98,7 @@ def _raster_descriptor() -> StreamDescriptor:
 def _field_descriptor() -> StreamDescriptor:
     return StreamDescriptor(
         device_id="field_demo.01",
-        modality="field",
+        stream_key="field",
         payload_type="field",
         nominal_sample_rate_hz=10.0,
         chunk_size=1,
@@ -109,7 +109,7 @@ def _field_descriptor() -> StreamDescriptor:
 def _video_descriptor() -> StreamDescriptor:
     return StreamDescriptor(
         device_id="video_demo.01",
-        modality="video",
+        stream_key="video",
         payload_type="video",
         nominal_sample_rate_hz=30.0,
         chunk_size=1,
@@ -122,7 +122,7 @@ def test_signal_controller_flush_and_settings(qapp: QCoreApplication) -> None:
     controller = SignalStreamController(_signal_descriptor())
     frame = FrameEnvelope(
         device_id="signal_demo.01",
-        modality="eeg",
+        stream_key="eeg",
         timestamp_ns=123,
         data=np.asarray([[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]], dtype=np.float32),
         seq=1,
@@ -163,7 +163,7 @@ def test_raster_field_and_video_controllers_emit_images(qapp: QCoreApplication) 
     raster.push_frame(
         FrameEnvelope(
             device_id="raster_demo.01",
-            modality="raster",
+            stream_key="raster",
             timestamp_ns=1,
             data=np.asarray([[[0.0, 1.0, 2.0], [2.0, 1.0, 0.0]]], dtype=np.float32),
             seq=1,
@@ -172,7 +172,7 @@ def test_raster_field_and_video_controllers_emit_images(qapp: QCoreApplication) 
     field.push_frame(
         FrameEnvelope(
             device_id="field_demo.01",
-            modality="field",
+            stream_key="field",
             timestamp_ns=1,
             data=np.asarray([[[[0.1, 0.5], [0.9, 0.3]]]], dtype=np.float32),
             seq=1,
@@ -181,7 +181,7 @@ def test_raster_field_and_video_controllers_emit_images(qapp: QCoreApplication) 
     video.push_frame(
         FrameEnvelope(
             device_id="video_demo.01",
-            modality="video",
+            stream_key="video",
             timestamp_ns=1,
             data=np.asarray(
                 [
@@ -326,7 +326,7 @@ def test_main_page_preview_items_stay_stable_during_flush(
 
     frame = FrameEnvelope(
         device_id=descriptor.device_id,
-        modality=descriptor.modality,
+        stream_key=descriptor.stream_key,
         timestamp_ns=123,
         data=np.asarray([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32),
         seq=1,

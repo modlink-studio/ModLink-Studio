@@ -19,7 +19,7 @@ const stringSchema = z.string();
 export function createDefaultStream(index: number): StreamDraft {
   const labelIndex = index + 1;
   return {
-    modality: `stream_${labelIndex}`,
+    streamKey: `stream_${labelIndex}`,
     displayName: `Stream ${labelIndex}`,
     payloadType: "signal",
     sampleRateHz: "250",
@@ -220,10 +220,10 @@ function validateStream(
 ): StreamSpec | null {
   const copy = getCopy(language);
   const prefix = `streams.${index}`;
-  const modality = normalizeToken(stream.modality);
+  const streamKey = normalizeToken(stream.streamKey);
 
-  if (!modality) {
-    fieldErrors[`${prefix}.modality`] = copy.modalityError;
+  if (!streamKey) {
+    fieldErrors[`${prefix}.streamKey`] = copy.streamKeyError;
   }
 
   if (!payloadOrder.includes(stream.payloadType)) {
@@ -287,10 +287,10 @@ function validateStream(
   }
 
   return {
-    modality,
+    streamKey,
     displayName:
       stringSchema.parse(stream.displayName).trim() ||
-      `${toTitleWords(modality)} ${copy.defaultStreamName}`,
+      `${toTitleWords(streamKey)} ${copy.defaultStreamName}`,
     payloadType: stream.payloadType,
     sampleRateHz: sampleRateHz ?? 1,
     chunkSize: chunkSize ?? 1,

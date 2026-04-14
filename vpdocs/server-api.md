@@ -240,7 +240,7 @@
 {
   "api_demo.01.demo": {
     "device_id": "api_demo.01",
-    "modality": "demo",
+    "stream_key": "demo",
     "stream_id": "api_demo.01.demo",
     "payload_type": "signal",
     "nominal_sample_rate_hz": 10.0,
@@ -264,7 +264,6 @@
 
 ```json
 {
-  "session_name": "session_001",
   "recording_label": "baseline"
 }
 ```
@@ -279,7 +278,7 @@
 
 常见失败：
 
-- `409`：session name 非法、已经在录制、或当前状态不允许开始录制
+- `409`：已经在录制、或当前状态不允许开始录制
 
 #### `POST /acquisition/stop-recording`
 
@@ -433,12 +432,11 @@ payload 字段：
 
 ```text
 event: recording_failed
-data: {"session_name":"session_001","recording_id":"20260403_120000","recording_path":"D:/Projects/ModLink-Studio/recordings/session_001/20260403_120000","frame_counts_by_stream":{"api_demo.01.demo":128},"reason":"frame_stream_overflow","ts_ns":1770000000000000000,"kind":"recording_failed"}
+data: {"recording_id":"20260403_120000","recording_path":"D:/Projects/ModLink-Studio/recordings/rec_20260403_120000","frame_counts_by_stream":{"api_demo.01:demo":128},"reason":"frame_stream_overflow","ts_ns":1770000000000000000,"kind":"recording_failed"}
 ```
 
 payload 字段：
 
-- `session_name`
 - `recording_id`
 - `recording_path`
 - `frame_counts_by_stream`
@@ -496,16 +494,15 @@ data: {"reason":"event_stream_overflow"}
 ```json
 {
   "kind": "frame",
-  "stream_id": "api_demo.01.demo",
+  "stream_id": "api_demo.01:demo",
   "device_id": "api_demo.01",
-  "modality": "demo",
+  "stream_key": "demo",
   "payload_type": "signal",
   "timestamp_ns": 123,
   "seq": 7,
   "dtype": "float32",
   "shape": [1, 4],
-  "data_base64": "AACAPwAAAEAAAEBAAACAQA==",
-  "extra": {}
+  "data_base64": "AACAPwAAAEAAAEBAAACAQA=="
 }
 ```
 
@@ -514,14 +511,13 @@ data: {"reason":"event_stream_overflow"}
 - `kind`：当前固定为 `"frame"`
 - `stream_id`
 - `device_id`
-- `modality`
+- `stream_key`
 - `payload_type`
 - `timestamp_ns`
 - `seq`
 - `dtype`
 - `shape`
 - `data_base64`
-- `extra`
 
 编码规则固定为：
 
