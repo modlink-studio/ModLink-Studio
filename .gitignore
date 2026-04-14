@@ -28,9 +28,6 @@ data/
 tmp/
 .tmp-tests/
 *.egg-info/
-packages/modlink_core/tests/_tmp_runtime/
-packages/modlink_core/tests/_tmp_runtime_dbg/
-packages/modlink_core/tests/_tmp_runtime_dbg2/
 
 # OS / editor / local tool settings
 .DS_Store
@@ -40,5 +37,4 @@ Thumbs.db
 .history/
 .vscode/
 .qwen/
-
 
