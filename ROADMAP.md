@@ -119,24 +119,25 @@ data/
 
 **关键文件改动：**
 
-- `packages/modlink_core/modlink_core/acquisition/storage/manager.py`
+- `packages/modlink_core/modlink_core/storage/`
+  - 作为 shared storage 后端承载 `recording / session / experiment` 的文件持久化
   - 从 `session_{name}` 目录写入模式转为 `recordings/rec_<id>` 原子资产写入模式
   - recording 不再默认绑定 experiment/session 目录层级
-  - 写入 recording 级 manifest 和单流 manifest
+  - 写入 recording 级 manifest 和单流 manifest，并为 replay 预留读取接口
 
 - `packages/modlink_core/modlink_core/` 新增 `experiment/` 模块
   - `protocol.py` — 协议定义（阶段列表、每阶段参数、预期时长）
   - `session.py` — 会话数据模型
   - `experiment.py` — 实验数据模型
 
-- `packages/modlink_core/modlink_core/acquisition/` 新增 replay / catalog 能力
+- `packages/modlink_core/modlink_core/recording/` 新增 replay / catalog 能力
   - 负责列出 recordings / sessions / experiments
   - 负责将 recording 重建为可播放的流数据源
   - 负责在 replay 域内承载导出能力，而不是将导出逻辑分散到采集或 UI 层
 
 当前状态：
 
-- `RecordingBackend` 命名收敛进行中：先把当前 Core runtime 中的 `AcquisitionBackend` 语义收拢为 recording，再继续推进 writer / replay / export 的边界重构
+- `modlink_core` 内部的 shared storage 第一阶段已完成：顶层 `modlink_core.storage` 已承载 `RecordingStore / SessionStore / ExperimentStore`，recording 写入路径已切到 `recordings/`，writer 已收敛为单一 `StreamRecordingWriter`，并补齐了 recording manifest、annotations、descriptor snapshot、chunk 读回 `FrameEnvelope` 的基础读取接口；外围 bridge / server / UI 还未跟进
 
 **架构原则：**
 
@@ -170,7 +171,7 @@ class Protocol:
 
 回放放在 0.3.0，是因为它天然属于实验工作流的一部分：录制完成后需要与 marker、segment、session 元数据一起查看和复盘。
 
-- Core 层新增 replay 模块，例如 `packages/modlink_core/modlink_core/acquisition/replay.py`
+- Core 层新增 replay 模块，例如 `packages/modlink_core/modlink_core/recording/replay.py`
 - replay 的最小输入单元是 `recording`
 - 非实验录制与实验内录制都走同一条 replay 路径
 - replay backend 内部分为三层：
@@ -375,11 +376,11 @@ packages/modlink_ai/
 ## 五、当前优先级（按顺序）
 
 1. **敲定多层数据模型（进行中）** — 落定 `recording / session / experiment` 的边界、ID 规则与引用关系
-2. **完成 recording schema 设计（进行中）** — 明确 `recording.json`、单流 `stream.json`、annotations 与 chunk 索引的最小字段集
-3. **实现 recording catalog（待开始）** — 统一列出 recordings / sessions / experiments，作为 UI 和 server 的查询入口
+2. **完成 recording schema 设计（进行中）** — `modlink_core` 内部第一版 `recording.json`、单流 `stream.json`、annotations 与 chunk 索引已经落地，后续还需要结合 catalog / replay 再收 schema
+3. **实现 recording catalog（进行中）** — shared storage 已具备基础 `list/read` 能力，后续继续收口成统一的 recordings / sessions / experiments 查询入口
 4. **实现 replay 核心链路（待开始）** — 基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，先完成播放 / 暂停 / 停止 / 倍速
 5. **设计并实现 export service（待开始）** — 在 replay backend 中支持导出 job、格式选择、进度与结果路径
-6. **推进多模态落盘格式统一（待开始）** — 收敛到统一的 chunked payload + timestamp index 读取路径，降低 replay 特例分支
+6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到单一 `StreamRecordingWriter` + 统一的 chunked payload + timestamp index 主格式，后续继续围绕 replay/export 校正 reader 侧契约
 7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
 8. **保留历史数据导入路径（待开始）** — 通过薄读取层或导入器兼容旧 recording，而不是让旧结构继续塑造新主流程
 

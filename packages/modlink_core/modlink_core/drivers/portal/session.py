@@ -11,7 +11,7 @@ from modlink_sdk import (
     StreamDescriptor,
 )
 
-from ...events import DriverSnapshot
+from ...models import DriverSnapshot
 from .state import DeviceState
 
 

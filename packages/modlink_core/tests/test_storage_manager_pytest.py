@@ -37,6 +37,64 @@ def test_recording_storage_writes_new_recording_root_layout(
         }
     ]
     assert (writer.recording_dir / "streams" / "demo.01_demo" / "stream.json").is_file()
+    assert storage.read_recording_manifest(start_summary.recording_id)["recording_id"] == start_summary.recording_id
+    assert storage.read_stream_manifest(start_summary.recording_id, descriptor.stream_id)["stream_id"] == descriptor.stream_id
+    assert storage.read_descriptor_snapshot(start_summary.recording_id)[descriptor.stream_id] == descriptor
+    assert storage.list_recordings() == [manifest]
+
+
+def test_recording_store_reads_annotations_and_frames(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="field", chunk_size=2, nominal_sample_rate_hz=20.0)
+    storage = RecordingStore(tmp_path)
+    writer = storage.open_writer(
+        {descriptor.stream_id: descriptor},
+        recording_label="replay_case",
+        started_at_ns=1_700_000_000_500_000_000,
+    )
+    frame = frame_factory(
+        descriptor,
+        timestamp_ns=1_700_000_000_500_000_000,
+        seq=17,
+        extra={"stage": "baseline"},
+        channel_count=2,
+        height=3,
+        width=4,
+    )
+
+    writer.append_frame(frame)
+    writer.add_marker(timestamp_ns=1_700_000_000_500_000_123, label="start")
+    writer.add_segment(
+        start_ns=1_700_000_000_500_000_123,
+        end_ns=1_700_000_000_600_000_123,
+        label="segment_a",
+    )
+    summary = writer.finalize(stopped_at_ns=1_700_000_001_500_000_000, status="completed")
+
+    assert storage.read_markers(summary.recording_id) == [
+        {"timestamp_ns": 1_700_000_000_500_000_123, "label": "start"}
+    ]
+    assert storage.read_segments(summary.recording_id) == [
+        {
+            "start_ns": 1_700_000_000_500_000_123,
+            "end_ns": 1_700_000_000_600_000_123,
+            "label": "segment_a",
+        }
+    ]
+
+    restored_frames = list(storage.iter_stream_frames(summary.recording_id, descriptor.stream_id))
+    assert len(restored_frames) == 1
+    restored = restored_frames[0]
+    assert restored.stream_id == descriptor.stream_id
+    assert restored.timestamp_ns == frame.timestamp_ns
+    assert restored.seq == 17
+    assert restored.extra == {"stage": "baseline"}
+    assert restored.data.dtype == frame.data.dtype
+    assert restored.data.shape == frame.data.shape
+    assert restored.data.tolist() == frame.data.tolist()
 
 
 def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) -> None:
@@ -65,6 +123,8 @@ def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) ->
         "recording_ids": ["rec_a", "rec_b"],
         "metadata": {"operator": "alice"},
     }
+    assert storage.read_session(session_id) == payload
+    assert storage.list_sessions() == [payload]
 
 
 def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -> None:
@@ -95,3 +155,5 @@ def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -
         "session_ids": ["ses_a", "ses_b"],
         "metadata": {"study": "visual"},
     }
+    assert storage.read_experiment(experiment_id) == payload
+    assert storage.list_experiments() == [payload]

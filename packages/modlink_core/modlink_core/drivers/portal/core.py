@@ -11,8 +11,8 @@ from ...events import (
     BackendEvent,
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
-    DriverSnapshot,
 )
+from ...models import DriverSnapshot
 from .executor import DriverExecutor
 from .session import DriverSession
 from .state import DeviceState

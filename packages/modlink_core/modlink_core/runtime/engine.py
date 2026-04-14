@@ -6,14 +6,11 @@ from typing import Any
 
 from modlink_sdk import DriverFactory
 
-from ..acquisition import RecordingBackend
+from ..recording import RecordingBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
 from ..event_stream import BackendEventBroker, EventStream
-from ..events import (
-    RecordingSnapshot,
-    DriverSnapshot,
-)
+from ..models import DriverSnapshot, RecordingSnapshot
 from ..settings import SettingsService
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
