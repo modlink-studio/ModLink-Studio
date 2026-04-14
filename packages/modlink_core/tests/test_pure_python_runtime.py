@@ -12,7 +12,7 @@ from uuid import uuid4
 import numpy as np
 
 from modlink_core import ModLinkEngine
-from modlink_core.acquisition import RecordingBackend
+from modlink_core.recording import RecordingBackend
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
@@ -874,7 +874,7 @@ def _build_settings_service() -> SettingsService:
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsService(path=path)
-    settings.set("acquisition.storage.root_dir", str(temp_dir / "recordings"), persist=False)
+    settings.set("storage.root_dir", str(temp_dir / "data"), persist=False)
     return settings
 
 

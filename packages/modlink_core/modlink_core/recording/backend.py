@@ -15,16 +15,16 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
 from ..event_stream import StreamClosedError
 from ..events import (
-    RecordingSnapshot,
     BackendEvent,
     RecordingFailedEvent,
 )
+from ..models import RecordingSnapshot, RecordingStartSummary, RecordingStopSummary
 from ..settings.service import SettingsService
-from .storage import RecordingStorage
+from ..storage import RecordingWriteSession, StorageBackend
 
-RECORDING_ROOT_DIR_KEY = "acquisition.storage.root_dir"
+STORAGE_ROOT_DIR_KEY = "storage.root_dir"
 RECORDING_CONSUMER_NAME = "recording"
-RecordingCommand = tuple[Callable[[], None], Future[None]]
+RecordingCommand = tuple[Callable[[], None], Future[object]]
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class RecordingBackend:
         self._started = False
         self._accepting_commands = False
         self._worker_exit_error: Exception | None = None
-        self._storage: RecordingStorage | None = None
+        self._storage: RecordingWriteSession | None = None
         self._lock = threading.RLock()
 
     @property
@@ -98,20 +98,15 @@ class RecordingBackend:
         self._started = True
         thread.start()
 
-    def start_recording(
-        self,
-        session_name: str,
-        recording_label: str | None = None,
-    ) -> Future[None]:
+    def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
         return self._submit_command(
             self._start_recording_worker,
             str(self.root_dir),
-            session_name,
             recording_label,
             self._bus.descriptors(),
         )
 
-    def stop_recording(self) -> Future[None]:
+    def stop_recording(self) -> Future[RecordingStopSummary]:
         return self._submit_command(self._stop_recording_worker)
 
     def add_marker(self, label: str | None = None) -> Future[None]:
@@ -225,15 +220,11 @@ class RecordingBackend:
     def _start_recording_worker(
         self,
         root_dir: str,
-        session_name: str,
         recording_label: object,
         recording_descriptors: object,
-    ) -> None:
+    ) -> RecordingStartSummary:
         if self._storage is not None:
             raise RuntimeError("ACQ_ALREADY_RECORDING")
-
-        if not session_name.strip():
-            raise RuntimeError("ACQ_INVALID_SESSION_NAME")
 
         if not isinstance(recording_descriptors, dict) or not all(
             isinstance(value, StreamDescriptor) for value in recording_descriptors.values()
@@ -242,11 +233,9 @@ class RecordingBackend:
 
         started_at_ns = time.time_ns()
         try:
-            self._storage = RecordingStorage(
-                Path(root_dir),
-                session_name=session_name,
+            self._storage = StorageBackend(Path(root_dir)).recordings.open_writer(
+                recording_descriptors,
                 recording_label=recording_label or None,
-                recording_descriptors=recording_descriptors,
                 started_at_ns=started_at_ns,
             )
         except Exception as exc:
@@ -254,11 +243,16 @@ class RecordingBackend:
             raise RuntimeError(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}") from exc
 
         self._set_state("recording")
+        return self._storage.start_summary()
 
-    def _stop_recording_worker(self) -> None:
-        self._stop_recording_worker_with_policy(publish_failure=True)
+    def _stop_recording_worker(self) -> RecordingStopSummary:
+        return self._stop_recording_worker_with_policy(publish_failure=True)
 
-    def _stop_recording_worker_with_policy(self, *, publish_failure: bool) -> None:
+    def _stop_recording_worker_with_policy(
+        self,
+        *,
+        publish_failure: bool,
+    ) -> RecordingStopSummary:
         if self._storage is None:
             raise RuntimeError("ACQ_STOP_IGNORED: not recording")
 
@@ -266,7 +260,7 @@ class RecordingBackend:
         storage = self._storage
         self._storage = None
 
-        failure_reason = self._finalize_recording_storage(
+        summary, failure_reason = self._finalize_recording_storage(
             storage,
             stopped_at_ns=stopped_at_ns,
             status="completed",
@@ -280,6 +274,9 @@ class RecordingBackend:
                     reason=failure_reason,
                 )
             raise RuntimeError(f"ACQ_STOP_FAILED: {failure_reason}")
+        if summary is None:
+            raise RuntimeError("ACQ_STOP_FAILED: finalize_failed")
+        return summary
 
     def _add_marker_worker(self, label: object) -> None:
         if self._storage is None:
@@ -350,7 +347,7 @@ class RecordingBackend:
 
         stopped_at_ns = time.time_ns()
         self._storage = None
-        final_reason = self._finalize_recording_storage(
+        _summary, final_reason = self._finalize_recording_storage(
             storage,
             stopped_at_ns=stopped_at_ns,
             status="failed",
@@ -364,14 +361,13 @@ class RecordingBackend:
 
     def _finalize_recording_storage(
         self,
-        storage: RecordingStorage,
+        storage: RecordingWriteSession,
         *,
         stopped_at_ns: int,
         status: str,
-    ) -> str | None:
+    ) -> tuple[RecordingStopSummary | None, str | None]:
         try:
-            storage.finalize(stopped_at_ns=stopped_at_ns, status=status)
-            return None
+            return storage.finalize(stopped_at_ns=stopped_at_ns, status=status), None
         except Exception:
             logger.exception(
                 "Recording finalize failed for %s (status=%s)",
@@ -386,18 +382,17 @@ class RecordingBackend:
                     storage.recording_dir,
                 )
                 pass
-            return "finalize_failed"
+            return None, "finalize_failed"
 
     def _publish_recording_failed(
         self,
-        storage: RecordingStorage,
+        storage: RecordingWriteSession,
         *,
         stopped_at_ns: int,
         reason: str,
     ) -> None:
         self._publish_event(
             RecordingFailedEvent(
-                session_name=storage.session_name,
                 recording_id=storage.recording_id,
                 recording_path=str(storage.recording_dir),
                 frame_counts_by_stream=storage.frame_counts_by_stream,
@@ -414,10 +409,10 @@ class RecordingBackend:
 
     def _submit_command(
         self,
-        worker_method: Callable[..., None],
+        worker_method: Callable[..., object],
         *args: object,
-    ) -> Future[None]:
-        future: Future[None] = Future()
+    ) -> Future[object]:
+        future: Future[object] = Future()
         if not self.is_started:
             future.set_exception(RuntimeError("ACQ_NOT_STARTED"))
             return future
@@ -427,13 +422,13 @@ class RecordingBackend:
 
         def _run_command() -> None:
             try:
-                worker_method(*args)
+                result = worker_method(*args)
             except Exception as exc:
                 if not future.done():
                     future.set_exception(exc)
                 return
             if not future.done():
-                future.set_result(None)
+                future.set_result(result)
 
         self._command_queue.put((_run_command, future))
         return future
@@ -475,7 +470,7 @@ def _default_root_dir() -> Path:
 
 
 def _resolve_root_dir(settings: SettingsService) -> Path:
-    root_dir = settings.get(RECORDING_ROOT_DIR_KEY)
+    root_dir = settings.get(STORAGE_ROOT_DIR_KEY)
     if root_dir is None:
         return _default_root_dir()
     return Path(root_dir)

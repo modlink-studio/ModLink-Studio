@@ -5,16 +5,19 @@ import json
 import numpy as np
 import pytest
 
-from modlink_core.acquisition.storage.utils import (
+from modlink_core.storage.io import (
     atomic_write_text,
+    to_json_text,
+    to_json_value,
+    read_json,
+    write_json,
+    write_npz,
+)
+from modlink_core.storage.recordings import (
     declared_chunk_size,
     descriptor_to_dict,
     nominal_sample_rate_hz,
     normalize_data_array,
-    to_json_text,
-    to_json_value,
-    write_json,
-    write_npz,
 )
 
 
@@ -134,7 +137,7 @@ def test_write_json_persists_sorted_payload_without_temp_residue(tmp_path) -> No
 
     write_json(target, {"b": 2, "a": {"value": 1}})
 
-    assert json.loads(target.read_text(encoding="utf-8")) == {"a": {"value": 1}, "b": 2}
+    assert read_json(target) == {"a": {"value": 1}, "b": 2}
     assert target.read_text(encoding="utf-8").endswith("\n")
     assert not list(tmp_path.rglob("*.tmp"))
 
