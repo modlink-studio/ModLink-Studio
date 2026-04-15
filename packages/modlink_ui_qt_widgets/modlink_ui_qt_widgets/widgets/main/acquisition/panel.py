@@ -301,7 +301,6 @@ class SharedAcquisitionPanel(QWidget):
         is_recording = self.view_model.is_recording
         is_segment_active = self.view_model.is_segment_active
 
-        self.session_name_input.setEnabled(not is_recording)
         if self.recording_label_combo is not None:
             self.recording_label_combo.setEnabled(not is_recording)
 
@@ -323,7 +322,6 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
 
         state = self.view_model.state
         (
-            session_name_state,
             recording_label_state,
             marker_label_state,
             segment_label_state,
@@ -345,14 +343,6 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
 
         self.output_directory_hint = self._create_output_directory_hint(self)
 
-        session_name_field = LabeledField(
-            session_name_state,
-            header_suffix=self.output_directory_hint,
-            parent=self,
-        )
-        self.session_name_input = session_name_field.input
-        self._bind_line_edit(self.session_name_input, session_name_state.key)
-
         self.recording_label_combo = LazyRefreshComboBox(
             self._refresh_recording_label_options,
             self,
@@ -361,6 +351,7 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
         self.recording_label_combo.setPlaceholderText(recording_label_state.placeholder)
         recording_label_field = LabeledComboField(
             recording_label_state.label,
+            header_suffix=self.output_directory_hint,
             input_widget=self.recording_label_combo,
             parent=self,
         )
@@ -374,10 +365,9 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
         self.segment_label_input = segment_label_field.input
         self._bind_line_edit(self.segment_label_input, segment_label_state.key)
 
-        form_grid.addWidget(session_name_field, 0, 0)
-        form_grid.addWidget(recording_label_field, 0, 1)
-        form_grid.addWidget(marker_label_field, 1, 0)
-        form_grid.addWidget(segment_label_field, 1, 1)
+        form_grid.addWidget(recording_label_field, 0, 0)
+        form_grid.addWidget(marker_label_field, 0, 1)
+        form_grid.addWidget(segment_label_field, 1, 0)
 
         action_grid = QGridLayout()
         action_grid.setContentsMargins(0, 0, 0, 0)
@@ -435,7 +425,6 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
         self.sync_from_view_model()
 
     def sync_from_view_model(self) -> None:
-        self._sync_line_edit(self.session_name_input, "session_name")
         self._refresh_recording_label_options()
         self._sync_line_edit(self.marker_label_input, "marker_label")
         self._sync_line_edit(self.segment_label_input, "segment_label")
@@ -460,7 +449,6 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
 
         state = self.view_model.state
         (
-            session_name_state,
             recording_label_state,
             marker_label_state,
             segment_label_state,
@@ -474,16 +462,6 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
         root_layout = QHBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(8)
-
-        self.session_name_input = LineEdit(self)
-        self.session_name_input.setPlaceholderText(session_name_state.label)
-        self.session_name_input.setClearButtonEnabled(True)
-        self.session_name_input.setFixedHeight(34)
-        self.session_name_input.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
-        )
-        self._bind_line_edit(self.session_name_input, session_name_state.key)
 
         self.recording_label_combo = LazyRefreshComboBox(
             self._refresh_recording_label_options,
@@ -529,7 +507,6 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
         self.toggle_recording_button.setFixedSize(34, 34)
         self.toggle_recording_button.clicked.connect(self.view_model.request_toggle_recording)
 
-        root_layout.addWidget(self.session_name_input, 1)
         root_layout.addWidget(self.recording_label_combo, 1)
         root_layout.addWidget(self.annotation_label_input, 1)
         root_layout.addWidget(self.insert_marker_button)
@@ -555,7 +532,6 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
         self.annotation_label_input.blockSignals(was_blocked)
 
     def sync_from_view_model(self) -> None:
-        self._sync_line_edit(self.session_name_input, "session_name")
         self._refresh_recording_label_options()
         self._sync_compact_annotation_value()
         self._sync_interaction_state()

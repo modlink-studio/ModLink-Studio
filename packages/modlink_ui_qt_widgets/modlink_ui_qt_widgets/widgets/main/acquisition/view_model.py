@@ -69,7 +69,6 @@ class AcquisitionPanelState:
 
 @dataclass(slots=True)
 class AcquisitionFormValues:
-    session_name: str = ""
     recording_label: str = ""
     marker_label: str = ""
     segment_label: str = ""
@@ -91,15 +90,13 @@ class AcquisitionViewModel(QObject):
         self.engine = engine
         self._state = self._build_default_state()
         self._values = AcquisitionFormValues(
-            session_name=self._state.fields[0].value,
-            recording_label=self._state.fields[1].value,
-            marker_label=self._state.fields[2].value,
-            segment_label=self._state.fields[3].value,
+            recording_label=self._state.fields[0].value,
+            marker_label=self._state.fields[1].value,
+            segment_label=self._state.fields[2].value,
         )
         self._pending_segment_start_ns: int | None = None
         self._pending_recording_stop_notice = False
         self._last_known_recording_state = self.engine.recording.is_recording
-        self._last_started_session_name = ""
         self._settings = self.engine.settings
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
             self._settings.get(
@@ -109,6 +106,7 @@ class AcquisitionViewModel(QObject):
         )
 
         self.engine.recording.sig_state_changed.connect(self._on_state_changed)
+        self.engine.recording.sig_recording_completed.connect(self._on_recording_completed)
         self.engine.recording.sig_error.connect(self._on_error)
         self.engine.recording.sig_recording_failed.connect(self._on_recording_failed)
 
@@ -132,11 +130,6 @@ class AcquisitionViewModel(QObject):
     def _build_default_state() -> AcquisitionPanelState:
         return AcquisitionPanelState(
             fields=(
-                AcquisitionFieldState(
-                    key="session_name",
-                    label="Session 名称",
-                    placeholder="例如 session_20260324_001",
-                ),
                 AcquisitionFieldState(
                     key="recording_label",
                     label="录制标签",
@@ -213,10 +206,8 @@ class AcquisitionViewModel(QObject):
     def get_recording_labels(self) -> tuple[str, ...]:
         return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
-    def build_output_directory(self, session_name: str | None = None) -> str:
-        root_dir = Path(self.engine.recording.root_dir)
-        preview_session_name = session_name or self._values.session_name or "<session_name>"
-        return str(root_dir / f"session_{preview_session_name}")
+    def build_output_directory(self) -> str:
+        return str(Path(self.engine.recording.root_dir) / "recordings")
 
     def current_primary_action(self) -> AcquisitionActionState:
         if self.is_recording:
@@ -244,23 +235,12 @@ class AcquisitionViewModel(QObject):
             self.engine.recording.stop_recording()
             return
 
-        session_name = self.get_field_value("session_name").strip()
-        if not session_name:
-            session_name = time.strftime("session_%Y%m%d_%H%M%S")
-            self.set_field_value("session_name", session_name)
-
-        self._last_started_session_name = session_name
         self._pending_recording_stop_notice = False
         recording_label = self.get_field_value("recording_label").strip() or None
-        self.engine.recording.start_recording(session_name, recording_label)
+        self.engine.recording.start_recording(recording_label)
 
     def request_insert_marker(self) -> None:
-        session_name = self.get_field_value("session_name").strip()
-        if not session_name:
-            session_name = time.strftime("session_%Y%m%d_%H%M%S")
-            self.set_field_value("session_name", session_name)
-
-        marker_label = self.get_field_value("marker_label").strip() or session_name
+        marker_label = self.get_field_value("marker_label").strip() or None
         self.engine.recording.add_marker(marker_label)
 
     def request_toggle_segment(self) -> None:
@@ -294,11 +274,14 @@ class AcquisitionViewModel(QObject):
         is_recording = str(state or "").strip().lower() == "recording"
         if was_recording and not is_recording:
             self._clear_pending_segment(notify=True)
-        if was_recording and not is_recording and self._pending_recording_stop_notice:
-            self._pending_recording_stop_notice = False
-            self.sig_info.emit(self._format_recording_finished_message())
         self._last_known_recording_state = is_recording
         self.sig_recording_changed.emit(is_recording)
+
+    def _on_recording_completed(self, summary: object) -> None:
+        if not self._pending_recording_stop_notice:
+            return
+        self._pending_recording_stop_notice = False
+        self.sig_info.emit(self._format_recording_finished_message(summary))
 
     def _on_error(self, message: str) -> None:
         normalized = str(message or "").strip()
@@ -312,7 +295,6 @@ class AcquisitionViewModel(QObject):
         friendly = {
             "frame_stream_overflow": "采集数据积压过多，录制已停止。",
             "write_failed": "写入采集数据失败，录制已停止。",
-            "finalize_failed": "结束采集时写入录制元数据失败。",
         }.get(reason)
         message = friendly or "采集录制失败。"
         recording_id = str(getattr(event, "recording_id", "")).strip()
@@ -323,30 +305,16 @@ class AcquisitionViewModel(QObject):
             message = f"{message} 路径：{recording_path}"
         self.sig_error.emit(message)
 
-    def _format_recording_finished_message(self) -> str:
-        session_name = (
-            self._last_started_session_name.strip() or self.get_field_value("session_name").strip()
-        )
-        if not session_name:
+    def _format_recording_finished_message(self, summary: object) -> str:
+        recording_id = str(getattr(summary, "recording_id", "")).strip()
+        recording_path = str(getattr(summary, "recording_path", "")).strip()
+        if not recording_id and not recording_path:
             return "录制已完成。"
-
-        session_dir = Path(self.engine.recording.root_dir) / f"session_{session_name}"
-        recording_dirs = (
-            sorted(
-                (path for path in session_dir.iterdir() if path.is_dir()),
-                key=lambda path: path.name,
-            )
-            if session_dir.is_dir()
-            else []
-        )
-        if not recording_dirs:
-            return f"Session {session_name} 录制已完成。"
-
-        recording_dir = recording_dirs[-1]
-        return (
-            f"Session {session_name} 录制已完成。"
-            f" recording_id={recording_dir.name}，路径：{recording_dir}"
-        )
+        if not recording_path:
+            return f"录制已完成。 recording_id={recording_id}"
+        if not recording_id:
+            return f"录制已完成。 路径：{recording_path}"
+        return f"录制已完成。 recording_id={recording_id}，路径：{recording_path}"
 
     def _format_error_message(self, message: str) -> str:
         normalized = str(message or "").strip()
@@ -357,7 +325,6 @@ class AcquisitionViewModel(QObject):
         friendly = {
             "ACQ_NOT_STARTED": "采集后端还没有启动。",
             "ACQ_ALREADY_RECORDING": "采集已经在进行中。",
-            "ACQ_INVALID_SESSION_NAME": "Session 名称不能为空。",
             "ACQ_MARKER_REJECTED": "请先开始采集，再写入 Marker。",
             "ACQ_SEGMENT_REJECTED": "请先开始采集，再记录区间。",
             "ACQ_SEGMENT_START_REQUIRED": "请先点击“开始区间”。",

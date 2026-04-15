@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import PushSettingCard
 
-from modlink_core.recording.backend import RECORDING_ROOT_DIR_KEY
+from modlink_core.recording.backend import STORAGE_ROOT_DIR_KEY
 from modlink_qt_bridge import QtSettingsBridge
 
 
@@ -18,7 +18,7 @@ class SaveDirectoryCard(PushSettingCard):
         parent: QWidget | None = None,
     ) -> None:
         default_dir_str = str(Path(default_dir).expanduser())
-        configured = settings.get(RECORDING_ROOT_DIR_KEY)
+        configured = settings.get(STORAGE_ROOT_DIR_KEY)
         initial_save_dir = str(Path(configured or default_dir_str).expanduser())
 
         super().__init__(
@@ -39,7 +39,7 @@ class SaveDirectoryCard(PushSettingCard):
 
     @property
     def current_save_dir(self) -> str:
-        configured = self._settings.get(RECORDING_ROOT_DIR_KEY)
+        configured = self._settings.get(STORAGE_ROOT_DIR_KEY)
         return str(Path(configured or self._default_dir).expanduser())
 
     def _choose_directory(self) -> None:
@@ -51,10 +51,10 @@ class SaveDirectoryCard(PushSettingCard):
         if not selected_dir:
             return
 
-        self._settings.set(RECORDING_ROOT_DIR_KEY, str(Path(selected_dir)))
+        self._settings.set(STORAGE_ROOT_DIR_KEY, str(Path(selected_dir)))
 
     def _on_setting_changed(self, event: object) -> None:
-        if getattr(event, "key", None) != RECORDING_ROOT_DIR_KEY:
+        if getattr(event, "key", None) != STORAGE_ROOT_DIR_KEY:
             return
         self._refresh_content(self.current_save_dir)
 

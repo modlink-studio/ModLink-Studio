@@ -54,6 +54,7 @@ class _AcquisitionStub(QObject):
     sig_state_changed = pyqtSignal(object)
     sig_error = pyqtSignal(str)
     sig_recording_failed = pyqtSignal(object)
+    sig_recording_completed = pyqtSignal(object)
 
     def __init__(self, root_dir: Path) -> None:
         super().__init__()

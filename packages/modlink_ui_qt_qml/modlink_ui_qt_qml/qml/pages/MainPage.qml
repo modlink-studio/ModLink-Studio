@@ -39,19 +39,9 @@ Item {
 
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: width >= 1120 ? 4 : 2
+                    columns: width >= 1120 ? 3 : 2
                     rowSpacing: 10
                     columnSpacing: 10
-
-                    TextField {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 240
-                        placeholderText: "Session 名称"
-                        text: _acq ? _acq.sessionName : ""
-                        onTextEdited: {
-                            if (_acq) _acq.setSessionName(text);
-                        }
-                    }
 
                     ComboBox {
                         Layout.fillWidth: true

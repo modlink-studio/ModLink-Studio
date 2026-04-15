@@ -9,7 +9,6 @@ from uuid import uuid4
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 
-from modlink_core.recording.backend import RECORDING_ROOT_DIR_KEY, RecordingBackend
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import (
@@ -18,13 +17,13 @@ from modlink_core.event_stream import (
     StreamClosedError,
 )
 from modlink_core.events import (
-    RecordingSnapshot,
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
-    DriverSnapshot,
     RecordingFailedEvent,
     SettingChangedEvent,
 )
+from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStopSummary
+from modlink_core.recording.backend import STORAGE_ROOT_DIR_KEY, RecordingBackend
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_core.settings.service import SettingsService
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
@@ -309,7 +308,8 @@ class QtRecordingBridge(QObject):
     sig_state_changed = pyqtSignal(str)
     sig_error = pyqtSignal(str)
     sig_recording_failed = pyqtSignal(object)
-    _sig_refresh_requested = pyqtSignal()
+    sig_recording_completed = pyqtSignal(object)
+    _sig_command_succeeded = pyqtSignal(object)
     _sig_error_requested = pyqtSignal(str)
 
     def __init__(
@@ -322,8 +322,8 @@ class QtRecordingBridge(QObject):
         self._backend = backend
         self._settings = settings
         self._snapshot = backend.snapshot()
-        self._sig_refresh_requested.connect(
-            self._refresh_snapshot,
+        self._sig_command_succeeded.connect(
+            self._handle_command_succeeded,
             Qt.ConnectionType.QueuedConnection,
         )
         self._sig_error_requested.connect(
@@ -333,7 +333,7 @@ class QtRecordingBridge(QObject):
 
     @property
     def root_dir(self) -> Path:
-        configured = self._settings.get(RECORDING_ROOT_DIR_KEY)
+        configured = self._settings.get(STORAGE_ROOT_DIR_KEY)
         resolved = configured or self._snapshot.root_dir
         return Path(str(resolved))
 
@@ -352,12 +352,8 @@ class QtRecordingBridge(QObject):
     def snapshot(self) -> RecordingSnapshot:
         return self._snapshot
 
-    def start_recording(
-        self,
-        session_name: str,
-        recording_label: str | None = None,
-    ) -> None:
-        self._watch_command(self._backend.start_recording(session_name, recording_label))
+    def start_recording(self, recording_label: str | None = None) -> None:
+        self._watch_command(self._backend.start_recording(recording_label))
 
     def stop_recording(self) -> None:
         self._watch_command(self._backend.stop_recording())
@@ -390,17 +386,23 @@ class QtRecordingBridge(QObject):
     def _emit_recording_failed(self, event: RecordingFailedEvent) -> None:
         self.sig_recording_failed.emit(event)
 
-    def _watch_command(self, future: Future[None]) -> None:
-        def _notify_completed(completed: Future[None]) -> None:
+    @pyqtSlot(object)
+    def _handle_command_succeeded(self, result: object) -> None:
+        self._refresh_snapshot()
+        if isinstance(result, RecordingStopSummary):
+            self.sig_recording_completed.emit(result)
+
+    def _watch_command(self, future: Future[object]) -> None:
+        def _notify_completed(completed: Future[object]) -> None:
             try:
-                completed.result()
+                result = completed.result()
             except CancelledError:
                 self._sig_error_requested.emit("ACQ_COMMAND_CANCELLED")
                 return
             except Exception as exc:
                 self._sig_error_requested.emit(str(exc))
                 return
-            self._sig_refresh_requested.emit()
+            self._sig_command_succeeded.emit(result)
 
         if future.done():
             _notify_completed(future)
