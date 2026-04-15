@@ -6,53 +6,42 @@ import logging
 import os
 import tempfile
 import time
-from collections.abc import Callable
 from pathlib import Path
 from threading import RLock
-from typing import Any
 
 from platformdirs import user_data_path
 
-from ..events import BackendEvent, SettingChangedEvent
-
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+_DELETE = object()
 
-class SettingsService:
-    """Settings service shared by one engine or host instance."""
 
-    def __init__(
-        self,
-        path: Path | None = None,
-        *,
-        publish_event: Callable[[BackendEvent], None] | None = None,
-        parent: object | None = None,
-    ) -> None:
-        self._parent = parent
+class Settings:
+    """Persistent settings stored in a single JSON file."""
+
+    def __init__(self, path: Path | None = None) -> None:
         self._path = path or self._resolve_path()
         self._lock = RLock()
-        self._settings = self._read_payload()
-        self._publish_event = publish_event
+        self._payload = self._read_payload()
 
-    def bind_event_publisher(
-        self,
-        publish_event: Callable[[BackendEvent], None] | None,
-    ) -> None:
-        self._publish_event = publish_event
-
-    def get(self, key: str, default: Any = None) -> Any:
+    def save(self) -> None:
         with self._lock:
-            current = self._settings
+            self._save_locked()
+
+    def _get_value(self, key: str) -> object:
+        with self._lock:
+            current: object = self._payload
             for part in self._parts(key):
                 if not isinstance(current, dict) or part not in current:
-                    return default
+                    return _MISSING
                 current = current[part]
             return copy.deepcopy(current)
 
-    def set(self, key: str, value: Any, *, persist: bool = True) -> None:
+    def _set_value(self, key: str, value: object) -> None:
         parts = self._parts(key)
         with self._lock:
-            current = self._settings
+            current = self._payload
             for part in parts[:-1]:
                 nested = current.get(part)
                 if not isinstance(nested, dict):
@@ -60,40 +49,27 @@ class SettingsService:
                     current[part] = nested
                 current = nested
             current[parts[-1]] = copy.deepcopy(value)
-            if persist:
-                self._save_locked()
-        self._publish_setting_changed(key=key, value=value)
 
-    def remove(self, key: str, *, persist: bool = True) -> None:
+    def _remove_value(self, key: str) -> None:
         parts = self._parts(key)
         with self._lock:
-            current = self._settings
+            current = self._payload
+            parents: list[tuple[dict[str, object], str]] = []
             for part in parts[:-1]:
                 nested = current.get(part)
                 if not isinstance(nested, dict):
                     return
+                parents.append((current, part))
                 current = nested
             if parts[-1] not in current:
                 return
             current.pop(parts[-1], None)
-            if persist:
-                self._save_locked()
-        self._publish_setting_changed(key=key, value=None)
+            while parents and not current:
+                parent, parent_key = parents.pop()
+                parent.pop(parent_key, None)
+                current = parent
 
-    def snapshot(self) -> dict[str, Any]:
-        with self._lock:
-            return json.loads(json.dumps(self._settings, ensure_ascii=False))
-
-    def save(self) -> None:
-        with self._lock:
-            self._save_locked()
-
-    def _publish_setting_changed(self, *, key: str, value: Any) -> None:
-        if self._publish_event is None:
-            return
-        self._publish_event(SettingChangedEvent(key=key, value=value, ts=time.time()))
-
-    def _read_payload(self) -> dict[str, Any]:
+    def _read_payload(self) -> dict[str, object]:
         with self._lock:
             try:
                 if self._path.exists():
@@ -150,7 +126,7 @@ class SettingsService:
 
     def _save_locked(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(self._settings, ensure_ascii=False, indent=2)
+        payload = json.dumps(self._payload, ensure_ascii=False, indent=2)
         fd, temp_path = tempfile.mkstemp(
             prefix=f"{self._path.name}.",
             suffix=".tmp",
@@ -171,3 +147,57 @@ class SettingsService:
         finally:
             if temp_file.exists():
                 temp_file.unlink(missing_ok=True)
+
+
+class SettingField:
+    def __init__(self, key: str, *, default: object = _MISSING) -> None:
+        self.key = key
+        self.default = default
+
+    def __get__(self, obj: Settings | None, owner: type[Settings] | None = None) -> object:
+        _ = owner
+        if obj is None:
+            return self
+        raw_value = obj._get_value(self.key)
+        if raw_value is _MISSING:
+            return self._default_value()
+        return self.load_value(raw_value)
+
+    def __set__(self, obj: Settings, value: object) -> None:
+        dumped = self.dump_value(value)
+        if dumped is _DELETE:
+            obj._remove_value(self.key)
+            return
+        obj._set_value(self.key, dumped)
+
+    def load_value(self, value: object) -> object:
+        return value
+
+    def dump_value(self, value: object) -> object:
+        return value
+
+    def _default_value(self) -> object:
+        if self.default is _MISSING:
+            return None
+        return copy.deepcopy(self.default)
+
+
+class PathField(SettingField):
+    def load_value(self, value: object) -> Path | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        return Path(text).expanduser()
+
+    def dump_value(self, value: object) -> object:
+        if value is None:
+            return _DELETE
+        text = str(value).strip()
+        if not text:
+            raise ValueError(f"{self.key} must not be empty")
+        return str(Path(text).expanduser())
+
+
+__all__ = ["PathField", "SettingField", "Settings"]

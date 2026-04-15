@@ -23,9 +23,10 @@ from modlink_core.events import (
     SettingChangedEvent,
 )
 from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStopSummary
-from modlink_core.recording.backend import STORAGE_ROOT_DIR_KEY, RecordingBackend
+from modlink_core.recording.backend import RecordingBackend
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_core.settings.service import SettingsService
+from modlink_core.storage import StorageSettings
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
 
@@ -321,6 +322,7 @@ class QtRecordingBridge(QObject):
         super().__init__(parent=parent)
         self._backend = backend
         self._settings = settings
+        self._storage_settings = StorageSettings(settings)
         self._snapshot = backend.snapshot()
         self._sig_command_succeeded.connect(
             self._handle_command_succeeded,
@@ -333,9 +335,7 @@ class QtRecordingBridge(QObject):
 
     @property
     def root_dir(self) -> Path:
-        configured = self._settings.get(STORAGE_ROOT_DIR_KEY)
-        resolved = configured or self._snapshot.root_dir
-        return Path(str(resolved))
+        return self._storage_settings.resolved_storage_root_dir()
 
     @property
     def state(self) -> str:

@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import QApplication
 
 from modlink_core.models import RecordingStopSummary
 from modlink_core.settings.service import SettingsService
+from modlink_core.storage import StorageSettings
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_ui_qt_widgets.widgets.main.acquisition.view_model import AcquisitionViewModel
 
@@ -92,6 +93,7 @@ class AcquisitionViewModelTests(unittest.TestCase):
         self._temp_dir = test_tmp_root / f"acquisition-vm-{uuid4().hex}"
         self._temp_dir.mkdir()
         settings = SettingsService(self._temp_dir / "acquisition-settings.json")
+        StorageSettings(settings).set_storage_root_dir(self._temp_dir, persist=False)
         self._settings_bridge = QtSettingsBridge(settings)
         self._acquisition = _AcquisitionStub(self._temp_dir)
         self._view_model = AcquisitionViewModel(

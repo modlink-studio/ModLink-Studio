@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import logging
 
-from modlink_core.settings.service import SettingsService
+from modlink_core.settings import SettingField, Settings
 
 
-def test_settings_service_backs_up_invalid_json_and_logs_warning(tmp_path, caplog) -> None:
+class DemoSettings(Settings):
+    enabled = SettingField("demo.enabled", default=False)
+
+
+def test_settings_backs_up_invalid_json_and_logs_warning(tmp_path, caplog) -> None:
     path = tmp_path / "settings.json"
     path.write_text('{"ui": invalid}', encoding="utf-8")
 
     with caplog.at_level(logging.WARNING):
-        settings = SettingsService(path=path)
+        settings = DemoSettings(path=path)
 
-    assert settings.snapshot() == {}
+    assert settings.enabled is False
     assert path.read_text(encoding="utf-8") == '{"ui": invalid}'
 
     backups = list(tmp_path.glob("settings.json.corrupt-*.json"))

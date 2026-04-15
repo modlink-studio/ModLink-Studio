@@ -9,8 +9,6 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
 
-from platformdirs import user_documents_path
-
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from ..bus import FrameStream, FrameStreamOverflowError, StreamBus
@@ -20,15 +18,15 @@ from ..events import (
     RecordingFailedEvent,
 )
 from ..models import RecordingSnapshot, RecordingStartSummary, RecordingStopSummary
-from ..settings.service import SettingsService
 from ..storage import (
+    StorageSettings,
     add_recording_marker,
     add_recording_segment,
     append_recording_frame,
     create_recording,
 )
+from ..settings import Settings
 
-STORAGE_ROOT_DIR_KEY = "storage.root_dir"
 RECORDING_CONSUMER_NAME = "recording"
 RecordingCommand = tuple[Callable[[], None], Future[object]]
 
@@ -51,12 +49,13 @@ class RecordingBackend:
         self,
         bus: StreamBus,
         *,
-        settings: SettingsService,
+        settings: Settings,
         publish_event: Callable[[BackendEvent], None],
         parent: object | None = None,
     ) -> None:
         self._bus = bus
         self._settings = settings
+        self._storage_settings = StorageSettings(settings)
         self._publish_event = publish_event
         self._parent = parent
         self._command_queue: queue.Queue[RecordingCommand | object] = queue.Queue()
@@ -72,7 +71,7 @@ class RecordingBackend:
 
     @property
     def root_dir(self) -> Path:
-        return _resolve_root_dir(self._settings)
+        return self._storage_settings.resolved_storage_root_dir()
 
     @property
     def is_started(self) -> bool:
@@ -114,9 +113,12 @@ class RecordingBackend:
         thread.start()
 
     def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
+        storage_root_dir = self.root_dir
+        recordings_dir = self._storage_settings.recordings_dir()
         return self._submit_command(
             self._start_recording_worker,
-            str(self.root_dir),
+            str(storage_root_dir),
+            str(recordings_dir),
             recording_label,
             self._bus.descriptors(),
         )
@@ -240,6 +242,7 @@ class RecordingBackend:
     def _start_recording_worker(
         self,
         root_dir: str,
+        recordings_dir: str,
         recording_label: object,
         recording_descriptors: object,
     ) -> RecordingStartSummary:
@@ -262,7 +265,7 @@ class RecordingBackend:
             self._active_recording = None
             raise RuntimeError(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}") from exc
 
-        recording_path = str(Path(root_dir) / "recordings" / recording_id)
+        recording_path = str(Path(recordings_dir) / recording_id)
         self._active_recording = ActiveRecording(
             root_dir=root_dir,
             recording_id=recording_id,
@@ -463,17 +466,3 @@ class RecordingBackend:
             error = self._worker_exit_error
             self._worker_exit_error = None
             return error
-
-
-def _default_root_dir() -> Path:
-    documents_dir = user_documents_path()
-    if documents_dir:
-        return Path(documents_dir) / "ModLink Studio" / "data"
-    return Path.home() / "ModLink Studio" / "data"
-
-
-def _resolve_root_dir(settings: SettingsService) -> Path:
-    root_dir = settings.get(STORAGE_ROOT_DIR_KEY)
-    if root_dir is None:
-        return _default_root_dir()
-    return Path(root_dir)

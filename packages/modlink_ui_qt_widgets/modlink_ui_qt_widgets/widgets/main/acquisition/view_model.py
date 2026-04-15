@@ -3,12 +3,12 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from qfluentwidgets import FluentIcon as FIF
 
+from modlink_core.storage import StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
 ActionKind = Literal["primary", "secondary"]
@@ -98,6 +98,7 @@ class AcquisitionViewModel(QObject):
         self._pending_recording_stop_notice = False
         self._last_known_recording_state = self.engine.recording.is_recording
         self._settings = self.engine.settings
+        self._storage_settings = StorageSettings(self._settings)
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
             self._settings.get(
                 UI_ACQUISITION_LAYOUT_MODE_KEY,
@@ -207,7 +208,7 @@ class AcquisitionViewModel(QObject):
         return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
 
     def build_output_directory(self) -> str:
-        return str(Path(self.engine.recording.root_dir) / "recordings")
+        return str(self._storage_settings.recordings_dir())
 
     def current_primary_action(self) -> AcquisitionActionState:
         if self.is_recording:

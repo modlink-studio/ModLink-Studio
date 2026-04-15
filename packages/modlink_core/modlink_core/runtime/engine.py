@@ -11,7 +11,7 @@ from ..bus import StreamBus
 from ..drivers import DriverPortal
 from ..event_stream import BackendEventBroker, EventStream
 from ..models import DriverSnapshot, RecordingSnapshot
-from ..settings import SettingsService
+from ..settings import Settings
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
 
@@ -25,13 +25,12 @@ class ModLinkEngine:
         self,
         driver_factories: Sequence[DriverFactory] = (),
         *,
-        settings: SettingsService | None = None,
+        settings: Settings | None = None,
         parent: object | None = None,
     ) -> None:
         self._parent = parent
         self._event_broker = BackendEventBroker()
-        self._settings = settings or SettingsService(parent=parent)
-        self._settings.bind_event_publisher(self._event_broker.publish)
+        self._settings = settings or Settings()
         self.bus = StreamBus(event_broker=self._event_broker, parent=self)
         self._recording = RecordingBackend(
             self.bus,
@@ -52,7 +51,7 @@ class ModLinkEngine:
             raise
 
     @property
-    def settings(self) -> SettingsService:
+    def settings(self) -> Settings:
         return self._settings
 
     @property
@@ -72,7 +71,7 @@ class ModLinkEngine:
         return self._driver_portals.get(driver_id)
 
     def settings_snapshot(self) -> dict[str, Any]:
-        return self._settings.snapshot()
+        return dict(self._settings._payload)
 
     def open_event_stream(self, *, maxsize: int = 1024) -> EventStream:
         return self._event_broker.open_stream(maxsize=maxsize)

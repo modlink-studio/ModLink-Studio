@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from modlink_server.app import _iter_sse_messages, create_app
 
 from modlink_core import EventStreamOverflowError, SettingsService
+from modlink_core.storage import StorageSettings
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
 
@@ -95,7 +96,7 @@ class TimeoutSearchDriver(ApiDemoDriver):
 def settings(tmp_path: Path) -> SettingsService:
     path = tmp_path / "settings.json"
     settings = SettingsService(path=path)
-    settings.set("acquisition.storage.root_dir", str(tmp_path / "recordings"), persist=False)
+    StorageSettings(settings).set_storage_root_dir(tmp_path / "data", persist=False)
     return settings
 
 

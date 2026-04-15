@@ -1,3 +1,9 @@
+from .settings import (
+    EXPORT_ROOT_DIR_KEY,
+    STORAGE_ROOT_DIR_KEY,
+    StorageSettings,
+    default_storage_root_dir,
+)
 from .experiments import (
     add_session_to_experiment,
     create_experiment,
@@ -26,8 +32,12 @@ __all__ = [
     "create_experiment",
     "create_recording",
     "create_session",
+    "default_storage_root_dir",
+    "EXPORT_ROOT_DIR_KEY",
     "list_experiments",
     "list_sessions",
     "read_experiment",
     "read_session",
+    "STORAGE_ROOT_DIR_KEY",
+    "StorageSettings",
 ]

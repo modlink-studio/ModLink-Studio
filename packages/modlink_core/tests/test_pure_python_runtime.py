@@ -20,6 +20,7 @@ from modlink_core.events import (
     DriverExecutorFailedEvent,
 )
 from modlink_core.settings import SettingsService
+from modlink_core.storage import StorageSettings
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -874,7 +875,7 @@ def _build_settings_service() -> SettingsService:
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsService(path=path)
-    settings.set("storage.root_dir", str(temp_dir / "data"), persist=False)
+    StorageSettings(settings).set_storage_root_dir(temp_dir / "data", persist=False)
     return settings
 
 

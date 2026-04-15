@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.recording.backend import STORAGE_ROOT_DIR_KEY
+from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
@@ -30,12 +30,12 @@ class SettingsPageController(QObject):
     ) -> None:
         super().__init__(parent)
         self._settings = engine.settings
+        self._storage_settings = StorageSettings(self._settings)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=saveDirectoryChanged)
     def saveDirectory(self) -> str:
-        current = self._settings.get(STORAGE_ROOT_DIR_KEY)
-        return str(current or "")
+        return str(self._storage_settings.resolved_storage_root_dir())
 
     @pyqtProperty(int, notify=previewRefreshRateHzChanged)
     def previewRefreshRateHz(self) -> int:
@@ -60,7 +60,7 @@ class SettingsPageController(QObject):
         if not normalized:
             self.messageRaised.emit("保存目录不能为空。")
             return
-        self._settings.set(STORAGE_ROOT_DIR_KEY, normalized)
+        self._storage_settings.set_storage_root_dir(normalized)
         self.messageRaised.emit("保存目录已更新。")
 
     @pyqtSlot(int)

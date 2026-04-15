@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.recording.backend import STORAGE_ROOT_DIR_KEY
+from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import DEFAULT_LABELS, UI_LABELS_KEY, normalize_labels
@@ -27,6 +26,7 @@ class AcquisitionController(QObject):
         super().__init__(parent)
         self._engine = engine
         self._settings = engine.settings
+        self._storage_settings = StorageSettings(self._settings)
         self._recording_label = ""
         self._marker_label = ""
         self._segment_label = ""
@@ -66,7 +66,7 @@ class AcquisitionController(QObject):
 
     @pyqtProperty(str, notify=outputDirectoryChanged)
     def outputDirectory(self) -> str:
-        return str(Path(self._engine.recording.root_dir) / "recordings")
+        return str(self._storage_settings.recordings_dir())
 
     @pyqtProperty(str, notify=primaryActionTextChanged)
     def primaryActionText(self) -> str:
