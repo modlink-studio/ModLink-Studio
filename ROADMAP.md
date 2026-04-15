@@ -129,6 +129,7 @@ data/
 当前状态：
 
 - `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 现已重组为纯函数模块，recording 写入路径已切到 `recordings/`
+- `modlink_core.storage` 顶层只保留 public API，文件 IO / ID / path 等辅助能力已下沉到私有 `_internal/`，不再暴露给上层
 - recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
 - replay reader、catalog、历史格式兼容都明确后置，不再让预建设的读接口提前塑造当前 storage 边界
 

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from modlink_core.storage import append_recording_frame, create_recording
-from modlink_core.storage.layout import safe_path_component
+from modlink_core.storage._internal.ids import safe_path_component
 
 
 @pytest.mark.parametrize(
