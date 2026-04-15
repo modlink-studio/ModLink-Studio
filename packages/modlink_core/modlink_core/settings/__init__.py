@@ -1,11 +1,9 @@
-from .core import (
+from .schema import (
     BoolSettingSpec,
     EnumSettingSpec,
     GroupSettingSpec,
     IntSettingSpec,
     PathSettingSpec,
-    Settings,
-    SettingsStore,
     SettingsSpec,
     StringSettingSpec,
     bool_setting,
@@ -13,9 +11,9 @@ from .core import (
     group,
     int_setting,
     path_setting,
-    str_setting,
+    string_setting,
 )
-from .service import SettingsService
+from .service import SettingsStore
 
 __all__ = [
     "BoolSettingSpec",
@@ -23,7 +21,6 @@ __all__ = [
     "GroupSettingSpec",
     "IntSettingSpec",
     "PathSettingSpec",
-    "Settings",
     "SettingsStore",
     "SettingsSpec",
     "StringSettingSpec",
@@ -32,6 +29,5 @@ __all__ = [
     "group",
     "int_setting",
     "path_setting",
-    "str_setting",
-    "SettingsService",
+    "string_setting",
 ]

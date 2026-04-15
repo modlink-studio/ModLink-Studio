@@ -22,7 +22,7 @@ from modlink_core import (
     EventStreamOverflowError,
     FrameStreamOverflowError,
     ModLinkEngine,
-    SettingsService,
+    SettingsStore,
     StreamClosedError,
 )
 from modlink_core.drivers import discover_driver_factories
@@ -77,14 +77,14 @@ class SettingWriteRequest(BaseModel):
 def create_app(
     *,
     driver_factories: Sequence[DriverFactory] | None = None,
-    settings: SettingsService | None = None,
+    settings: SettingsStore | None = None,
     event_stream_maxsize: int = 1024,
     frame_stream_maxsize: int = 256,
     sse_heartbeat_interval_seconds: float = DEFAULT_SSE_HEARTBEAT_INTERVAL_SECONDS,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        resolved_settings = settings or SettingsService()
+        resolved_settings = settings or SettingsStore()
         resolved_factories = (
             tuple(driver_factories)
             if driver_factories is not None

@@ -6,27 +6,26 @@ from pathlib import Path
 import pytest
 
 from modlink_core.settings import (
-    SettingsService,
+    SettingsStore,
     SettingsSpec,
     bool_setting,
-    group,
     int_setting,
     path_setting,
 )
 
 
 def _build_demo_view(path):
-    settings = SettingsService(path=path)
+    settings = SettingsStore(path=path)
     view = settings.bind(
         SettingsSpec(
             namespace="demo",
-            schema=group(
-                sample_rate_hz=int_setting(default=30),
-                storage=group(
-                    root_dir=path_setting(),
-                ),
-                enabled=bool_setting(default=False),
-            ),
+            schema={
+                "sample_rate_hz": int_setting(default=30),
+                "storage": {
+                    "root_dir": path_setting(),
+                },
+                "enabled": bool_setting(default=False),
+            },
         )
     )
     return settings, view

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMessageBox
 
 from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
-from modlink_core.settings.service import SettingsService
+from modlink_core.settings import SettingsStore
 from modlink_ui_qt_qml import create_application, load_window
 from modlink_qt_bridge import QtModLinkBridge
 
@@ -29,7 +29,7 @@ def _shutdown_bridge(bridge: QtModLinkBridge) -> None:
 
 def main() -> None:
     app = create_application()
-    settings = SettingsService(parent=app)
+    settings = SettingsStore()
     driver_factories = discover_driver_factories()
     runtime = ModLinkEngine(
         driver_factories=driver_factories,

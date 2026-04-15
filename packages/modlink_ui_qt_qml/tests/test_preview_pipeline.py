@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from PyQt6.QtCore import QCoreApplication
 
-from modlink_core import ModLinkEngine, SettingsService
+from modlink_core import ModLinkEngine, SettingsStore
 from modlink_qt_bridge import QtModLinkBridge, QtSettingsBridge
 from modlink_sdk import Driver, FrameEnvelope, StreamDescriptor
 
@@ -241,7 +241,7 @@ def test_raster_field_and_video_controllers_emit_images(qapp: QCoreApplication) 
 
 def test_preview_store_roundtrip(qapp: QCoreApplication, tmp_path: Path) -> None:
     _ = qapp
-    settings = SettingsService(path=tmp_path / "settings.json")
+    settings = SettingsStore(path=tmp_path / "settings.json")
     bridge = QtSettingsBridge(settings)
     store = PreviewStreamSettingsStore(bridge)
     descriptor = _signal_descriptor()
@@ -260,7 +260,7 @@ def test_main_page_loads_and_saves_stream_settings(
     qapp: QCoreApplication, tmp_path: Path
 ) -> None:
     _ = qapp
-    settings = SettingsService(path=tmp_path / "settings.json")
+    settings = SettingsStore(path=tmp_path / "settings.json")
     descriptor = PreviewDemoDriver().descriptors()[0]
     settings.set(
         "ui.preview.streams",
@@ -311,7 +311,7 @@ def test_main_page_preview_items_stay_stable_during_flush(
     qapp: QCoreApplication, tmp_path: Path
 ) -> None:
     _ = qapp
-    settings = SettingsService(path=tmp_path / "settings.json")
+    settings = SettingsStore(path=tmp_path / "settings.json")
     runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings=settings)
     bridge = QtModLinkBridge(runtime)
     controller = MainPageController(bridge)

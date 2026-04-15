@@ -38,8 +38,8 @@ def test_main_wires_qml_app_entry() -> None:
         with patch(
             "modlink_studio_qml.app.discover_driver_factories",
             return_value=["driver_factory"],
-        ) as discover:
-            with patch("modlink_studio_qml.app.SettingsService") as settings_cls:
+                ) as discover:
+            with patch("modlink_studio_qml.app.SettingsStore") as settings_cls:
                 with patch("modlink_studio_qml.app.ModLinkEngine") as engine_cls:
                     with patch("modlink_studio_qml.app.QtModLinkBridge") as bridge_cls:
                         with patch(
@@ -51,7 +51,7 @@ def test_main_wires_qml_app_entry() -> None:
 
     assert exc_info.value.code == 17
     discover.assert_called_once()
-    settings_cls.assert_called_once_with(parent=app)
+    settings_cls.assert_called_once_with()
     engine_cls.assert_called_once()
     bridge_cls.assert_called_once()
     load_window.assert_called_once()

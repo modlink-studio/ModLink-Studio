@@ -25,7 +25,7 @@ from ..storage import (
     append_recording_frame,
     create_recording,
 )
-from ..settings import Settings
+from ..settings import SettingsStore
 
 RECORDING_CONSUMER_NAME = "recording"
 RecordingCommand = tuple[Callable[[], None], Future[object]]
@@ -49,7 +49,7 @@ class RecordingBackend:
         self,
         bus: StreamBus,
         *,
-        settings: Settings,
+        settings: SettingsStore,
         publish_event: Callable[[BackendEvent], None],
         parent: object | None = None,
     ) -> None:

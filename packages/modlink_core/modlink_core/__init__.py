@@ -20,10 +20,8 @@ from .events import (
 from .recording import RecordingBackend
 from .runtime import ModLinkEngine
 from .settings import (
-    Settings,
     SettingsStore,
 )
-from .settings.service import SettingsService
 from .storage import (
     EXPORT_ROOT_DIR_KEY,
     STORAGE_ROOT_DIR_KEY,
@@ -47,8 +45,6 @@ __all__ = [
     "ModLinkEngine",
     "RecordingFailedEvent",
     "SettingChangedEvent",
-    "Settings",
-    "SettingsService",
     "SettingsStore",
     "STORAGE_ROOT_DIR_KEY",
     "StorageSettings",

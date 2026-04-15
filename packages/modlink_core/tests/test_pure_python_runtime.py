@@ -19,7 +19,7 @@ from modlink_core.events import (
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
 )
-from modlink_core.settings import SettingsService
+from modlink_core.settings import SettingsStore
 from modlink_core.storage import StorageSettings
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
@@ -868,13 +868,13 @@ def _wait_for(predicate, *, timeout: float) -> None:
     raise AssertionError("condition not reached before timeout")
 
 
-def _build_settings_service() -> SettingsService:
+def _build_settings_service() -> SettingsStore:
     temp_root = Path(__file__).resolve().parents[3] / ".tmp-tests" / "modlink_core"
     temp_root.mkdir(parents=True, exist_ok=True)
     temp_dir = temp_root / f"settings_{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
-    settings = SettingsService(path=path)
+    settings = SettingsStore(path=path)
     StorageSettings(settings).set_storage_root_dir(temp_dir / "data", persist=False)
     return settings
 

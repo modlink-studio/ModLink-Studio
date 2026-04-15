@@ -21,7 +21,7 @@ for path in (
 
 from PyQt6.QtWidgets import QApplication
 
-from modlink_core import SettingsService
+from modlink_core import SettingsStore
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 from modlink_ui_qt_widgets.widgets.main.preview.views.field import FieldStreamView
@@ -35,7 +35,7 @@ class PreviewThemeTests(unittest.TestCase):
         cls._app = QApplication.instance() or QApplication([])
 
     def _bridge(self) -> QtSettingsBridge:
-        return QtSettingsBridge(SettingsService(parent=self._app))
+        return QtSettingsBridge(SettingsStore())
 
     @staticmethod
     def _signal_descriptor() -> StreamDescriptor:

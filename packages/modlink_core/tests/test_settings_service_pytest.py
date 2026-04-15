@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
-from modlink_core.settings import bool_setting, group, SettingsService, SettingsSpec
+from modlink_core.settings import SettingsSpec, SettingsStore, bool_setting
 
 
 def test_settings_service_backs_up_invalid_json_and_logs_warning(tmp_path, caplog) -> None:
@@ -11,14 +11,12 @@ def test_settings_service_backs_up_invalid_json_and_logs_warning(tmp_path, caplo
     path.write_text('{"ui": invalid}', encoding="utf-8")
 
     with caplog.at_level(logging.WARNING):
-        settings = SettingsService(path=path)
+        settings = SettingsStore(path=path)
 
     view = settings.bind(
         SettingsSpec(
             namespace="demo",
-            schema=group(
-                enabled=bool_setting(default=False),
-            ),
+            schema={"enabled": bool_setting(default=False)},
         )
     )
     assert view.enabled is False
@@ -33,13 +31,11 @@ def test_settings_service_backs_up_invalid_json_and_logs_warning(tmp_path, caplo
 
 def test_settings_service_save_writes_declared_values(tmp_path) -> None:
     path = tmp_path / "settings.json"
-    settings = SettingsService(path=path)
+    settings = SettingsStore(path=path)
     view = settings.bind(
         SettingsSpec(
             namespace="demo",
-            schema=group(
-                enabled=bool_setting(default=False),
-            ),
+            schema={"enabled": bool_setting(default=False)},
         )
     )
 

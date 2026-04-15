@@ -22,7 +22,7 @@ for path in (
 
 from PyQt6.QtWidgets import QApplication
 
-from modlink_core.settings.service import SettingsService
+from modlink_core.settings import SettingsStore
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_ui_qt_widgets.widgets.settings.cards.label_manager import LabelManagerCard
 
@@ -37,7 +37,7 @@ class LabelManagerCardTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"label-manager-{uuid4().hex}"
         self._temp_dir.mkdir()
-        settings = SettingsService(self._temp_dir / "label-manager-settings.json")
+        settings = SettingsStore(self._temp_dir / "label-manager-settings.json")
         self._settings_bridge = QtSettingsBridge(settings)
 
     def tearDown(self) -> None:

@@ -25,7 +25,7 @@ from modlink_core.events import (
 from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStopSummary
 from modlink_core.recording.backend import RecordingBackend
 from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings.service import SettingsService
+from modlink_core.settings import SettingsStore
 from modlink_core.storage import StorageSettings
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
@@ -279,7 +279,7 @@ class QtSettingsBridge(QObject):
 
     def __init__(
         self,
-        settings: SettingsService,
+        settings: SettingsStore,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent=parent)

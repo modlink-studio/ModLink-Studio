@@ -12,14 +12,14 @@ from uuid import uuid4
 
 import numpy as np
 
-from modlink_core import RecordingBackend, SettingsService, StreamBus
+from modlink_core import RecordingBackend, SettingsStore, StreamBus
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
     DriverConnectionLostEvent,
     RecordingFailedEvent,
     SettingChangedEvent,
 )
-from modlink_core.settings.service import SettingsService as SettingsServiceType
+from modlink_core.settings import SettingsStore as SettingsServiceType
 from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
@@ -403,7 +403,7 @@ def _build_settings_service() -> SettingsServiceType:
     temp_dir = temp_root / f"settings_{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
-    settings = SettingsService(path=path)
+    settings = SettingsStore(path=path)
     StorageSettings(settings).set_storage_root_dir(temp_dir / "data", persist=False)
     return settings
 
@@ -413,7 +413,7 @@ def _build_empty_settings_service() -> SettingsServiceType:
     temp_root.mkdir(parents=True, exist_ok=True)
     temp_dir = temp_root / f"settings_empty_{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    return SettingsService(path=temp_dir / "settings.json")
+    return SettingsStore(path=temp_dir / "settings.json")
 
 
 if __name__ == "__main__":
