@@ -151,7 +151,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         bus.add_descriptor(_demo_descriptor())
         settings = _build_settings_service()
         with patch(
-            "modlink_core.recording.backend.RecordingStore.append_frame",
+            "modlink_core.recording.backend.append_recording_frame",
             side_effect=RuntimeError("append failed"),
         ):
             backend = RecordingBackend(

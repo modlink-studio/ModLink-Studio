@@ -3,19 +3,17 @@ from __future__ import annotations
 import json
 
 import numpy as np
-import pytest
 
 from modlink_core.storage.io import (
+    append_csv_row,
     atomic_write_text,
+    read_json,
+    read_csv_rows,
     to_json_text,
     to_json_value,
-    read_json,
+    write_csv_header,
     write_json,
     write_npz,
-)
-from modlink_core.storage._recording_support import (
-    descriptor_to_dict,
-    normalize_data_array,
 )
 
 
@@ -48,60 +46,6 @@ def test_to_json_text_emits_stable_sorted_json() -> None:
     }
 
     assert to_json_text(payload) == '{"a": {"x": 1.25, "y": 4}, "b": [2, 3]}'
-
-
-def test_normalize_data_array_returns_contiguous_copy(frame_factory, descriptor_factory) -> None:
-    descriptor = descriptor_factory(payload_type="signal", chunk_size=3)
-    data = np.asfortranarray(np.arange(6, dtype=np.float32).reshape(2, 3))
-    frame = frame_factory(descriptor, data=data)
-
-    normalized = normalize_data_array(frame)
-
-    np.testing.assert_array_equal(normalized, data)
-    assert normalized.flags.c_contiguous
-
-
-def test_normalize_data_array_rejects_object_dtype(frame_factory, descriptor_factory) -> None:
-    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
-    frame = frame_factory(
-        descriptor,
-        data=np.asarray([["bad", object()]], dtype=object),
-    )
-
-    with pytest.raises(ValueError, match="object dtype arrays are not supported"):
-        normalize_data_array(frame)
-
-
-def test_normalize_data_array_accepts_arbitrary_dimension(frame_factory, descriptor_factory) -> None:
-    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
-    frame = frame_factory(descriptor, data=np.arange(4, dtype=np.float32))
-
-    normalized = normalize_data_array(frame)
-
-    np.testing.assert_array_equal(normalized, np.arange(4, dtype=np.float32))
-
-
-def test_descriptor_to_dict_serializes_public_fields(descriptor_factory) -> None:
-    descriptor = descriptor_factory(
-        payload_type="field",
-        channel_names=("c3", "c4"),
-        display_name="Field Demo",
-        metadata={"scale": np.float32(2.5), "axes": np.asarray([1, 2])},
-    )
-
-    payload = descriptor_to_dict(descriptor)
-
-    assert payload == {
-        "device_id": descriptor.device_id,
-        "stream_id": descriptor.stream_id,
-        "stream_key": descriptor.stream_key,
-        "payload_type": "field",
-        "nominal_sample_rate_hz": 10.0,
-        "chunk_size": 4,
-        "channel_names": ["c3", "c4"],
-        "display_name": "Field Demo",
-        "metadata": {"axes": [1, 2], "scale": 2.5},
-    }
 
 
 def test_atomic_write_text_replaces_target_without_temp_residue(tmp_path) -> None:
@@ -141,3 +85,16 @@ def test_write_npz_persists_archive_without_temp_residue(tmp_path) -> None:
         )
         assert archive["value"].item() == 7
     assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_csv_helpers_write_and_append_rows(tmp_path) -> None:
+    target = tmp_path / "rows.csv"
+
+    write_csv_header(target, ["a", "b"])
+    append_csv_row(target, [1, "x"])
+    append_csv_row(target, [2, "y"])
+
+    assert read_csv_rows(target) == [
+        {"a": "1", "b": "x"},
+        {"a": "2", "b": "y"},
+    ]

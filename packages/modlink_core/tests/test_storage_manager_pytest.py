@@ -6,7 +6,20 @@ from pathlib import Path
 
 import numpy as np
 
-from modlink_core.storage import ExperimentStore, RecordingStore, SessionStore
+from modlink_core.storage import (
+    add_recording_marker,
+    add_recording_segment,
+    add_recording_to_session,
+    add_session_to_experiment,
+    append_recording_frame,
+    create_experiment,
+    create_recording,
+    create_session,
+    list_experiments,
+    list_sessions,
+    read_experiment,
+    read_session,
+)
 
 
 def test_recording_storage_writes_minimal_recording_layout(
@@ -15,13 +28,13 @@ def test_recording_storage_writes_minimal_recording_layout(
     frame_factory,
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=3, channel_names=("f3", "f4"))
-    storage = RecordingStore(tmp_path)
-
-    recording_id = storage.create_recording(
+    recording_id = create_recording(
+        tmp_path,
         {descriptor.stream_id: descriptor},
         recording_label="baseline",
     )
-    storage.append_frame(
+    append_recording_frame(
+        tmp_path,
         recording_id,
         frame_factory(descriptor, timestamp_ns=1_700_000_000_123_456_789, seq=1),
     )
@@ -70,13 +83,14 @@ def test_recording_storage_writes_annotations_without_readback_api(
     frame_factory,
 ) -> None:
     descriptor = descriptor_factory(payload_type="field", chunk_size=2)
-    storage = RecordingStore(tmp_path)
-    recording_id = storage.create_recording(
+    recording_id = create_recording(
+        tmp_path,
         {descriptor.stream_id: descriptor},
         recording_label="replay_case",
     )
 
-    storage.append_frame(
+    append_recording_frame(
+        tmp_path,
         recording_id,
         frame_factory(
             descriptor,
@@ -87,8 +101,9 @@ def test_recording_storage_writes_annotations_without_readback_api(
             width=4,
         ),
     )
-    storage.add_marker(recording_id, 1_700_000_000_500_000_123, "start")
-    storage.add_segment(
+    add_recording_marker(tmp_path, recording_id, 1_700_000_000_500_000_123, "start")
+    add_recording_segment(
+        tmp_path,
         recording_id,
         1_700_000_000_500_000_123,
         1_700_000_000_600_000_123,
@@ -109,17 +124,16 @@ def test_recording_storage_writes_annotations_without_readback_api(
 
 
 def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) -> None:
-    storage = SessionStore(tmp_path)
-
-    session_id = storage.create_session(
+    session_id = create_session(
+        tmp_path,
         session_id="ses_demo",
         display_name="demo session",
         metadata={"operator": "alice"},
         created_at_ns=123,
     )
-    storage.add_recording_to_session(session_id, "rec_a", updated_at_ns=456)
-    storage.add_recording_to_session(session_id, "rec_b", updated_at_ns=789)
-    storage.add_recording_to_session(session_id, "rec_b", updated_at_ns=999)
+    add_recording_to_session(tmp_path, session_id, "rec_a", updated_at_ns=456)
+    add_recording_to_session(tmp_path, session_id, "rec_b", updated_at_ns=789)
+    add_recording_to_session(tmp_path, session_id, "rec_b", updated_at_ns=999)
 
     assert session_id == "ses_demo"
     payload = json.loads(
@@ -134,22 +148,21 @@ def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) ->
         "recording_ids": ["rec_a", "rec_b"],
         "metadata": {"operator": "alice"},
     }
-    assert storage.read_session(session_id) == payload
-    assert storage.list_sessions() == [payload]
+    assert read_session(tmp_path, session_id) == payload
+    assert list_sessions(tmp_path) == [payload]
 
 
 def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -> None:
-    storage = ExperimentStore(tmp_path)
-
-    experiment_id = storage.create_experiment(
+    experiment_id = create_experiment(
+        tmp_path,
         experiment_id="exp_demo",
         display_name="demo experiment",
         metadata={"study": "visual"},
         created_at_ns=321,
     )
-    storage.add_session_to_experiment(experiment_id, "ses_a", updated_at_ns=654)
-    storage.add_session_to_experiment(experiment_id, "ses_b", updated_at_ns=987)
-    storage.add_session_to_experiment(experiment_id, "ses_b", updated_at_ns=1_111)
+    add_session_to_experiment(tmp_path, experiment_id, "ses_a", updated_at_ns=654)
+    add_session_to_experiment(tmp_path, experiment_id, "ses_b", updated_at_ns=987)
+    add_session_to_experiment(tmp_path, experiment_id, "ses_b", updated_at_ns=1_111)
 
     assert experiment_id == "exp_demo"
     payload = json.loads(
@@ -166,8 +179,8 @@ def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -
         "session_ids": ["ses_a", "ses_b"],
         "metadata": {"study": "visual"},
     }
-    assert storage.read_experiment(experiment_id) == payload
-    assert storage.list_experiments() == [payload]
+    assert read_experiment(tmp_path, experiment_id) == payload
+    assert list_experiments(tmp_path) == [payload]
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

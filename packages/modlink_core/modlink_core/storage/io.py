@@ -67,3 +67,16 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
         raise FileNotFoundError(path)
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def write_csv_header(path: Path, columns: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(columns)
+
+
+def append_csv_row(path: Path, values: list[object]) -> None:
+    with path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(values)

@@ -21,7 +21,12 @@ from ..events import (
 )
 from ..models import RecordingSnapshot, RecordingStartSummary, RecordingStopSummary
 from ..settings.service import SettingsService
-from ..storage import RecordingStore
+from ..storage import (
+    add_recording_marker,
+    add_recording_segment,
+    append_recording_frame,
+    create_recording,
+)
 
 STORAGE_ROOT_DIR_KEY = "storage.root_dir"
 RECORDING_CONSUMER_NAME = "recording"
@@ -32,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class ActiveRecording:
+    root_dir: str
     recording_id: str
     recording_path: str
     started_at_ns: int
@@ -61,7 +67,6 @@ class RecordingBackend:
         self._started = False
         self._accepting_commands = False
         self._worker_exit_error: Exception | None = None
-        self._storage: RecordingStore | None = None
         self._active_recording: ActiveRecording | None = None
         self._lock = threading.RLock()
 
@@ -218,11 +223,15 @@ class RecordingBackend:
     def _on_frame_worker(self, frame: object) -> None:
         if not isinstance(frame, FrameEnvelope):
             return
-        if self._storage is None or self._active_recording is None:
+        if self._active_recording is None:
             return
 
         try:
-            self._storage.append_frame(self._active_recording.recording_id, frame)
+            append_recording_frame(
+                Path(self._active_recording.root_dir),
+                self._active_recording.recording_id,
+                frame,
+            )
             self._active_recording.frame_counts_by_stream[frame.stream_id] += 1
         except Exception:
             logger.exception("Recording append failed; marking recording as failed")
@@ -244,19 +253,18 @@ class RecordingBackend:
 
         started_at_ns = time.time_ns()
         try:
-            storage = RecordingStore(Path(root_dir))
-            recording_id = storage.create_recording(
+            recording_id = create_recording(
+                Path(root_dir),
                 recording_descriptors,
                 recording_label=recording_label or None,
             )
         except Exception as exc:
-            self._storage = None
             self._active_recording = None
             raise RuntimeError(f"ACQ_START_FAILED: {type(exc).__name__}: {exc}") from exc
 
         recording_path = str(Path(root_dir) / "recordings" / recording_id)
-        self._storage = storage
         self._active_recording = ActiveRecording(
+            root_dir=root_dir,
             recording_id=recording_id,
             recording_path=recording_path,
             started_at_ns=started_at_ns,
@@ -285,7 +293,6 @@ class RecordingBackend:
         _ = publish_failure
         stopped_at_ns = time.time_ns()
         active_recording = self._active_recording
-        self._storage = None
         self._active_recording = None
         self._set_state("idle")
         return RecordingStopSummary(
@@ -298,13 +305,14 @@ class RecordingBackend:
         )
 
     def _add_marker_worker(self, label: object) -> None:
-        if self._storage is None or self._active_recording is None:
+        if self._active_recording is None:
             raise RuntimeError("ACQ_MARKER_REJECTED: not recording")
 
         timestamp_ns = time.time_ns()
         normalized_label = label or None
         try:
-            self._storage.add_marker(
+            add_recording_marker(
+                Path(self._active_recording.root_dir),
                 self._active_recording.recording_id,
                 timestamp_ns=timestamp_ns,
                 label=normalized_label,
@@ -318,7 +326,7 @@ class RecordingBackend:
         end_ns: object,
         label: object,
     ) -> None:
-        if self._storage is None or self._active_recording is None:
+        if self._active_recording is None:
             raise RuntimeError("ACQ_SEGMENT_REJECTED: not recording")
 
         try:
@@ -332,7 +340,8 @@ class RecordingBackend:
 
         normalized_label = label or None
         try:
-            self._storage.add_segment(
+            add_recording_segment(
+                Path(self._active_recording.root_dir),
                 self._active_recording.recording_id,
                 start_ns=start_value,
                 end_ns=end_value,
@@ -343,7 +352,7 @@ class RecordingBackend:
 
     def _handle_frame_stream_overflow(self, consumer_name: str) -> None:
         logger.warning("Recording frame stream overflowed for consumer '%s'", consumer_name)
-        if self._storage is not None:
+        if self._active_recording is not None:
             self._fail_recording_worker("frame_stream_overflow")
         self._replace_frame_stream()
 
@@ -370,7 +379,6 @@ class RecordingBackend:
             return
 
         stopped_at_ns = time.time_ns()
-        self._storage = None
         self._active_recording = None
         self._set_state("idle")
         self._publish_recording_failed(

@@ -112,7 +112,7 @@ data/
 
 - `packages/modlink_core/modlink_core/storage/`
   - 作为 shared storage 后端承载 `recording / session / experiment` 的文件持久化
-  - recording 写盘已收敛为 `RecordingStore.create_recording / append_frame / add_marker / add_segment`
+  - recording 写盘已收敛为 `create_recording / append_recording_frame / add_recording_marker / add_recording_segment`
   - recording 不再默认绑定 experiment/session 目录层级
   - 当前不暴露 session-style writer、finalize 或 replay/readback 接口
 
@@ -128,7 +128,7 @@ data/
 
 当前状态：
 
-- `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 承载 `RecordingStore / SessionStore / ExperimentStore`，recording 写入路径已切到 `recordings/`，并且 `RecordingStore` 只保留函数式写接口
+- `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 现已重组为纯函数模块，recording 写入路径已切到 `recordings/`
 - recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
 - replay reader、catalog、历史格式兼容都明确后置，不再让预建设的读接口提前塑造当前 storage 边界
 
@@ -373,7 +373,7 @@ packages/modlink_ai/
 3. **实现 recording catalog（待开始）** — 当前 storage 已刻意删除预建设的 `list/read` recording 接口，后续再按真实查询需求设计 catalog
 4. **实现 replay 核心链路（待开始）** — 基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，先完成播放 / 暂停 / 停止 / 倍速
 5. **设计并实现 export service（待开始）** — 在 replay backend 中支持导出 job、格式选择、进度与结果路径
-6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 `RecordingStore` 驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
+6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 storage 纯函数驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
 7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
 8. **保留历史数据导入路径（待开始）** — 当前主流程不兼容旧 recording；后续通过薄读取层或导入器兼容旧格式，而不是让旧结构继续塑造新主流程
 

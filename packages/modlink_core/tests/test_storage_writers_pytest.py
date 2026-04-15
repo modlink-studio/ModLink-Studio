@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from modlink_core.storage import RecordingStore
+from modlink_core.storage import append_recording_frame, create_recording
 from modlink_core.storage.layout import safe_path_component
 
 
@@ -47,8 +47,7 @@ def test_recording_store_persists_minimal_stream_files(
         display_name="Demo Stream",
         metadata={"unit": "demo"},
     )
-    storage = RecordingStore(tmp_path)
-    recording_id = storage.create_recording({descriptor.stream_id: descriptor})
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
     stream_dir = (
         tmp_path
         / "recordings"
@@ -63,7 +62,7 @@ def test_recording_store_persists_minimal_stream_files(
         seq=11,
         **frame_kwargs,
     )
-    storage.append_frame(recording_id, frame)
+    append_recording_frame(tmp_path, recording_id, frame)
 
     stream_payload = _read_json(stream_dir / "stream.json")
     frame_rows = _read_csv_rows(stream_dir / "frames.csv")
@@ -90,8 +89,7 @@ def test_recording_store_increments_frame_index_for_multiple_appends(
     frame_factory,
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
-    storage = RecordingStore(tmp_path)
-    recording_id = storage.create_recording({descriptor.stream_id: descriptor})
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
     frames_index_path = (
         tmp_path
         / "recordings"
@@ -101,8 +99,8 @@ def test_recording_store_increments_frame_index_for_multiple_appends(
         / "frames.csv"
     )
 
-    storage.append_frame(recording_id, frame_factory(descriptor, timestamp_ns=100, seq=1))
-    storage.append_frame(recording_id, frame_factory(descriptor, timestamp_ns=200, seq=2))
+    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=100, seq=1))
+    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=200, seq=2))
 
     assert _read_csv_rows(frames_index_path) == [
         {
@@ -126,8 +124,7 @@ def test_recording_store_persists_arbitrary_array_shape(
     frame_factory,
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
-    storage = RecordingStore(tmp_path)
-    recording_id = storage.create_recording({descriptor.stream_id: descriptor})
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
     stream_dir = (
         tmp_path
         / "recordings"
@@ -140,10 +137,26 @@ def test_recording_store_persists_arbitrary_array_shape(
         data=np.arange(4, dtype=np.float32),
     )
 
-    storage.append_frame(recording_id, frame)
+    append_recording_frame(tmp_path, recording_id, frame)
 
     with np.load(stream_dir / "frames" / "000001.npz") as archive:
         np.testing.assert_array_equal(archive["data"], frame.data)
+
+
+def test_recording_store_rejects_object_dtype_arrays(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    frame = frame_factory(
+        descriptor,
+        data=np.asarray([["bad", object()]], dtype=object),
+    )
+
+    with pytest.raises(ValueError, match="object dtype arrays are not supported"):
+        append_recording_frame(tmp_path, recording_id, frame)
 
 
 def _read_json(path: Path) -> dict[str, object]:
