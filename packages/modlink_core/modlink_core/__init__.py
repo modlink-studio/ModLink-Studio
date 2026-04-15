@@ -20,10 +20,10 @@ from .events import (
 from .recording import RecordingBackend
 from .runtime import ModLinkEngine
 from .settings import (
-    PathField,
     Settings,
-    SettingField,
+    SettingsStore,
 )
+from .settings.service import SettingsService
 from .storage import (
     EXPORT_ROOT_DIR_KEY,
     STORAGE_ROOT_DIR_KEY,
@@ -45,11 +45,11 @@ __all__ = [
     "FrameStreamOverflowError",
     "DriverSnapshot",
     "ModLinkEngine",
-    "PathField",
     "RecordingFailedEvent",
-    "Settings",
-    "SettingField",
     "SettingChangedEvent",
+    "Settings",
+    "SettingsService",
+    "SettingsStore",
     "STORAGE_ROOT_DIR_KEY",
     "StorageSettings",
     "StreamClosedError",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+import time
 from typing import Any
 
 from modlink_sdk import DriverFactory
@@ -12,6 +13,7 @@ from ..drivers import DriverPortal
 from ..event_stream import BackendEventBroker, EventStream
 from ..models import DriverSnapshot, RecordingSnapshot
 from ..settings import Settings
+from ..events import SettingChangedEvent
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
 
@@ -30,7 +32,7 @@ class ModLinkEngine:
     ) -> None:
         self._parent = parent
         self._event_broker = BackendEventBroker()
-        self._settings = settings or Settings()
+        self._settings = settings or Settings(on_change=self._publish_setting_changed)
         self.bus = StreamBus(event_broker=self._event_broker, parent=self)
         self._recording = RecordingBackend(
             self.bus,
@@ -75,6 +77,11 @@ class ModLinkEngine:
 
     def open_event_stream(self, *, maxsize: int = 1024) -> EventStream:
         return self._event_broker.open_stream(maxsize=maxsize)
+
+    def _publish_setting_changed(self, key: str, value: Any) -> None:
+        self._event_broker.publish(
+            SettingChangedEvent(key=key, value=value, ts=time.time()),
+        )
 
     def _attach_driver(self, driver_factory: DriverFactory) -> DriverPortal:
         portal = DriverPortal(

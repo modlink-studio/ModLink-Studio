@@ -1,3 +1,37 @@
-from .core import PathField, SettingField, Settings
+from .core import (
+    BoolSettingSpec,
+    EnumSettingSpec,
+    GroupSettingSpec,
+    IntSettingSpec,
+    PathSettingSpec,
+    Settings,
+    SettingsStore,
+    SettingsSpec,
+    StringSettingSpec,
+    bool_setting,
+    enum_setting,
+    group,
+    int_setting,
+    path_setting,
+    str_setting,
+)
+from .service import SettingsService
 
-__all__ = ["PathField", "SettingField", "Settings"]
+__all__ = [
+    "BoolSettingSpec",
+    "EnumSettingSpec",
+    "GroupSettingSpec",
+    "IntSettingSpec",
+    "PathSettingSpec",
+    "Settings",
+    "SettingsStore",
+    "SettingsSpec",
+    "StringSettingSpec",
+    "bool_setting",
+    "enum_setting",
+    "group",
+    "int_setting",
+    "path_setting",
+    "str_setting",
+    "SettingsService",
+]

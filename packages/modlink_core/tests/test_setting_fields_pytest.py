@@ -3,23 +3,43 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from modlink_core.settings import PathField, SettingField, Settings
+import pytest
+
+from modlink_core.settings import (
+    SettingsService,
+    SettingsSpec,
+    bool_setting,
+    group,
+    int_setting,
+    path_setting,
+)
 
 
-class DemoSettings(Settings):
-    sample_rate_hz = SettingField("demo.sample_rate_hz", default=30)
-    storage_root_dir = PathField("demo.storage.root_dir")
-    enabled = SettingField("demo.enabled", default=False)
+def _build_demo_view(path):
+    settings = SettingsService(path=path)
+    view = settings.bind(
+        SettingsSpec(
+            namespace="demo",
+            schema=group(
+                sample_rate_hz=int_setting(default=30),
+                storage=group(
+                    root_dir=path_setting(),
+                ),
+                enabled=bool_setting(default=False),
+            ),
+        )
+    )
+    return settings, view
 
 
-def test_setting_field_uses_default_when_key_is_missing(tmp_path) -> None:
-    demo = DemoSettings(path=tmp_path / "settings.json")
+def test_setting_fields_use_defaults_when_keys_are_missing(tmp_path) -> None:
+    settings, demo = _build_demo_view(tmp_path / "settings.json")
 
     assert demo.sample_rate_hz == 30
     assert demo.enabled is False
 
 
-def test_settings_load_existing_payload_into_fields(tmp_path) -> None:
+def test_settings_load_existing_payload_into_view(tmp_path) -> None:
     settings_path = tmp_path / "settings.json"
     settings_path.write_text(
         json.dumps(
@@ -33,37 +53,35 @@ def test_settings_load_existing_payload_into_fields(tmp_path) -> None:
         ),
         encoding="utf-8",
     )
-    demo = DemoSettings(path=settings_path)
+    settings, demo = _build_demo_view(settings_path)
 
     assert demo.sample_rate_hz == 60
     assert demo.enabled is True
-    assert demo.storage_root_dir == Path("~/loaded-data").expanduser()
+    assert demo.storage.root_dir == Path("~/loaded-data").expanduser()
 
 
 def test_field_assignment_only_updates_memory_until_save(tmp_path) -> None:
-    settings_path = tmp_path / "settings.json"
-    demo = DemoSettings(path=settings_path)
+    settings, demo = _build_demo_view(tmp_path / "settings.json")
 
     demo.sample_rate_hz = 120
     demo.enabled = True
-    demo.storage_root_dir = "~/modlink-data"
+    demo.storage.root_dir = "~/modlink-data"
 
-    assert settings_path.exists() is False
+    assert not (tmp_path / "settings.json").exists()
     assert demo.sample_rate_hz == 120
     assert demo.enabled is True
-    assert demo.storage_root_dir == Path("~/modlink-data").expanduser()
+    assert demo.storage.root_dir == Path("~/modlink-data").expanduser()
 
 
-def test_save_writes_current_field_values_to_disk(tmp_path) -> None:
-    settings_path = tmp_path / "settings.json"
-    demo = DemoSettings(path=settings_path)
+def test_save_writes_current_values_to_disk(tmp_path) -> None:
+    settings, demo = _build_demo_view(tmp_path / "settings.json")
 
     demo.sample_rate_hz = 120
     demo.enabled = True
-    demo.storage_root_dir = tmp_path / "data"
-    demo.save()
+    demo.storage.root_dir = tmp_path / "data"
+    settings.save()
 
-    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    payload = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert payload == {
         "demo": {
             "sample_rate_hz": 120,
@@ -79,34 +97,28 @@ def test_path_field_treats_empty_payload_as_unset(tmp_path) -> None:
         json.dumps({"demo": {"storage": {"root_dir": "   "}}}),
         encoding="utf-8",
     )
-    demo = DemoSettings(path=settings_path)
+    settings, demo = _build_demo_view(settings_path)
 
-    assert demo.storage_root_dir is None
+    assert demo.storage.root_dir is None
 
 
-def test_path_field_removes_key_after_save(tmp_path) -> None:
+def test_path_field_can_be_unset_after_save(tmp_path) -> None:
     settings_path = tmp_path / "settings.json"
-    demo = DemoSettings(path=settings_path)
-    demo.storage_root_dir = tmp_path / "data"
-    demo.save()
+    settings, demo = _build_demo_view(settings_path)
+    demo.storage.root_dir = tmp_path / "data"
+    settings.save()
 
-    demo.storage_root_dir = None
-    payload_before_save = json.loads(settings_path.read_text(encoding="utf-8"))
+    demo.storage.root_dir = None
+    payload_before_save = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert payload_before_save["demo"]["storage"]["root_dir"] == str(tmp_path / "data")
 
-    demo.save()
+    settings.save()
 
-    payload_after_save = json.loads(settings_path.read_text(encoding="utf-8"))
+    payload_after_save = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert payload_after_save == {}
-    assert demo.storage_root_dir is None
 
 
 def test_path_field_rejects_blank_strings(tmp_path) -> None:
-    demo = DemoSettings(path=tmp_path / "settings.json")
-
-    try:
-        demo.storage_root_dir = "  "
-    except ValueError as exc:
-        assert str(exc) == "demo.storage.root_dir must not be empty"
-    else:
-        raise AssertionError("blank path should fail")
+    settings, demo = _build_demo_view(tmp_path / "settings.json")
+    with pytest.raises(ValueError, match="must not be empty"):
+        demo.storage.root_dir = "  "
