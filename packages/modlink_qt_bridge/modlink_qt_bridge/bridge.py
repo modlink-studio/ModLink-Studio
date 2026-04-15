@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 
-from modlink_core.acquisition.backend import RECORDING_ROOT_DIR_KEY, RecordingBackend
+from modlink_core.recording.backend import RECORDING_ROOT_DIR_KEY, RecordingBackend
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import (

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.acquisition.backend import RECORDING_ROOT_DIR_KEY
+from modlink_core.recording.backend import RECORDING_ROOT_DIR_KEY
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import PushSettingCard
 
-from modlink_core.acquisition.backend import RECORDING_ROOT_DIR_KEY
+from modlink_core.recording.backend import RECORDING_ROOT_DIR_KEY
 from modlink_qt_bridge import QtSettingsBridge
 
 
