@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from modlink_core.settings import settings_group, value_setting
+
 UI_LABELS_KEY = "ui.labels.items"
 DEFAULT_LABELS = ("default",)
 UI_PREVIEW_REFRESH_RATE_HZ_KEY = "ui.preview.refresh_rate_hz"
 PREVIEW_REFRESH_RATE_OPTIONS = (15, 24, 30, 60)
 DEFAULT_PREVIEW_REFRESH_RATE_HZ = 30
+UI_PREVIEW_STREAMS_KEY = "ui.preview.streams"
 
 
 def normalize_labels(values: object) -> tuple[str, ...]:
@@ -36,3 +39,33 @@ def normalize_preview_refresh_rate_hz(value: object) -> int:
     if normalized in PREVIEW_REFRESH_RATE_OPTIONS:
         return normalized
     return DEFAULT_PREVIEW_REFRESH_RATE_HZ
+
+
+def declare_label_settings(settings: object) -> None:
+    settings.add(
+        ui=settings_group(
+            labels=settings_group(
+                items=value_setting(default=DEFAULT_LABELS),
+            )
+        )
+    )
+
+
+def declare_preview_refresh_rate_settings(settings: object) -> None:
+    settings.add(
+        ui=settings_group(
+            preview=settings_group(
+                refresh_rate_hz=value_setting(default=DEFAULT_PREVIEW_REFRESH_RATE_HZ),
+            )
+        )
+    )
+
+
+def declare_preview_stream_settings(settings: object) -> None:
+    settings.add(
+        ui=settings_group(
+            preview=settings_group(
+                streams=value_setting(default={}),
+            )
+        )
+    )

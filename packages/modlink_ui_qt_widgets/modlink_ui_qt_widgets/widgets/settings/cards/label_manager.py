@@ -27,6 +27,7 @@ from qfluentwidgets import (
     FluentIcon as FIF,
 )
 
+from modlink_core.settings import settings_group, value_setting
 from modlink_qt_bridge import QtSettingsBridge
 
 UI_LABELS_KEY = "ui.labels.items"
@@ -51,6 +52,16 @@ def normalize_labels(values: object) -> tuple[str, ...]:
 
 def serialize_labels(values: tuple[str, ...]) -> list[str]:
     return list(values)
+
+
+def declare_label_settings(settings: QtSettingsBridge) -> None:
+    settings.add(
+        ui=settings_group(
+            labels=settings_group(
+                items=value_setting(default=DEFAULT_LABELS),
+            )
+        )
+    )
 
 
 def _dialog_background_stylesheet() -> str:
@@ -131,7 +142,8 @@ class LabelManagerDialog(QDialog):
     ) -> None:
         super().__init__(parent=parent)
         self._settings = settings
-        self._labels = normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
+        declare_label_settings(self._settings)
+        self._labels = normalize_labels(self._settings.ui.labels.items)
 
         self.setWindowTitle("标签管理")
         self.resize(600, 420)
@@ -200,18 +212,20 @@ class LabelManagerDialog(QDialog):
         if not text:
             return
         self._labels = normalize_labels([*self._labels, text])
-        self._settings.set(UI_LABELS_KEY, serialize_labels(self._labels))
+        self._settings.ui.labels.items = serialize_labels(self._labels)
+        self._settings.save()
         self.input.clear()
 
     def _remove_label(self, text: str) -> None:
         filtered = [label for label in self._labels if label != text]
         self._labels = normalize_labels(filtered)
-        self._settings.set(UI_LABELS_KEY, serialize_labels(self._labels))
+        self._settings.ui.labels.items = serialize_labels(self._labels)
+        self._settings.save()
 
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != UI_LABELS_KEY:
             return
-        self._labels = normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
+        self._labels = normalize_labels(self._settings.ui.labels.items)
         self.label_cloud.set_labels(self._labels)
 
 
@@ -222,6 +236,7 @@ class LabelManagerCard(PushSettingCard):
         parent: QWidget | None = None,
     ) -> None:
         self._settings = settings
+        declare_label_settings(self._settings)
         labels = self._load_labels()
 
         super().__init__(
@@ -258,7 +273,7 @@ class LabelManagerCard(PushSettingCard):
         self._refresh_summary()
 
     def _load_labels(self) -> tuple[str, ...]:
-        return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
+        return normalize_labels(self._settings.ui.labels.items)
 
     def _refresh_summary(self) -> None:
         self.setContent(self._summary_text(self._labels))

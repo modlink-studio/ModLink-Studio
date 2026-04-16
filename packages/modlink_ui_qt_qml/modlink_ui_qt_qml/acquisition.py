@@ -7,7 +7,7 @@ from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
-from .constants import DEFAULT_LABELS, UI_LABELS_KEY, normalize_labels
+from .constants import UI_LABELS_KEY, declare_label_settings, normalize_labels
 
 
 class AcquisitionController(QObject):
@@ -26,6 +26,7 @@ class AcquisitionController(QObject):
         super().__init__(parent)
         self._engine = engine
         self._settings = engine.settings
+        declare_label_settings(self._settings)
         self._storage_settings = StorageSettings(self._settings)
         self._recording_label = ""
         self._marker_label = ""
@@ -62,7 +63,7 @@ class AcquisitionController(QObject):
 
     @pyqtProperty("QVariantList", notify=recordingLabelsChanged)
     def recordingLabels(self) -> list[str]:
-        return list(normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS)))
+        return list(normalize_labels(self._settings.ui.labels.items))
 
     @pyqtProperty(str, notify=outputDirectoryChanged)
     def outputDirectory(self) -> str:

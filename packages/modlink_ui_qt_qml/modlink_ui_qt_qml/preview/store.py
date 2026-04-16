@@ -6,6 +6,7 @@ from typing import Any, cast
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import StreamDescriptor
 
+from ..constants import declare_preview_stream_settings
 from .models import (
     PreviewPayloadType,
     PreviewSettings,
@@ -15,12 +16,11 @@ from .models import (
     serialize_preview_settings,
 )
 
-UI_PREVIEW_STREAMS_KEY = "ui.preview.streams"
-
 
 class PreviewStreamSettingsStore:
     def __init__(self, settings: QtSettingsBridge) -> None:
         self._settings = settings
+        declare_preview_stream_settings(self._settings)
 
     def load(self, descriptor: StreamDescriptor) -> PreviewSettings:
         payload_type = self._payload_type(descriptor)
@@ -53,10 +53,11 @@ class PreviewStreamSettingsStore:
             "payload_type": payload_type,
             "settings": serialize_preview_settings(normalized),
         }
-        self._settings.set(UI_PREVIEW_STREAMS_KEY, streams, persist=True)
+        self._settings.ui.preview.streams = streams
+        self._settings.save()
 
     def _load_streams_map(self) -> dict[str, dict[str, Any]]:
-        raw = self._settings.get(UI_PREVIEW_STREAMS_KEY, {})
+        raw = self._settings.ui.preview.streams
         if not isinstance(raw, dict):
             return {}
         return cast(dict[str, dict[str, Any]], deepcopy(raw))

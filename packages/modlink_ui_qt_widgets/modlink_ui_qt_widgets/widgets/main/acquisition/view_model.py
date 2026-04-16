@@ -8,6 +8,7 @@ from typing import Literal
 from PyQt6.QtCore import QObject, pyqtSignal
 from qfluentwidgets import FluentIcon as FIF
 
+from modlink_core.settings import settings_group, value_setting
 from modlink_core.storage import StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
@@ -41,6 +42,19 @@ def normalize_labels(values: object) -> tuple[str, ...]:
         seen.add(text)
 
     return tuple(normalized) or DEFAULT_LABELS
+
+
+def _declare_acquisition_settings(settings: object) -> None:
+    settings.add(
+        ui=settings_group(
+            acquisition=settings_group(
+                layout_mode=value_setting(default=DEFAULT_ACQUISITION_LAYOUT_MODE),
+            ),
+            labels=settings_group(
+                items=value_setting(default=DEFAULT_LABELS),
+            ),
+        )
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,12 +112,10 @@ class AcquisitionViewModel(QObject):
         self._pending_recording_stop_notice = False
         self._last_known_recording_state = self.engine.recording.is_recording
         self._settings = self.engine.settings
+        _declare_acquisition_settings(self._settings)
         self._storage_settings = StorageSettings(self._settings)
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
-            self._settings.get(
-                UI_ACQUISITION_LAYOUT_MODE_KEY,
-                DEFAULT_ACQUISITION_LAYOUT_MODE,
-            )
+            self._settings.ui.acquisition.layout_mode
         )
 
         self.engine.recording.sig_state_changed.connect(self._on_state_changed)
@@ -201,11 +213,12 @@ class AcquisitionViewModel(QObject):
 
     def set_layout_mode(self, mode: LayoutMode) -> LayoutMode:
         self._layout_mode = normalize_acquisition_layout_mode(mode)
-        self._settings.set(UI_ACQUISITION_LAYOUT_MODE_KEY, self._layout_mode)
+        self._settings.ui.acquisition.layout_mode = self._layout_mode
+        self._settings.save()
         return self._layout_mode
 
     def get_recording_labels(self) -> tuple[str, ...]:
-        return normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS))
+        return normalize_labels(self._settings.ui.labels.items)
 
     def build_output_directory(self) -> str:
         return str(self._storage_settings.recordings_dir())

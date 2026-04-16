@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from PyQt6.QtCore import QObject, QTimer, pyqtProperty, pyqtSignal
 
 from modlink_qt_bridge import QtModLinkBridge
@@ -8,8 +9,8 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from .acquisition import AcquisitionController
 from .constants import (
-    DEFAULT_PREVIEW_REFRESH_RATE_HZ,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+    declare_preview_refresh_rate_settings,
     normalize_preview_refresh_rate_hz,
 )
 from .helpers import format_timestamp_ns
@@ -25,7 +26,7 @@ from .preview.stream_controller_factory import (
 class _StreamState:
     descriptor: StreamDescriptor
     controller: StreamController
-    preview_item: "_PreviewItem"
+    preview_item: _PreviewItem
     last_timestamp_ns: int | None = None
     dirty: bool = False
     hydrating: bool = False
@@ -100,6 +101,7 @@ class MainPageController(QObject):
         super().__init__(parent)
         self._engine = engine
         self._settings = engine.settings
+        declare_preview_refresh_rate_settings(self._settings)
         self._acquisition = AcquisitionController(engine, parent=self)
         self._store = PreviewStreamSettingsStore(self._settings)
         self._streams: dict[str, _StreamState] = {}
@@ -199,11 +201,6 @@ class MainPageController(QObject):
             self._apply_refresh_rate()
 
     def _apply_refresh_rate(self) -> None:
-        refresh_rate_hz = normalize_preview_refresh_rate_hz(
-            self._settings.get(
-                UI_PREVIEW_REFRESH_RATE_HZ_KEY,
-                DEFAULT_PREVIEW_REFRESH_RATE_HZ,
-            )
-        )
+        refresh_rate_hz = normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
         interval_ms = max(16, int(round(1000 / max(1, refresh_rate_hz))))
         self._refresh_timer.start(interval_ms)

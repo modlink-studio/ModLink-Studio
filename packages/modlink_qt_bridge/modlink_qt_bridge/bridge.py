@@ -288,14 +288,26 @@ class QtSettingsBridge(QObject):
     def get(self, key: str, default: object | None = None) -> object | None:
         return self._settings.get(key, default)
 
+    def add(self, **entries: object) -> object:
+        return self._settings.add(**entries)
+
     def set(self, key: str, value: object, *, persist: bool = True) -> None:
         self._settings.set(key, value, persist=persist)
 
     def remove(self, key: str, *, persist: bool = True) -> None:
         self._settings.remove(key, persist=persist)
 
+    def param(self, name: str) -> object:
+        return self._settings.param(name)
+
     def snapshot(self) -> dict[str, object]:
         return self._settings.snapshot()
+
+    def save(self) -> None:
+        self._settings.save()
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._settings, name)
 
     def _emit_setting_changed(self, event: SettingChangedEvent) -> None:
         self.sig_setting_changed.emit(event)

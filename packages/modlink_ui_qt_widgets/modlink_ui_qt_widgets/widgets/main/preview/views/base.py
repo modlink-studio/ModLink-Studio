@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import QWidget
 from modlink_qt_bridge import QtSettingsBridge
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 from modlink_ui_qt_widgets.widgets.settings.cards.preview_refresh_rate import (
-    DEFAULT_PREVIEW_REFRESH_RATE_HZ,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+    declare_preview_refresh_rate_settings,
     normalize_preview_refresh_rate_hz,
 )
 
@@ -22,6 +22,7 @@ class BaseStreamView(QWidget):
         super().__init__(parent=parent)
         self.descriptor = descriptor
         self._settings = settings
+        declare_preview_refresh_rate_settings(self._settings)
         self._dirty = False
         self._has_frame = False
 
@@ -58,12 +59,7 @@ class BaseStreamView(QWidget):
         self._apply_refresh_rate(self._load_refresh_rate_hz())
 
     def _load_refresh_rate_hz(self) -> int:
-        return normalize_preview_refresh_rate_hz(
-            self._settings.get(
-                UI_PREVIEW_REFRESH_RATE_HZ_KEY,
-                DEFAULT_PREVIEW_REFRESH_RATE_HZ,
-            )
-        )
+        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
 
     def _apply_refresh_rate(self, refresh_rate_hz: int) -> None:
         interval_ms = max(16, int(round(1000 / max(1, int(refresh_rate_hz)))))

@@ -15,6 +15,8 @@ from modlink_qt_bridge import QtModLinkBridge
 from .app_controller import AppController
 from .gpu import TextureItem, WaveformItem
 
+_QML_TYPES_REGISTERED = False
+
 
 def _load_app_icon() -> QIcon:
     assets_dir = Path(__file__).resolve().parents[3] / "assets"
@@ -25,13 +27,18 @@ def _load_app_icon() -> QIcon:
 
 
 def _register_qml_types() -> None:
+    global _QML_TYPES_REGISTERED
+    if _QML_TYPES_REGISTERED:
+        return
     qmlRegisterType(WaveformItem, "ModLink.GPU", 1, 0, "WaveformItem")
     qmlRegisterType(TextureItem, "ModLink.GPU", 1, 0, "TextureItem")
+    _QML_TYPES_REGISTERED = True
 
 
 def create_application(argv: Sequence[str] | None = None) -> QApplication:
     existing = QApplication.instance()
     if existing is not None:
+        _register_qml_types()
         return existing
 
     os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Universal")

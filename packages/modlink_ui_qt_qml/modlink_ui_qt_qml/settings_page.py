@@ -6,11 +6,11 @@ from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
-    DEFAULT_LABELS,
-    DEFAULT_PREVIEW_REFRESH_RATE_HZ,
     PREVIEW_REFRESH_RATE_OPTIONS,
     UI_LABELS_KEY,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
+    declare_label_settings,
+    declare_preview_refresh_rate_settings,
     normalize_labels,
     normalize_preview_refresh_rate_hz,
     serialize_labels,
@@ -30,6 +30,8 @@ class SettingsPageController(QObject):
     ) -> None:
         super().__init__(parent)
         self._settings = engine.settings
+        declare_preview_refresh_rate_settings(self._settings)
+        declare_label_settings(self._settings)
         self._storage_settings = StorageSettings(self._settings)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
@@ -39,12 +41,7 @@ class SettingsPageController(QObject):
 
     @pyqtProperty(int, notify=previewRefreshRateHzChanged)
     def previewRefreshRateHz(self) -> int:
-        return normalize_preview_refresh_rate_hz(
-            self._settings.get(
-                UI_PREVIEW_REFRESH_RATE_HZ_KEY,
-                DEFAULT_PREVIEW_REFRESH_RATE_HZ,
-            )
-        )
+        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
 
     @pyqtProperty("QVariantList", constant=True)
     def previewRateOptions(self) -> list[int]:
@@ -52,7 +49,7 @@ class SettingsPageController(QObject):
 
     @pyqtProperty("QVariantList", notify=labelsChanged)
     def labels(self) -> list[str]:
-        return list(normalize_labels(self._settings.get(UI_LABELS_KEY, DEFAULT_LABELS)))
+        return list(normalize_labels(self._settings.ui.labels.items))
 
     @pyqtSlot(str)
     def setSaveDirectory(self, value: str) -> None:
@@ -66,7 +63,8 @@ class SettingsPageController(QObject):
     @pyqtSlot(int)
     def setPreviewRefreshRateHz(self, value: int) -> None:
         normalized = normalize_preview_refresh_rate_hz(value)
-        self._settings.set(UI_PREVIEW_REFRESH_RATE_HZ_KEY, normalized)
+        self._settings.ui.preview.refresh_rate_hz = normalized
+        self._settings.save()
         self.messageRaised.emit(f"预览刷新率已切换到 {normalized} Hz。")
 
     @pyqtSlot(str)
@@ -75,7 +73,8 @@ class SettingsPageController(QObject):
         if not text:
             return
         labels = normalize_labels([*self.labels, text])
-        self._settings.set(UI_LABELS_KEY, serialize_labels(labels))
+        self._settings.ui.labels.items = serialize_labels(labels)
+        self._settings.save()
         self.messageRaised.emit(f"已添加标签 {text}。")
 
     @pyqtSlot(str)
@@ -85,7 +84,8 @@ class SettingsPageController(QObject):
             return
         labels = tuple(label for label in self.labels if label != text)
         normalized = normalize_labels(labels)
-        self._settings.set(UI_LABELS_KEY, serialize_labels(normalized))
+        self._settings.ui.labels.items = serialize_labels(normalized)
+        self._settings.save()
         self.messageRaised.emit(f"已移除标签 {text}。")
 
     def _on_setting_changed(self, event: object) -> None:
