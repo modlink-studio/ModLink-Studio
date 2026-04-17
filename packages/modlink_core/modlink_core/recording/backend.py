@@ -107,6 +107,7 @@ class RecordingBackend:
             self._started = True
             self._accepting_commands = True
             return
+        logger.info("Starting recording backend")
         if self._frame_stream is None or self._frame_stream.closed:
             self._frame_stream = self._open_frame_stream()
         thread = threading.Thread(
@@ -119,6 +120,7 @@ class RecordingBackend:
         self._accepting_commands = True
         self._started = True
         thread.start()
+        logger.info("Recording backend started")
 
     def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
         storage_root_dir = self.root_dir
@@ -151,6 +153,7 @@ class RecordingBackend:
         )
 
     def shutdown(self, *, timeout_ms: int = 3000) -> None:
+        logger.info("Shutting down recording backend")
         with self._lock:
             self._accepting_commands = False
             thread = self._thread
@@ -173,6 +176,7 @@ class RecordingBackend:
         worker_exit_error = self._take_worker_exit_error()
         if worker_exit_error is not None:
             raise worker_exit_error
+        logger.info("Recording backend shut down")
 
     def _run(self) -> None:
         exit_error: Exception | None = None
@@ -284,6 +288,7 @@ class RecordingBackend:
             },
         )
         self._set_state("recording")
+        logger.info("Started recording %s at %s", recording_id, recording_path)
         return RecordingStartSummary(
             recording_id=recording_id,
             recording_path=recording_path,
@@ -306,6 +311,7 @@ class RecordingBackend:
         active_recording = self._active_recording
         self._active_recording = None
         self._set_state("idle")
+        logger.info("Stopped recording %s", active_recording.recording_id)
         return RecordingStopSummary(
             recording_id=active_recording.recording_id,
             recording_path=active_recording.recording_path,

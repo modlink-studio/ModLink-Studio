@@ -5,17 +5,18 @@ from .event_stream import (
     EventStreamOverflowError,
     StreamClosedError,
 )
-from .models import (
-    RecordingSnapshot,
-    RecordingStartSummary,
-    RecordingStopSummary,
-    DriverSnapshot,
-)
 from .events import (
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
     RecordingFailedEvent,
     SettingChangedEvent,
+)
+from .logging_setup import configure_host_logging
+from .models import (
+    DriverSnapshot,
+    RecordingSnapshot,
+    RecordingStartSummary,
+    RecordingStopSummary,
 )
 from .recording import RecordingBackend
 from .runtime import ModLinkEngine
@@ -46,6 +47,7 @@ __all__ = [
     "EventStreamOverflowError",
     "FrameStream",
     "FrameStreamOverflowError",
+    "configure_host_logging",
     "default_storage_root_dir",
     "experiments_dir",
     "exports_dir",

@@ -3,7 +3,6 @@ from __future__ import annotations
 from unittest.mock import Mock, patch
 
 import pytest
-
 from modlink_studio_qml.app import _shutdown_bridge, main
 
 
@@ -35,23 +34,18 @@ def test_main_wires_qml_app_entry() -> None:
     controller = Mock()
 
     with patch("modlink_studio_qml.app.create_application", return_value=app):
-        with patch(
-            "modlink_studio_qml.app.discover_driver_factories",
-            return_value=["driver_factory"],
-                ) as discover:
-            with patch("modlink_studio_qml.app.SettingsStore") as settings_cls:
-                with patch("modlink_studio_qml.app.ModLinkEngine") as engine_cls:
-                    with patch("modlink_studio_qml.app.QtModLinkBridge") as bridge_cls:
-                        with patch(
-                            "modlink_studio_qml.app.load_window",
-                            return_value=(qml_engine, controller),
-                        ) as load_window:
-                            with pytest.raises(SystemExit) as exc_info:
-                                main()
+        with patch("modlink_studio_qml.app.configure_host_logging", return_value="test.log") as configure_logging:
+            with patch("modlink_studio_qml.app.ModLinkEngine") as engine_cls:
+                with patch("modlink_studio_qml.app.QtModLinkBridge") as bridge_cls:
+                    with patch(
+                        "modlink_studio_qml.app.load_window",
+                        return_value=(qml_engine, controller),
+                    ) as load_window:
+                        with pytest.raises(SystemExit) as exc_info:
+                            main()
 
     assert exc_info.value.code == 17
-    discover.assert_called_once()
-    settings_cls.assert_called_once_with()
+    configure_logging.assert_called_once()
     engine_cls.assert_called_once()
     bridge_cls.assert_called_once()
     load_window.assert_called_once()

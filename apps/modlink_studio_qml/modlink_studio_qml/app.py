@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import logging
 import traceback
 
 from PyQt6.QtWidgets import QMessageBox
 
-from modlink_core import ModLinkEngine
-from modlink_core.drivers import discover_driver_factories
+from modlink_core import ModLinkEngine, configure_host_logging
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui_qt_qml import create_application, load_window
+
+logger = logging.getLogger(__name__)
 
 
 def _show_shutdown_error(message: str) -> None:
@@ -27,10 +29,11 @@ def _shutdown_bridge(bridge: QtModLinkBridge) -> None:
 
 
 def main() -> None:
+    log_path = configure_host_logging(log_filename="modlink-studio-qml.log")
+    logger.info("Starting ModLink Studio QML")
+    logger.info("Desktop logs will be written to %s", log_path)
     app = create_application()
-    driver_factories = discover_driver_factories()
     runtime = ModLinkEngine(
-        driver_factories=driver_factories,
         parent=app,
     )
     bridge = QtModLinkBridge(runtime, parent=app)

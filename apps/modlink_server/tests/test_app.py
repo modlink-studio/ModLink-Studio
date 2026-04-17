@@ -8,7 +8,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from modlink_server.app import _iter_sse_messages, create_app
+from modlink_server.app import create_app
+from modlink_server.routes import _iter_sse_messages
 
 from modlink_core import EventStreamOverflowError, SettingsStore
 from modlink_core.settings import SettingsGroup, SettingsStr
@@ -104,125 +105,126 @@ def settings_path(tmp_path: Path) -> Path:
 
 def test_app_lifespan_starts_and_shuts_down_engine(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
 
-    with TestClient(app) as client:
-        response = client.get("/health")
-        assert response.status_code == 200
-        assert response.json()["ok"] is True
+    with _patch_engine_discovery(lambda: driver):
+        with TestClient(app) as client:
+            response = client.get("/health")
+            assert response.status_code == 200
+            assert response.json()["ok"] is True
 
     assert driver.shutdown_called is True
 
 
 def test_http_driver_endpoints_and_error_mapping(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
 
-    with TestClient(app) as client:
-        drivers = client.get("/drivers")
-        assert drivers.status_code == 200
-        assert drivers.json()[0]["driver_id"] == driver.device_id
+    with _patch_engine_discovery(lambda: driver):
+        with TestClient(app) as client:
+            drivers = client.get("/drivers")
+            assert drivers.status_code == 200
+            assert drivers.json()[0]["driver_id"] == driver.device_id
 
-        search = client.post(
-            f"/drivers/{driver.device_id}/search",
-            json={"provider": "demo"},
-        )
-        assert search.status_code == 200
-        assert search.json()[0]["title"] == "API Demo Device"
+            search = client.post(
+                f"/drivers/{driver.device_id}/search",
+                json={"provider": "demo"},
+            )
+            assert search.status_code == 200
+            assert search.json()[0]["title"] == "API Demo Device"
 
-        bad_search = client.post(
-            f"/drivers/{driver.device_id}/search",
-            json={"provider": "bad"},
-        )
-        assert bad_search.status_code == 400
-        assert bad_search.json()["error"]["type"] == "ValueError"
+            bad_search = client.post(
+                f"/drivers/{driver.device_id}/search",
+                json={"provider": "bad"},
+            )
+            assert bad_search.status_code == 400
+            assert bad_search.json()["error"]["type"] == "ValueError"
 
-        connect = client.post(
-            f"/drivers/{driver.device_id}/connect",
-            json={
-                "title": "API Demo Device",
-                "subtitle": "demo",
-                "extra": {"token": "demo"},
-            },
-        )
-        assert connect.status_code == 200
+            connect = client.post(
+                f"/drivers/{driver.device_id}/connect",
+                json={
+                    "title": "API Demo Device",
+                    "subtitle": "demo",
+                    "extra": {"token": "demo"},
+                },
+            )
+            assert connect.status_code == 200
 
-        start = client.post(f"/drivers/{driver.device_id}/start-streaming")
-        assert start.status_code == 200
+            start = client.post(f"/drivers/{driver.device_id}/start-streaming")
+            assert start.status_code == 200
 
-        descriptors = client.get("/streams/descriptors")
-        assert descriptors.status_code == 200
-        assert descriptors.json()[driver.descriptors()[0].stream_id]["stream_key"] == "demo"
+            descriptors = client.get("/streams/descriptors")
+            assert descriptors.status_code == 200
+            assert descriptors.json()[driver.descriptors()[0].stream_id]["stream_key"] == "demo"
 
-        snapshot = client.get(f"/drivers/{driver.device_id}")
-        assert snapshot.status_code == 200
-        assert snapshot.json()["is_connected"] is True
-        assert snapshot.json()["is_streaming"] is True
+            snapshot = client.get(f"/drivers/{driver.device_id}")
+            assert snapshot.status_code == 200
+            assert snapshot.json()["is_connected"] is True
+            assert snapshot.json()["is_streaming"] is True
 
-        stop = client.post(f"/drivers/{driver.device_id}/stop-streaming")
-        assert stop.status_code == 200
-        disconnect = client.post(f"/drivers/{driver.device_id}/disconnect")
-        assert disconnect.status_code == 200
+            stop = client.post(f"/drivers/{driver.device_id}/stop-streaming")
+            assert stop.status_code == 200
+            disconnect = client.post(f"/drivers/{driver.device_id}/disconnect")
+            assert disconnect.status_code == 200
 
 
 def test_http_acquisition_settings_and_timeout_mapping(settings_path: Path) -> None:
-    app = create_app(
-        driver_factories=[TimeoutSearchDriver],
-        settings_path=settings_path,
-    )
+    app = create_app(settings_path=settings_path)
 
-    with TestClient(app) as client:
-        acquisition = client.get("/acquisition")
-        assert acquisition.status_code == 200
-        assert acquisition.json()["state"] == "idle"
+    with _patch_engine_discovery(TimeoutSearchDriver):
+        with TestClient(app) as client:
+            acquisition = client.get("/acquisition")
+            assert acquisition.status_code == 200
+            assert acquisition.json()["state"] == "idle"
 
-        start_recording = client.post(
-            "/acquisition/start-recording",
-            json={"recording_label": None},
-        )
-        assert start_recording.status_code == 200
-        assert start_recording.json() == {"ok": True}
+            start_recording = client.post(
+                "/acquisition/start-recording",
+                json={"recording_label": None},
+            )
+            assert start_recording.status_code == 200
+            assert start_recording.json() == {"ok": True}
 
-        timeout_search = client.post(
-            "/drivers/timeout_demo.01/search",
-            json={"provider": "demo"},
-        )
-        assert timeout_search.status_code == 504
-        assert timeout_search.json()["error"]["type"] == "TimeoutError"
+            timeout_search = client.post(
+                "/drivers/timeout_demo.01/search",
+                json={"provider": "demo"},
+            )
+            assert timeout_search.status_code == 504
+            assert timeout_search.json()["error"]["type"] == "TimeoutError"
 
-        update = client.put(
-            "/settings/storage.root_dir",
-            json={"value": "C:/demo-data", "persist": False},
-        )
-        assert update.status_code == 200
+            update = client.put(
+                "/settings/storage.root_dir",
+                json={"value": "C:/demo-data", "persist": False},
+            )
+            assert update.status_code == 200
 
-        snapshot = client.get("/settings")
-        assert snapshot.status_code == 200
-        assert snapshot.json()["storage"]["root_dir"] == "C:/demo-data"
+            snapshot = client.get("/settings")
+            assert snapshot.status_code == 200
+            assert snapshot.json()["storage"]["root_dir"] == "C:/demo-data"
 
-        delete = client.delete("/settings/storage.root_dir?persist=false")
-        assert delete.status_code == 200
+            delete = client.delete("/settings/storage.root_dir?persist=false")
+            assert delete.status_code == 200
 
 
 def test_sse_events_stream_emits_driver_connection_lost(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
 
-    with TestClient(app) as client:
-        connect = client.post(
-            f"/drivers/{driver.device_id}/connect",
-            json={
-                "title": "API Demo Device",
-                "subtitle": "demo",
-                "extra": {"token": "demo"},
-            },
-        )
-        assert connect.status_code == 200
-        event_stream = client.app.state.engine.open_event_stream(maxsize=8)
-        driver.emit_connection_lost({"code": "DEMO_LOST"})
-        event_name, payload = _read_sse_event_from_generator(
-            _iter_sse_messages(_ConnectedRequest(), event_stream)
-        )
+    with _patch_engine_discovery(lambda: driver):
+        with TestClient(app) as client:
+            connect = client.post(
+                f"/drivers/{driver.device_id}/connect",
+                json={
+                    "title": "API Demo Device",
+                    "subtitle": "demo",
+                    "extra": {"token": "demo"},
+                },
+            )
+            assert connect.status_code == 200
+            event_stream = client.app.state.engine.open_event_stream(maxsize=8)
+            driver.emit_connection_lost({"code": "DEMO_LOST"})
+            event_name, payload = _read_sse_event_from_generator(
+                _iter_sse_messages(_ConnectedRequest(), event_stream)
+            )
 
     assert event_name == "driver_connection_lost"
     assert payload["driver_id"] == driver.device_id
@@ -233,11 +235,15 @@ def test_sse_events_stream_emits_resync_required_on_overflow(
     settings_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    app = create_app(driver_factories=[ApiDemoDriver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
 
-    with caplog.at_level(logging.WARNING), patch(
-        "modlink_core.event_stream.EventStream.read",
-        side_effect=EventStreamOverflowError("event stream overflowed"),
+    with (
+        _patch_engine_discovery(ApiDemoDriver),
+        caplog.at_level(logging.WARNING),
+        patch(
+            "modlink_core.event_stream.EventStream.read",
+            side_effect=EventStreamOverflowError("event stream overflowed"),
+        ),
     ):
         with TestClient(app) as client:
             event_stream = client.app.state.engine.open_event_stream(maxsize=1)
@@ -253,31 +259,33 @@ def test_sse_events_stream_emits_resync_required_on_overflow(
 def test_sse_events_stream_emits_keepalive_comment_when_idle(
     settings_path: Path,
 ) -> None:
-    app = create_app(driver_factories=[ApiDemoDriver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
 
-    with TestClient(app) as client:
-        event_stream = client.app.state.engine.open_event_stream(maxsize=1)
-        chunk = _read_first_sse_chunk(
-            _iter_sse_messages(
-                _ConnectedRequest(),
-                event_stream,
-                heartbeat_interval_seconds=0.0,
+    with _patch_engine_discovery(ApiDemoDriver):
+        with TestClient(app) as client:
+            event_stream = client.app.state.engine.open_event_stream(maxsize=1)
+            chunk = _read_first_sse_chunk(
+                _iter_sse_messages(
+                    _ConnectedRequest(),
+                    event_stream,
+                    heartbeat_interval_seconds=0.0,
+                )
             )
-        )
 
     assert chunk == ": keepalive\n\n"
 
 
 def test_websocket_frames_stream_encodes_signal_frame(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
+    app = create_app(settings_path=settings_path)
     stream_id = driver.descriptors()[0].stream_id
 
-    with TestClient(app) as client:
-        with client.websocket_connect(f"/frames?stream_id={stream_id}") as websocket:
-            emitted = driver.emit_demo_frame(seq=7)
-            assert emitted is True
-            payload = websocket.receive_json()
+    with _patch_engine_discovery(lambda: driver):
+        with TestClient(app) as client:
+            with client.websocket_connect(f"/frames?stream_id={stream_id}") as websocket:
+                emitted = driver.emit_demo_frame(seq=7)
+                assert emitted is True
+                payload = websocket.receive_json()
 
     assert payload["kind"] == "frame"
     assert payload["stream_id"] == stream_id
@@ -341,3 +349,10 @@ def _collect_sse_lines(generator) -> list[str]:
 class _ConnectedRequest:
     async def is_disconnected(self) -> bool:
         return False
+
+
+def _patch_engine_discovery(*factories):
+    return patch(
+        "modlink_core.runtime.engine.discover_driver_factories",
+        return_value=list(factories),
+    )

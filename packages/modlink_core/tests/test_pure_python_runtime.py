@@ -12,13 +12,13 @@ from uuid import uuid4
 import numpy as np
 
 from modlink_core import ModLinkEngine
-from modlink_core.recording import RecordingBackend
 from modlink_core.drivers import DriverPortal
 from modlink_core.event_stream import BackendEventBroker, EventStreamOverflowError
 from modlink_core.events import (
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
 )
+from modlink_core.recording import RecordingBackend
 from modlink_core.settings import SettingsGroup, SettingsStore, SettingsStr
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
@@ -692,13 +692,15 @@ class PurePythonRuntimeTest(unittest.TestCase):
         driver_a.on_runtime_started = _wrap_started(driver_a, "demo_order_a.01")  # type: ignore[method-assign]
         driver_b.on_runtime_started = _wrap_started(driver_b, "demo_order_b.01")  # type: ignore[method-assign]
 
-        with patch(
-            "modlink_core.runtime.engine.RecordingBackend.start",
-            autospec=True,
-            side_effect=_record_start,
+        with (
+            _patch_engine_discovery(lambda: driver_a, lambda: driver_b),
+            patch(
+                "modlink_core.runtime.engine.RecordingBackend.start",
+                autospec=True,
+                side_effect=_record_start,
+            ),
         ):
             engine = ModLinkEngine(
-                driver_factories=[lambda: driver_a, lambda: driver_b],
                 settings_path=_build_settings_path(),
             )
 
@@ -719,13 +721,15 @@ class PurePythonRuntimeTest(unittest.TestCase):
             recording_called.set()
             original_shutdown(backend, *args, **kwargs)
 
-        with patch(
-            "modlink_core.runtime.engine.RecordingBackend.shutdown",
-            autospec=True,
-            side_effect=_record_shutdown,
+        with (
+            _patch_engine_discovery(lambda: failing_driver, lambda: healthy_driver),
+            patch(
+                "modlink_core.runtime.engine.RecordingBackend.shutdown",
+                autospec=True,
+                side_effect=_record_shutdown,
+            ),
         ):
             engine = ModLinkEngine(
-                driver_factories=[lambda: failing_driver, lambda: healthy_driver],
                 settings_path=_build_settings_path(),
             )
             with self.assertRaisesRegex(RuntimeError, "shutdown failed"):
@@ -748,6 +752,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             original_remove(bus, stream_id)
 
         with (
+            _patch_engine_discovery(lambda: started_driver, lambda: failing_driver),
             patch(
                 "modlink_core.runtime.engine.StreamBus.remove_descriptor",
                 autospec=True,
@@ -760,7 +765,6 @@ class PurePythonRuntimeTest(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 ModLinkEngine(
-                    driver_factories=[lambda: started_driver, lambda: failing_driver],
                     settings_path=_build_settings_path(),
                 )
 
@@ -788,6 +792,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             original_remove(bus, stream_id)
 
         with (
+            _patch_engine_discovery(lambda: started_driver, lambda: hanging_driver),
             patch(
                 "modlink_core.runtime.engine.DEFAULT_DRIVER_STARTUP_TIMEOUT_MS",
                 50,
@@ -804,7 +809,6 @@ class PurePythonRuntimeTest(unittest.TestCase):
         ):
             with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
                 ModLinkEngine(
-                    driver_factories=[lambda: started_driver, lambda: hanging_driver],
                     settings_path=_build_settings_path(),
                 )
 
@@ -824,9 +828,11 @@ class PurePythonRuntimeTest(unittest.TestCase):
         started_driver = DemoFailingShutdownDriver()
         failing_driver = DemoFailingStartupDriver()
 
-        with self.assertRaisesRegex(RuntimeError, "startup failed") as ctx:
+        with (
+            _patch_engine_discovery(lambda: started_driver, lambda: failing_driver),
+            self.assertRaisesRegex(RuntimeError, "startup failed") as ctx,
+        ):
             ModLinkEngine(
-                driver_factories=[lambda: started_driver, lambda: failing_driver],
                 settings_path=_build_settings_path(),
             )
 
@@ -836,6 +842,16 @@ class PurePythonRuntimeTest(unittest.TestCase):
                 for note in getattr(ctx.exception, "__notes__", [])
             )
         )
+
+    def test_engine_discovers_driver_factories(self) -> None:
+        with _patch_engine_discovery() as discover:
+            engine = ModLinkEngine(settings_path=_build_settings_path())
+
+        try:
+            discover.assert_called_once_with()
+            self.assertEqual(engine.driver_portals(), ())
+        finally:
+            engine.shutdown()
 
 
 def _wait_for_event(stream, event_type, *, timeout: float):
@@ -865,6 +881,13 @@ def _wait_for(predicate, *, timeout: float) -> None:
             return
         time.sleep(0.02)
     raise AssertionError("condition not reached before timeout")
+
+
+def _patch_engine_discovery(*factories):
+    return patch(
+        "modlink_core.runtime.engine.discover_driver_factories",
+        return_value=list(factories),
+    )
 
 
 def _build_settings_path() -> Path:

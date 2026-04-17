@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +10,7 @@ from platformdirs import user_config_path
 from modlink_sdk import DriverFactory
 
 from ..bus import StreamBus
-from ..drivers import DriverPortal
+from ..drivers import DriverPortal, discover_driver_factories
 from ..event_stream import BackendEventBroker, EventStream
 from ..events import SettingChangedEvent
 from ..models import DriverSnapshot, RecordingSnapshot
@@ -28,12 +27,13 @@ class ModLinkEngine:
 
     def __init__(
         self,
-        driver_factories: Sequence[DriverFactory] = (),
         *,
         settings_path: str | Path | None = None,
         settings_version: int = 1,
         parent: object | None = None,
     ) -> None:
+        resolved_driver_factories = tuple(discover_driver_factories())
+        logger.info("Starting ModLink engine with %d driver factories", len(resolved_driver_factories))
         self._parent = parent
         self._event_broker = BackendEventBroker()
         self._settings = SettingsStore(
@@ -53,10 +53,11 @@ class ModLinkEngine:
         self._driver_portals: dict[str, DriverPortal] = {}
         attached_portals: list[DriverPortal] = []
         try:
-            for factory in driver_factories:
+            for factory in resolved_driver_factories:
                 portal = self._attach_driver(factory)
                 attached_portals.append(portal)
             self._recording.start()
+            logger.info("ModLink engine started with %d driver portals", len(self._driver_portals))
         except Exception as exc:
             logger.exception("Engine startup failed; rolling back attached services")
             self._rollback_startup(attached_portals, exc)
@@ -147,6 +148,7 @@ class ModLinkEngine:
             startup_error.add_note(note)
 
     def shutdown(self) -> None:
+        logger.info("Shutting down ModLink engine")
         first_error: Exception | None = None
         for portal in self._driver_portals.values():
             try:
@@ -164,6 +166,7 @@ class ModLinkEngine:
                 first_error = exc
         if first_error is not None:
             raise first_error
+        logger.info("ModLink engine shut down")
 
 
 def _resolve_settings_path(path: str | Path | None) -> Path:

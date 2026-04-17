@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from collections.abc import Sequence
 from importlib.resources import files
@@ -10,10 +11,11 @@ from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from qfluentwidgets import Theme, setTheme
 
-from modlink_core import ModLinkEngine
-from modlink_core.drivers import discover_driver_factories
+from modlink_core import ModLinkEngine, configure_host_logging
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui_qt_widgets import MainWindow
+
+logger = logging.getLogger(__name__)
 
 
 def _load_app_icon() -> QIcon:
@@ -72,12 +74,13 @@ def _shutdown_bridge_with_prompt(bridge: QtModLinkBridge) -> None:
 def main() -> None:
     """Single supported startup entry for ModLink Studio."""
 
+    log_path = configure_host_logging(log_filename="modlink-studio.log")
+    logger.info("Starting ModLink Studio")
+    logger.info("Desktop logs will be written to %s", log_path)
     app = _create_application()
     pg.setConfigOptions(useOpenGL=True)
     setTheme(Theme.AUTO)
-    driver_factories = discover_driver_factories()
     runtime = ModLinkEngine(
-        driver_factories=driver_factories,
         parent=app,
     )
     bridge = QtModLinkBridge(runtime, parent=app)

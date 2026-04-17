@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtQml import QQmlComponent, QQmlEngine
 from PyQt6.QtWidgets import QApplication
 
+from modlink_sdk import Driver, StreamDescriptor
 from modlink_ui_qt_qml import create_application
 from modlink_ui_qt_qml.preview.signal_controller import SignalStreamController
-from modlink_sdk import Driver, StreamDescriptor
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Universal")
@@ -110,7 +110,9 @@ class PreviewDemoDriver(Driver):
         return
 
 app = create_application([])
-runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], parent=app)
+import modlink_core.runtime.engine as engine_module
+engine_module.discover_driver_factories = lambda: [PreviewDemoDriver]
+runtime = ModLinkEngine(parent=app)
 bridge = QtModLinkBridge(runtime, parent=app)
 qml_engine, controller = load_window(bridge, parent=app)
 app.processEvents()

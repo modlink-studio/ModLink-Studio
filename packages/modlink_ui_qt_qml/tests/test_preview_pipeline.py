@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -10,7 +11,6 @@ from PyQt6.QtCore import QCoreApplication
 from modlink_core import ModLinkEngine, SettingsStore
 from modlink_qt_bridge import QtModLinkBridge, QtSettingsBridge
 from modlink_sdk import Driver, FrameEnvelope, StreamDescriptor
-
 from modlink_ui_qt_qml.main_page import MainPageController
 from modlink_ui_qt_qml.preview.image_controller import ImageStreamController
 from modlink_ui_qt_qml.preview.models import (
@@ -288,7 +288,8 @@ def test_main_page_loads_and_saves_stream_settings(
         }
     }
     settings.save()
-    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings_path=settings.path)
+    with _patch_engine_discovery(PreviewDemoDriver):
+        runtime = ModLinkEngine(settings_path=settings.path)
     bridge = QtModLinkBridge(runtime)
     controller = MainPageController(bridge)
 
@@ -310,7 +311,8 @@ def test_main_page_preview_items_stay_stable_during_flush(
 ) -> None:
     _ = qapp
     settings = SettingsStore(path=tmp_path / "settings.json")
-    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings_path=settings.path)
+    with _patch_engine_discovery(PreviewDemoDriver):
+        runtime = ModLinkEngine(settings_path=settings.path)
     bridge = QtModLinkBridge(runtime)
     controller = MainPageController(bridge)
     descriptor = PreviewDemoDriver().descriptors()[0]
@@ -339,3 +341,10 @@ def test_main_page_preview_items_stay_stable_during_flush(
     assert events == []
 
     bridge.shutdown()
+
+
+def _patch_engine_discovery(*factories):
+    return patch(
+        "modlink_core.runtime.engine.discover_driver_factories",
+        return_value=list(factories),
+    )
