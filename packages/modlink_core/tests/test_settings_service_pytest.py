@@ -60,6 +60,30 @@ def test_load_applies_values_into_existing_tree(tmp_path) -> None:
     assert settings.ui.preview.sample_rate.value == 44_100
 
 
+def test_load_restores_missing_keys_to_defaults(tmp_path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text(
+        json.dumps(
+            {
+                "_version": 1,
+                "values": {
+                    "ui": {
+                        "labels": {"enabled": True},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = _build_settings(path)
+    settings.ui.preview.sample_rate = 44_100
+
+    settings.load()
+
+    assert settings.ui.labels.enabled.value is True
+    assert settings.ui.preview.sample_rate.value == 48_000
+
+
 def test_load_rejects_unknown_keys_and_invalid_values(tmp_path) -> None:
     path = tmp_path / "settings.json"
     settings = _build_settings(path)
@@ -82,6 +106,7 @@ def test_load_rejects_unknown_keys_and_invalid_values(tmp_path) -> None:
     with pytest.raises(KeyError, match="unknown key in file: ui.preview.unknown"):
         settings.load()
 
+    settings.ui.preview.sample_rate = 44_100
     path.write_text(
         json.dumps(
             {
@@ -97,8 +122,35 @@ def test_load_rejects_unknown_keys_and_invalid_values(tmp_path) -> None:
         ),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="min 8000"):
+    with pytest.raises(ValueError, match=r"ui\.preview\.sample_rate: value 1 < min 8000"):
         settings.load()
+    assert settings.ui.preview.sample_rate.value == 44_100
+
+
+def test_load_rejects_version_mismatch_without_mutating_state(tmp_path) -> None:
+    path = tmp_path / "settings.json"
+    settings = _build_settings(path)
+    settings.ui.preview.sample_rate = 44_100
+
+    path.write_text(
+        json.dumps(
+            {
+                "_version": 2,
+                "values": {
+                    "ui": {
+                        "labels": {"enabled": True},
+                        "preview": {"sample_rate": 96_000},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="settings version mismatch: file=2, expected=1"):
+        settings.load()
+
+    assert settings.ui.preview.sample_rate.value == 44_100
 
 
 def test_store_requires_path_for_save_and_load() -> None:

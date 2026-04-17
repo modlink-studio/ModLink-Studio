@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from types import MappingProxyType
+from numbers import Integral
 
 
 class SettingsSpec:
@@ -12,6 +12,9 @@ class SettingsGroup(SettingsSpec):
     __slots__ = ("children",)
 
     def __init__(self, **children: SettingsSpec) -> None:
+        for name, child in children.items():
+            if not isinstance(child, SettingsSpec):
+                raise TypeError(f"{name!r} must be SettingsSpec")
         self.children = dict(children)
 
 
@@ -27,11 +30,11 @@ class ValueSpec(SettingsSpec):
     def parse(self, value: object) -> object:
         return value
 
-    def freeze(self, value: object) -> object:
+    def snapshot(self, value: object) -> object:
         return value
 
     def dump(self, value: object) -> object:
-        return value
+        return deepcopy(value)
 
 
 class SettingsInt(ValueSpec):
@@ -52,10 +55,18 @@ class SettingsInt(ValueSpec):
         if isinstance(value, bool):
             raise TypeError("expected int")
 
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError) as exc:
-            raise TypeError("expected int") from exc
+        if isinstance(value, Integral):
+            parsed = value
+        elif isinstance(value, str):
+            text = value.strip()
+            if not text:
+                raise TypeError("expected int")
+            digits = text[1:] if text[0] in "+-" else text
+            if not digits.isdigit():
+                raise TypeError("expected int")
+            parsed = int(text)
+        else:
+            raise TypeError("expected int")
 
         if self.min is not None and parsed < self.min:
             raise ValueError(f"value {parsed} < min {self.min}")
@@ -90,42 +101,28 @@ class SettingsStr(ValueSpec):
         return value
 
 
-def _freeze_object(value: object) -> object:
-    if isinstance(value, list):
-        return tuple(_freeze_object(item) for item in value)
-    if isinstance(value, dict):
-        return MappingProxyType({key: _freeze_object(item) for key, item in value.items()})
-    if isinstance(value, set):
-        return frozenset(_freeze_object(item) for item in value)
-    return value
-
-
 class SettingsList(ValueSpec):
     __slots__ = ("item_cast",)
 
-    def __init__(self, default: list[object] | tuple[object, ...] | None = None, *, item_cast=None) -> None:
+    def __init__(
+        self,
+        default: list[object] | tuple[object, ...] | None = None,
+        *,
+        item_cast=None,
+    ) -> None:
         super().__init__([] if default is None else list(default))
         self.item_cast = item_cast
 
     def parse(self, value: object) -> list[object]:
-        if not isinstance(value, list):
-            raise TypeError("expected list")
+        if not isinstance(value, (list, tuple)):
+            raise TypeError("expected list or tuple")
+
+        items = list(value)
         if self.item_cast is None:
-            parsed = list(value)
+            parsed = items
         else:
-            parsed = [self.item_cast(item) for item in value]
+            parsed = [self.item_cast(item) for item in items]
         return deepcopy(parsed)
 
-    def freeze(self, value: object) -> object:
-        return _freeze_object(value)
-
-
-__all__ = [
-    "SettingsBool",
-    "SettingsGroup",
-    "SettingsInt",
-    "SettingsList",
-    "SettingsSpec",
-    "SettingsStr",
-    "ValueSpec",
-]
+    def snapshot(self, value: object) -> object:
+        return tuple(deepcopy(value))

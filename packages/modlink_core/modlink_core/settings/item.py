@@ -17,10 +17,18 @@ class SettingItem:
 
     @property
     def value(self) -> object:
-        return self._spec.freeze(self._value)
+        return self._spec.snapshot(self._value)
 
     def assign(self, raw_value: object) -> None:
-        self._value = self._spec.parse(raw_value)
+        try:
+            parsed = self._spec.parse(raw_value)
+        except Exception as exc:
+            message = f"{self.path}: {exc}"
+            raise type(exc)(message) from exc
+        self._value = parsed
+
+    def reset(self) -> None:
+        self._value = self._spec.make_default()
 
     def dump(self) -> object:
         return self._spec.dump(self._value)
