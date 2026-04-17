@@ -25,8 +25,13 @@ from .settings import (
 from .storage import (
     EXPORT_ROOT_DIR_KEY,
     STORAGE_ROOT_DIR_KEY,
-    StorageSettings,
     default_storage_root_dir,
+    experiments_dir,
+    exports_dir,
+    recordings_dir,
+    resolved_export_root_dir,
+    resolved_storage_root_dir,
+    sessions_dir,
 )
 
 __all__ = [
@@ -41,15 +46,20 @@ __all__ = [
     "EventStreamOverflowError",
     "FrameStream",
     "FrameStreamOverflowError",
+    "default_storage_root_dir",
+    "experiments_dir",
+    "exports_dir",
     "DriverSnapshot",
     "ModLinkEngine",
     "RecordingFailedEvent",
     "SettingChangedEvent",
     "SettingsStore",
+    "recordings_dir",
+    "resolved_export_root_dir",
+    "resolved_storage_root_dir",
+    "sessions_dir",
     "STORAGE_ROOT_DIR_KEY",
-    "StorageSettings",
     "StreamClosedError",
     "StreamBus",
     "EXPORT_ROOT_DIR_KEY",
-    "default_storage_root_dir",
 ]

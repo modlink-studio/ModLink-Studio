@@ -8,8 +8,8 @@ from typing import Literal
 from PyQt6.QtCore import QObject, pyqtSignal
 from qfluentwidgets import FluentIcon as FIF
 
-from modlink_core.settings import settings_group, value_setting
-from modlink_core.storage import StorageSettings
+from modlink_core.settings import SettingsGroup, SettingsList, SettingsStr
+from modlink_core.storage import recordings_dir
 from modlink_qt_bridge import QtModLinkBridge
 
 ActionKind = Literal["primary", "secondary"]
@@ -44,14 +44,14 @@ def normalize_labels(values: object) -> tuple[str, ...]:
     return tuple(normalized) or DEFAULT_LABELS
 
 
-def _declare_acquisition_settings(settings: object) -> None:
+def declare_acquisition_settings(settings: object) -> None:
     settings.add(
-        ui=settings_group(
-            acquisition=settings_group(
-                layout_mode=value_setting(default=DEFAULT_ACQUISITION_LAYOUT_MODE),
+        ui=SettingsGroup(
+            acquisition=SettingsGroup(
+                layout_mode=SettingsStr(default=DEFAULT_ACQUISITION_LAYOUT_MODE),
             ),
-            labels=settings_group(
-                items=value_setting(default=DEFAULT_LABELS),
+            labels=SettingsGroup(
+                items=SettingsList(default=list(DEFAULT_LABELS), item_cast=str),
             ),
         )
     )
@@ -112,10 +112,17 @@ class AcquisitionViewModel(QObject):
         self._pending_recording_stop_notice = False
         self._last_known_recording_state = self.engine.recording.is_recording
         self._settings = self.engine.settings
-        _declare_acquisition_settings(self._settings)
-        self._storage_settings = StorageSettings(self._settings)
+        self._settings.add(
+            storage=SettingsGroup(
+                root_dir=SettingsStr(default=""),
+                export_root_dir=SettingsStr(default=""),
+            )
+        )
+        declare_acquisition_settings(self._settings)
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self._layout_mode: LayoutMode = normalize_acquisition_layout_mode(
-            self._settings.ui.acquisition.layout_mode
+            self._settings.ui.acquisition.layout_mode.value
         )
 
         self.engine.recording.sig_state_changed.connect(self._on_state_changed)
@@ -218,10 +225,10 @@ class AcquisitionViewModel(QObject):
         return self._layout_mode
 
     def get_recording_labels(self) -> tuple[str, ...]:
-        return normalize_labels(self._settings.ui.labels.items)
+        return normalize_labels(self._settings.ui.labels.items.value)
 
     def build_output_directory(self) -> str:
-        return str(self._storage_settings.recordings_dir())
+        return str(recordings_dir(self._settings))
 
     def current_primary_action(self) -> AcquisitionActionState:
         if self.is_recording:
@@ -374,4 +381,5 @@ __all__ = [
     "AcquisitionFormValues",
     "AcquisitionPanelState",
     "AcquisitionViewModel",
+    "declare_acquisition_settings",
 ]

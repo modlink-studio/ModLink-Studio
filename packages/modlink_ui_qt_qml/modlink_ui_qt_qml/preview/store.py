@@ -21,6 +21,8 @@ class PreviewStreamSettingsStore:
     def __init__(self, settings: QtSettingsBridge) -> None:
         self._settings = settings
         declare_preview_stream_settings(self._settings)
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
 
     def load(self, descriptor: StreamDescriptor) -> PreviewSettings:
         payload_type = self._payload_type(descriptor)
@@ -57,7 +59,7 @@ class PreviewStreamSettingsStore:
         self._settings.save()
 
     def _load_streams_map(self) -> dict[str, dict[str, Any]]:
-        raw = self._settings.ui.preview.streams
+        raw = self._settings.ui.preview.streams.value
         if not isinstance(raw, dict):
             return {}
         return cast(dict[str, dict[str, Any]], deepcopy(raw))

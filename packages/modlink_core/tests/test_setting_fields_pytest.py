@@ -94,6 +94,7 @@ def test_add_merges_group_specs_and_rejects_conflicts(tmp_path) -> None:
     settings.add(ui=SettingsGroup(preview=SettingsGroup()))
     settings.ui.preview.add(sample_rate=SettingsInt(default=48_000))
     settings.add(ui=SettingsGroup(labels=SettingsList()))
+    settings.add(ui=SettingsGroup(preview=SettingsGroup(sample_rate=SettingsInt(default=48_000))))
 
     assert settings.ui.preview.sample_rate.value == 48_000
     assert settings.ui.labels.value == ()

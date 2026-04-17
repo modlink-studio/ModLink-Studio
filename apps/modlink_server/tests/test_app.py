@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from modlink_server.app import _iter_sse_messages, create_app
 
 from modlink_core import EventStreamOverflowError, SettingsStore
-from modlink_core.storage import StorageSettings
+from modlink_core.settings import SettingsGroup, SettingsStr
 from modlink_sdk import Driver, FrameEnvelope, SearchResult, StreamDescriptor
 
 
@@ -93,16 +93,18 @@ class TimeoutSearchDriver(ApiDemoDriver):
 
 
 @pytest.fixture
-def settings(tmp_path: Path) -> SettingsStore:
+def settings_path(tmp_path: Path) -> Path:
     path = tmp_path / "settings.json"
     settings = SettingsStore(path=path)
-    StorageSettings(settings).set_storage_root_dir(tmp_path / "data", persist=False)
-    return settings
+    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    settings.storage.root_dir = str(tmp_path / "data")
+    settings.save()
+    return path
 
 
-def test_app_lifespan_starts_and_shuts_down_engine(settings: SettingsStore) -> None:
+def test_app_lifespan_starts_and_shuts_down_engine(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings=settings)
+    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
 
     with TestClient(app) as client:
         response = client.get("/health")
@@ -112,9 +114,9 @@ def test_app_lifespan_starts_and_shuts_down_engine(settings: SettingsStore) -> N
     assert driver.shutdown_called is True
 
 
-def test_http_driver_endpoints_and_error_mapping(settings: SettingsStore) -> None:
+def test_http_driver_endpoints_and_error_mapping(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings=settings)
+    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
 
     with TestClient(app) as client:
         drivers = client.get("/drivers")
@@ -163,10 +165,10 @@ def test_http_driver_endpoints_and_error_mapping(settings: SettingsStore) -> Non
         assert disconnect.status_code == 200
 
 
-def test_http_acquisition_settings_and_timeout_mapping(settings: SettingsStore) -> None:
+def test_http_acquisition_settings_and_timeout_mapping(settings_path: Path) -> None:
     app = create_app(
         driver_factories=[TimeoutSearchDriver],
-        settings=settings,
+        settings_path=settings_path,
     )
 
     with TestClient(app) as client:
@@ -189,22 +191,22 @@ def test_http_acquisition_settings_and_timeout_mapping(settings: SettingsStore) 
         assert timeout_search.json()["error"]["type"] == "TimeoutError"
 
         update = client.put(
-            "/settings/ui.preview.rate_hz",
-            json={"value": 30, "persist": False},
+            "/settings/storage.root_dir",
+            json={"value": "C:/demo-data", "persist": False},
         )
         assert update.status_code == 200
 
         snapshot = client.get("/settings")
         assert snapshot.status_code == 200
-        assert snapshot.json()["ui"]["preview"]["rate_hz"] == 30
+        assert snapshot.json()["storage"]["root_dir"] == "C:/demo-data"
 
-        delete = client.delete("/settings/ui.preview.rate_hz?persist=false")
+        delete = client.delete("/settings/storage.root_dir?persist=false")
         assert delete.status_code == 200
 
 
-def test_sse_events_stream_emits_driver_connection_lost(settings: SettingsStore) -> None:
+def test_sse_events_stream_emits_driver_connection_lost(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings=settings)
+    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
 
     with TestClient(app) as client:
         connect = client.post(
@@ -228,10 +230,10 @@ def test_sse_events_stream_emits_driver_connection_lost(settings: SettingsStore)
 
 
 def test_sse_events_stream_emits_resync_required_on_overflow(
-    settings: SettingsStore,
+    settings_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    app = create_app(driver_factories=[ApiDemoDriver], settings=settings)
+    app = create_app(driver_factories=[ApiDemoDriver], settings_path=settings_path)
 
     with caplog.at_level(logging.WARNING), patch(
         "modlink_core.event_stream.EventStream.read",
@@ -249,9 +251,9 @@ def test_sse_events_stream_emits_resync_required_on_overflow(
 
 
 def test_sse_events_stream_emits_keepalive_comment_when_idle(
-    settings: SettingsStore,
+    settings_path: Path,
 ) -> None:
-    app = create_app(driver_factories=[ApiDemoDriver], settings=settings)
+    app = create_app(driver_factories=[ApiDemoDriver], settings_path=settings_path)
 
     with TestClient(app) as client:
         event_stream = client.app.state.engine.open_event_stream(maxsize=1)
@@ -266,9 +268,9 @@ def test_sse_events_stream_emits_keepalive_comment_when_idle(
     assert chunk == ": keepalive\n\n"
 
 
-def test_websocket_frames_stream_encodes_signal_frame(settings: SettingsStore) -> None:
+def test_websocket_frames_stream_encodes_signal_frame(settings_path: Path) -> None:
     driver = ApiDemoDriver()
-    app = create_app(driver_factories=[lambda: driver], settings=settings)
+    app = create_app(driver_factories=[lambda: driver], settings_path=settings_path)
     stream_id = driver.descriptors()[0].stream_id
 
     with TestClient(app) as client:

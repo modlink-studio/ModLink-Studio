@@ -23,6 +23,8 @@ class BaseStreamView(QWidget):
         self.descriptor = descriptor
         self._settings = settings
         declare_preview_refresh_rate_settings(self._settings)
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self._dirty = False
         self._has_frame = False
 
@@ -59,7 +61,7 @@ class BaseStreamView(QWidget):
         self._apply_refresh_rate(self._load_refresh_rate_hz())
 
     def _load_refresh_rate_hz(self) -> int:
-        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
+        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz.value)
 
     def _apply_refresh_rate(self, refresh_rate_hz: int) -> None:
         interval_ms = max(16, int(round(1000 / max(1, int(refresh_rate_hz)))))

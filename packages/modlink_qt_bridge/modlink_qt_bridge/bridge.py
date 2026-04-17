@@ -26,7 +26,7 @@ from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStop
 from modlink_core.recording.backend import RecordingBackend
 from modlink_core.runtime.engine import ModLinkEngine
 from modlink_core.settings import SettingsStore
-from modlink_core.storage import StorageSettings
+from modlink_core.storage import resolved_storage_root_dir
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
 
@@ -285,23 +285,14 @@ class QtSettingsBridge(QObject):
         super().__init__(parent=parent)
         self._settings = settings
 
-    def get(self, key: str, default: object | None = None) -> object | None:
-        return self._settings.get(key, default)
-
     def add(self, **entries: object) -> object:
         return self._settings.add(**entries)
 
-    def set(self, key: str, value: object, *, persist: bool = True) -> None:
-        self._settings.set(key, value, persist=persist)
-
-    def remove(self, key: str, *, persist: bool = True) -> None:
-        self._settings.remove(key, persist=persist)
-
-    def param(self, name: str) -> object:
-        return self._settings.param(name)
-
     def snapshot(self) -> dict[str, object]:
         return self._settings.snapshot()
+
+    def load(self, *, ignore_unknown: bool = False) -> None:
+        self._settings.load(ignore_unknown=ignore_unknown)
 
     def save(self) -> None:
         self._settings.save()
@@ -334,7 +325,6 @@ class QtRecordingBridge(QObject):
         super().__init__(parent=parent)
         self._backend = backend
         self._settings = settings
-        self._storage_settings = StorageSettings(settings)
         self._snapshot = backend.snapshot()
         self._sig_command_succeeded.connect(
             self._handle_command_succeeded,
@@ -347,7 +337,7 @@ class QtRecordingBridge(QObject):
 
     @property
     def root_dir(self) -> Path:
-        return self._storage_settings.resolved_storage_root_dir()
+        return resolved_storage_root_dir(self._settings)
 
     @property
     def state(self) -> str:

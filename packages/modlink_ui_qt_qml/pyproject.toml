@@ -1,6 +1,6 @@
 [project]
 name = "modlink_ui_qt_qml"
-version = "0.2.0"
+version = "0.3.0rc1"
 description = "Qt QML UI package for ModLink Studio"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.13"

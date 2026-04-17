@@ -102,6 +102,8 @@ class MainPageController(QObject):
         self._engine = engine
         self._settings = engine.settings
         declare_preview_refresh_rate_settings(self._settings)
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self._acquisition = AcquisitionController(engine, parent=self)
         self._store = PreviewStreamSettingsStore(self._settings)
         self._streams: dict[str, _StreamState] = {}
@@ -201,6 +203,8 @@ class MainPageController(QObject):
             self._apply_refresh_rate()
 
     def _apply_refresh_rate(self) -> None:
-        refresh_rate_hz = normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
+        refresh_rate_hz = normalize_preview_refresh_rate_hz(
+            self._settings.ui.preview.refresh_rate_hz.value
+        )
         interval_ms = max(16, int(round(1000 / max(1, refresh_rate_hz))))
         self._refresh_timer.start(interval_ms)

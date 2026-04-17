@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
 import time
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
+
+from platformdirs import user_config_path
 
 from modlink_sdk import DriverFactory
 
-from ..recording import RecordingBackend
 from ..bus import StreamBus
 from ..drivers import DriverPortal
 from ..event_stream import BackendEventBroker, EventStream
-from ..models import DriverSnapshot, RecordingSnapshot
-from ..settings import SettingsStore
 from ..events import SettingChangedEvent
+from ..models import DriverSnapshot, RecordingSnapshot
+from ..recording import RecordingBackend
+from ..settings import SettingsStore
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
 
@@ -27,12 +30,19 @@ class ModLinkEngine:
         self,
         driver_factories: Sequence[DriverFactory] = (),
         *,
-        settings: SettingsStore | None = None,
+        settings_path: str | Path | None = None,
+        settings_version: int = 1,
         parent: object | None = None,
     ) -> None:
         self._parent = parent
         self._event_broker = BackendEventBroker()
-        self._settings = settings or SettingsStore(on_change=self._publish_setting_changed)
+        self._settings = SettingsStore(
+            path=_resolve_settings_path(settings_path),
+            version=settings_version,
+            on_change=self._publish_setting_changed,
+        )
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self.bus = StreamBus(event_broker=self._event_broker, parent=self)
         self._recording = RecordingBackend(
             self.bus,
@@ -154,3 +164,9 @@ class ModLinkEngine:
                 first_error = exc
         if first_error is not None:
             raise first_error
+
+
+def _resolve_settings_path(path: str | Path | None) -> Path:
+    if path is not None:
+        return Path(path)
+    return Path(user_config_path("ModLink Studio", "ModLink")) / "settings.json"

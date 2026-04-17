@@ -69,7 +69,7 @@ class StreamPreviewPanelTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"preview-panel-{uuid4().hex}"
         self._temp_dir.mkdir()
-        self._settings = SettingsStore(self._temp_dir / "preview-panel-settings.json")
+        self._settings = SettingsStore(path=self._temp_dir / "preview-panel-settings.json")
         self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:

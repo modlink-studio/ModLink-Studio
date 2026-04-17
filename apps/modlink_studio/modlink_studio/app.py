@@ -12,7 +12,6 @@ from qfluentwidgets import Theme, setTheme
 
 from modlink_core import ModLinkEngine
 from modlink_core.drivers import discover_driver_factories
-from modlink_core.settings import SettingsStore
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_ui_qt_widgets import MainWindow
 
@@ -76,11 +75,9 @@ def main() -> None:
     app = _create_application()
     pg.setConfigOptions(useOpenGL=True)
     setTheme(Theme.AUTO)
-    settings = SettingsStore()
     driver_factories = discover_driver_factories()
     runtime = ModLinkEngine(
         driver_factories=driver_factories,
-        settings=settings,
         parent=app,
     )
     bridge = QtModLinkBridge(runtime, parent=app)

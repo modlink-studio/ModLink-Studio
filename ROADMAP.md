@@ -132,7 +132,7 @@ data/
 - `modlink_core.storage` 顶层只保留 public API，文件 IO / ID / path 等辅助能力已下沉到私有 `_internal/`，不再暴露给上层
 - recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
 - Qt bridge、QML 与 widgets 的 acquisition 录制调用面已切到 recording-only 语义：统一使用 `storage.root_dir`，UI 不再携带 `session_name`，录制完成提示直接基于 `RecordingStopSummary`
-- settings 模块内部已收口为 `SettingsStore` / `SettingsNode` / `SettingItem` / `SettingsSpec` 四层树模型：声明通过 `add(...)` 挂载，读取固定为 `settings.ui.preview.sample_rate.value`，写入固定为 `settings.ui.preview.sample_rate = 44100`，保存采用全量 snapshot；其余模块对旧 settings 调用面的收口仍待后续推进
+- settings 收口已完成：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，Qt bridge / QML / widgets / server 已统一切到属性树读写 + 显式 `save()`；settings 内容声明回到各组件初始化阶段，不再由 engine 集中声明
 - replay reader、catalog、历史格式兼容都明确后置，不再让预建设的读接口提前塑造当前 storage 边界
 
 **架构原则：**

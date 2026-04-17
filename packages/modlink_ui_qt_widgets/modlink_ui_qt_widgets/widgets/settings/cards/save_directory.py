@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PyQt6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets import PushSettingCard
 
-from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
+from modlink_core.settings import SettingsGroup, SettingsStr
+from modlink_core.storage import STORAGE_ROOT_DIR_KEY, resolved_storage_root_dir
 from modlink_qt_bridge import QtSettingsBridge
 
 
@@ -14,8 +17,15 @@ class SaveDirectoryCard(PushSettingCard):
         settings: QtSettingsBridge,
         parent: QWidget | None = None,
     ) -> None:
-        storage_settings = StorageSettings(settings)
-        initial_save_dir = str(storage_settings.resolved_storage_root_dir())
+        settings.add(
+            storage=SettingsGroup(
+                root_dir=SettingsStr(default=""),
+                export_root_dir=SettingsStr(default=""),
+            )
+        )
+        if settings.path is not None and settings.path.exists():
+            settings.load(ignore_unknown=True)
+        initial_save_dir = str(resolved_storage_root_dir(settings))
 
         super().__init__(
             "选择",
@@ -25,7 +35,6 @@ class SaveDirectoryCard(PushSettingCard):
             parent,
         )
         self._settings = settings
-        self._storage_settings = storage_settings
 
         self.button.setFixedWidth(120)
         self.clicked.connect(self._choose_directory)
@@ -35,7 +44,7 @@ class SaveDirectoryCard(PushSettingCard):
 
     @property
     def current_save_dir(self) -> str:
-        return str(self._storage_settings.resolved_storage_root_dir())
+        return str(resolved_storage_root_dir(self._settings))
 
     def _choose_directory(self) -> None:
         selected_dir = QFileDialog.getExistingDirectory(
@@ -46,7 +55,8 @@ class SaveDirectoryCard(PushSettingCard):
         if not selected_dir:
             return
 
-        self._storage_settings.set_storage_root_dir(selected_dir)
+        self._settings.storage.root_dir = str(Path(selected_dir).expanduser())
+        self._settings.save()
 
     def _on_setting_changed(self, event: object) -> None:
         if getattr(event, "key", None) != STORAGE_ROOT_DIR_KEY:

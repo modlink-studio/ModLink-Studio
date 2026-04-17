@@ -37,7 +37,7 @@ class LabelManagerCardTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"label-manager-{uuid4().hex}"
         self._temp_dir.mkdir()
-        settings = SettingsStore(self._temp_dir / "label-manager-settings.json")
+        settings = SettingsStore(path=self._temp_dir / "label-manager-settings.json")
         self._settings_bridge = QtSettingsBridge(settings)
 
     def tearDown(self) -> None:

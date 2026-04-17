@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from modlink_core.settings import settings_group, value_setting
+from modlink_core.settings import SettingsGroup, SettingsInt, SettingsList, ValueSpec
 
 UI_LABELS_KEY = "ui.labels.items"
 DEFAULT_LABELS = ("default",)
@@ -43,9 +43,9 @@ def normalize_preview_refresh_rate_hz(value: object) -> int:
 
 def declare_label_settings(settings: object) -> None:
     settings.add(
-        ui=settings_group(
-            labels=settings_group(
-                items=value_setting(default=DEFAULT_LABELS),
+        ui=SettingsGroup(
+            labels=SettingsGroup(
+                items=SettingsList(default=list(DEFAULT_LABELS), item_cast=str),
             )
         )
     )
@@ -53,9 +53,9 @@ def declare_label_settings(settings: object) -> None:
 
 def declare_preview_refresh_rate_settings(settings: object) -> None:
     settings.add(
-        ui=settings_group(
-            preview=settings_group(
-                refresh_rate_hz=value_setting(default=DEFAULT_PREVIEW_REFRESH_RATE_HZ),
+        ui=SettingsGroup(
+            preview=SettingsGroup(
+                refresh_rate_hz=SettingsInt(default=DEFAULT_PREVIEW_REFRESH_RATE_HZ),
             )
         )
     )
@@ -63,9 +63,9 @@ def declare_preview_refresh_rate_settings(settings: object) -> None:
 
 def declare_preview_stream_settings(settings: object) -> None:
     settings.add(
-        ui=settings_group(
-            preview=settings_group(
-                streams=value_setting(default={}),
+        ui=SettingsGroup(
+            preview=SettingsGroup(
+                streams=ValueSpec(default={}),
             )
         )
     )

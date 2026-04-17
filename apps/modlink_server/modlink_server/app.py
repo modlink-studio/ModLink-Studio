@@ -9,6 +9,7 @@ import queue
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -22,10 +23,10 @@ from modlink_core import (
     EventStreamOverflowError,
     FrameStreamOverflowError,
     ModLinkEngine,
-    SettingsStore,
     StreamClosedError,
 )
 from modlink_core.drivers import discover_driver_factories
+from modlink_core.settings import SettingItem, SettingsNode, SettingsStore
 from modlink_sdk import DriverFactory, SearchResult
 
 DEFAULT_HOST = "127.0.0.1"
@@ -77,14 +78,14 @@ class SettingWriteRequest(BaseModel):
 def create_app(
     *,
     driver_factories: Sequence[DriverFactory] | None = None,
-    settings: SettingsStore | None = None,
+    settings_path: str | Path | None = None,
+    settings_version: int = 1,
     event_stream_maxsize: int = 1024,
     frame_stream_maxsize: int = 256,
     sse_heartbeat_interval_seconds: float = DEFAULT_SSE_HEARTBEAT_INTERVAL_SECONDS,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        resolved_settings = settings or SettingsStore()
         resolved_factories = (
             tuple(driver_factories)
             if driver_factories is not None
@@ -92,7 +93,8 @@ def create_app(
         )
         engine = ModLinkEngine(
             driver_factories=resolved_factories,
-            settings=resolved_settings,
+            settings_path=settings_path,
+            settings_version=settings_version,
         )
         app.state.engine = engine
         app.state.event_stream_maxsize = max(1, int(event_stream_maxsize))
@@ -239,7 +241,9 @@ def create_app(
         request: Request,
     ) -> dict[str, bool]:
         engine = _engine(request)
-        engine.settings.set(key, body.value, persist=body.persist)
+        _assign_setting(engine.settings, key, body.value)
+        if body.persist:
+            engine.settings.save()
         return {"ok": True}
 
     @app.delete("/settings/{key:path}")
@@ -249,7 +253,9 @@ def create_app(
         persist: bool = True,
     ) -> dict[str, bool]:
         engine = _engine(request)
-        engine.settings.remove(key, persist=persist)
+        _reset_setting(engine.settings, key)
+        if persist:
+            engine.settings.save()
         return {"ok": True}
 
     @app.get("/events")
@@ -328,6 +334,38 @@ def _require_driver_portal(request: Request, driver_id: str):
     if portal is None:
         raise HTTPException(status_code=404, detail=f"driver '{driver_id}' was not found")
     return portal
+
+
+def _assign_setting(settings: SettingsStore, key: str, value: Any) -> None:
+    parent, field_name = _resolve_setting_parent(settings, key)
+    setattr(parent, field_name, value)
+
+
+def _reset_setting(settings: SettingsStore, key: str) -> None:
+    parent, field_name = _resolve_setting_parent(settings, key)
+    child = getattr(parent, field_name)
+    if isinstance(child, SettingsNode):
+        raise ValueError(f"{key!r} is a group; cannot reset a group")
+    child.reset(notify=True)
+
+
+def _resolve_setting_parent(settings: SettingsStore, key: str) -> tuple[SettingsStore | SettingsNode, str]:
+    segments = [segment for segment in str(key).split(".") if segment]
+    if not segments:
+        raise ValueError("setting key is required")
+
+    current: SettingsStore | SettingsNode = settings
+    for segment in segments[:-1]:
+        child = getattr(current, segment)
+        if not isinstance(child, SettingsNode):
+            raise ValueError(f"{segment!r} is not a group in {key!r}")
+        current = child
+
+    field_name = segments[-1]
+    child = getattr(current, field_name)
+    if not isinstance(child, SettingItem):
+        raise ValueError(f"{key!r} is a group; expected a setting item")
+    return current, field_name
 
 
 async def _await_future(future: Any) -> Any:

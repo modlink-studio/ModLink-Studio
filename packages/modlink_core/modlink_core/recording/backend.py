@@ -18,14 +18,15 @@ from ..events import (
     RecordingFailedEvent,
 )
 from ..models import RecordingSnapshot, RecordingStartSummary, RecordingStopSummary
+from ..settings import SettingsGroup, SettingsStore, SettingsStr
 from ..storage import (
-    StorageSettings,
     add_recording_marker,
     add_recording_segment,
     append_recording_frame,
     create_recording,
+    recordings_dir,
+    resolved_storage_root_dir,
 )
-from ..settings import SettingsStore
 
 RECORDING_CONSUMER_NAME = "recording"
 RecordingCommand = tuple[Callable[[], None], Future[object]]
@@ -55,7 +56,14 @@ class RecordingBackend:
     ) -> None:
         self._bus = bus
         self._settings = settings
-        self._storage_settings = StorageSettings(settings)
+        self._settings.add(
+            storage=SettingsGroup(
+                root_dir=SettingsStr(default=""),
+                export_root_dir=SettingsStr(default=""),
+            )
+        )
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self._publish_event = publish_event
         self._parent = parent
         self._command_queue: queue.Queue[RecordingCommand | object] = queue.Queue()
@@ -71,7 +79,7 @@ class RecordingBackend:
 
     @property
     def root_dir(self) -> Path:
-        return self._storage_settings.resolved_storage_root_dir()
+        return resolved_storage_root_dir(self._settings)
 
     @property
     def is_started(self) -> bool:
@@ -114,11 +122,11 @@ class RecordingBackend:
 
     def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
         storage_root_dir = self.root_dir
-        recordings_dir = self._storage_settings.recordings_dir()
+        recordings_root_dir = recordings_dir(self._settings)
         return self._submit_command(
             self._start_recording_worker,
             str(storage_root_dir),
-            str(recordings_dir),
+            str(recordings_root_dir),
             recording_label,
             self._bus.descriptors(),
         )

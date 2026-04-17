@@ -19,8 +19,7 @@ from modlink_core.events import (
     DriverConnectionLostEvent,
     DriverExecutorFailedEvent,
 )
-from modlink_core.settings import SettingsStore
-from modlink_core.storage import StorageSettings
+from modlink_core.settings import SettingsGroup, SettingsStore, SettingsStr
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -700,7 +699,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         ):
             engine = ModLinkEngine(
                 driver_factories=[lambda: driver_a, lambda: driver_b],
-                settings=_build_settings_service(),
+                settings_path=_build_settings_path(),
             )
 
         self.assertEqual(
@@ -727,7 +726,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         ):
             engine = ModLinkEngine(
                 driver_factories=[lambda: failing_driver, lambda: healthy_driver],
-                settings=_build_settings_service(),
+                settings_path=_build_settings_path(),
             )
             with self.assertRaisesRegex(RuntimeError, "shutdown failed"):
                 engine.shutdown()
@@ -762,7 +761,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "startup failed"):
                 ModLinkEngine(
                     driver_factories=[lambda: started_driver, lambda: failing_driver],
-                    settings=_build_settings_service(),
+                    settings_path=_build_settings_path(),
                 )
 
         self.assertTrue(started_driver.stopped_event.wait(1.0))
@@ -806,7 +805,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
             with self.assertRaisesRegex(TimeoutError, "driver startup timed out"):
                 ModLinkEngine(
                     driver_factories=[lambda: started_driver, lambda: hanging_driver],
-                    settings=_build_settings_service(),
+                    settings_path=_build_settings_path(),
                 )
 
         hanging_driver.allow_start.set()
@@ -828,7 +827,7 @@ class PurePythonRuntimeTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "startup failed") as ctx:
             ModLinkEngine(
                 driver_factories=[lambda: started_driver, lambda: failing_driver],
-                settings=_build_settings_service(),
+                settings_path=_build_settings_path(),
             )
 
         self.assertTrue(
@@ -868,15 +867,17 @@ def _wait_for(predicate, *, timeout: float) -> None:
     raise AssertionError("condition not reached before timeout")
 
 
-def _build_settings_service() -> SettingsStore:
+def _build_settings_path() -> Path:
     temp_root = Path(__file__).resolve().parents[3] / ".tmp-tests" / "modlink_core"
     temp_root.mkdir(parents=True, exist_ok=True)
     temp_dir = temp_root / f"settings_{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsStore(path=path)
-    StorageSettings(settings).set_storage_root_dir(temp_dir / "data", persist=False)
-    return settings
+    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    settings.storage.root_dir = str(temp_dir / "data")
+    settings.save()
+    return path
 
 
 if __name__ == "__main__":

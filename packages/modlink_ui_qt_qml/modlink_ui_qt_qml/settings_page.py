@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
+from modlink_core.settings import SettingsGroup, SettingsStr
+from modlink_core.storage import STORAGE_ROOT_DIR_KEY, resolved_storage_root_dir
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
@@ -30,18 +33,25 @@ class SettingsPageController(QObject):
     ) -> None:
         super().__init__(parent)
         self._settings = engine.settings
+        self._settings.add(
+            storage=SettingsGroup(
+                root_dir=SettingsStr(default=""),
+                export_root_dir=SettingsStr(default=""),
+            )
+        )
         declare_preview_refresh_rate_settings(self._settings)
         declare_label_settings(self._settings)
-        self._storage_settings = StorageSettings(self._settings)
+        if self._settings.path is not None and self._settings.path.exists():
+            self._settings.load(ignore_unknown=True)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
 
     @pyqtProperty(str, notify=saveDirectoryChanged)
     def saveDirectory(self) -> str:
-        return str(self._storage_settings.resolved_storage_root_dir())
+        return str(resolved_storage_root_dir(self._settings))
 
     @pyqtProperty(int, notify=previewRefreshRateHzChanged)
     def previewRefreshRateHz(self) -> int:
-        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz)
+        return normalize_preview_refresh_rate_hz(self._settings.ui.preview.refresh_rate_hz.value)
 
     @pyqtProperty("QVariantList", constant=True)
     def previewRateOptions(self) -> list[int]:
@@ -49,7 +59,7 @@ class SettingsPageController(QObject):
 
     @pyqtProperty("QVariantList", notify=labelsChanged)
     def labels(self) -> list[str]:
-        return list(normalize_labels(self._settings.ui.labels.items))
+        return list(normalize_labels(self._settings.ui.labels.items.value))
 
     @pyqtSlot(str)
     def setSaveDirectory(self, value: str) -> None:
@@ -57,7 +67,8 @@ class SettingsPageController(QObject):
         if not normalized:
             self.messageRaised.emit("保存目录不能为空。")
             return
-        self._storage_settings.set_storage_root_dir(normalized)
+        self._settings.storage.root_dir = str(Path(normalized).expanduser())
+        self._settings.save()
         self.messageRaised.emit("保存目录已更新。")
 
     @pyqtSlot(int)

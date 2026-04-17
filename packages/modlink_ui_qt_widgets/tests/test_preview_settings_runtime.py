@@ -41,7 +41,6 @@ from modlink_ui_qt_widgets.widgets.main.preview.settings.sections import (
     VideoPayloadSettingsPanel,
 )
 from modlink_ui_qt_widgets.widgets.main.preview.settings.store import (
-    UI_PREVIEW_STREAMS_KEY,
     PreviewStreamSettingsStore,
 )
 from modlink_ui_qt_widgets.widgets.main.preview.views import (
@@ -102,7 +101,7 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
         test_tmp_root.mkdir(exist_ok=True)
         self._temp_dir = test_tmp_root / f"preview-settings-{uuid4().hex}"
         self._temp_dir.mkdir()
-        self._settings = SettingsStore(self._temp_dir / "preview-settings.json")
+        self._settings = SettingsStore(path=self._temp_dir / "preview-settings.json")
         self._settings_bridge = QtSettingsBridge(self._settings)
 
     def tearDown(self) -> None:
@@ -121,24 +120,21 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
 
     def test_runtime_loads_normalized_settings_and_applies_to_view(self) -> None:
         descriptor = self._descriptor("raster", "raster")
-        self._settings.set(
-            UI_PREVIEW_STREAMS_KEY,
-            {
-                descriptor.stream_id: {
-                    "payload_type": "raster",
-                    "settings": {
-                        "window_seconds": 12,
-                        "colormap": "turbo",
-                        "value_range_mode": "manual",
-                        "manual_min": 8,
-                        "manual_max": 2,
-                        "interpolation": "bicubic",
-                        "transform": "rotate_180",
-                    },
-                }
-            },
-            persist=False,
-        )
+        PreviewStreamSettingsStore(self._settings_bridge)
+        self._settings.ui.preview.streams = {
+            descriptor.stream_id: {
+                "payload_type": "raster",
+                "settings": {
+                    "window_seconds": 12,
+                    "colormap": "turbo",
+                    "value_range_mode": "manual",
+                    "manual_min": 8,
+                    "manual_max": 2,
+                    "interpolation": "bicubic",
+                    "transform": "rotate_180",
+                },
+            }
+        }
 
         view = _RecordingRasterStreamView(descriptor, self._settings_bridge)
         runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)
@@ -178,18 +174,15 @@ class PreviewSettingsRuntimeTests(unittest.TestCase):
 
     def test_runtime_falls_back_to_default_on_payload_type_mismatch(self) -> None:
         descriptor = self._descriptor("video", "video")
-        self._settings.set(
-            UI_PREVIEW_STREAMS_KEY,
-            {
-                descriptor.stream_id: {
-                    "payload_type": "signal",
-                    "settings": {
-                        "window_seconds": 20,
-                    },
-                }
-            },
-            persist=False,
-        )
+        PreviewStreamSettingsStore(self._settings_bridge)
+        self._settings.ui.preview.streams = {
+            descriptor.stream_id: {
+                "payload_type": "signal",
+                "settings": {
+                    "window_seconds": 20,
+                },
+            }
+        }
 
         view = _RecordingVideoStreamView(descriptor, self._settings_bridge)
         runtime = PreviewSettingsRuntime(descriptor, self._settings_bridge, view)

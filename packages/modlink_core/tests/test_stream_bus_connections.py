@@ -19,8 +19,14 @@ from modlink_core.events import (
     RecordingFailedEvent,
     SettingChangedEvent,
 )
-from modlink_core.settings import SettingsStore as SettingsServiceType
-from modlink_core.storage import STORAGE_ROOT_DIR_KEY, StorageSettings
+from modlink_core.settings import (
+    SettingsGroup,
+    SettingsInt,
+    SettingsStore as SettingsServiceType,
+    SettingsStr,
+    ValueSpec,
+)
+from modlink_core.storage import recordings_dir
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 
@@ -226,7 +232,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         recording_dir = Path(stop_summary.recording_path)
         self.assertEqual(
             recording_dir,
-            StorageSettings(settings).recordings_dir() / stop_summary.recording_id,
+            recordings_dir(settings) / stop_summary.recording_id,
         )
         manifest = json.loads((recording_dir / "recording.json").read_text(encoding="utf-8"))
         self.assertEqual("completed_case", manifest["recording_label"])
@@ -271,12 +277,14 @@ class StreamBusConnectionTest(unittest.TestCase):
     def test_multiple_engines_do_not_share_settings_state(self) -> None:
         settings_a = _build_settings_service()
         settings_b = _build_settings_service()
+        _declare_preview_rate_settings(settings_a)
+        _declare_preview_rate_settings(settings_b)
 
-        settings_a.set("ui.preview.rate_hz", 30, persist=False)
-        settings_b.set("ui.preview.rate_hz", 60, persist=False)
+        settings_a.ui.preview.rate_hz = 30
+        settings_b.ui.preview.rate_hz = 60
 
-        self.assertEqual(30, settings_a.get("ui.preview.rate_hz"))
-        self.assertEqual(60, settings_b.get("ui.preview.rate_hz"))
+        self.assertEqual(30, settings_a.ui.preview.rate_hz.value)
+        self.assertEqual(60, settings_b.ui.preview.rate_hz.value)
         self.assertNotEqual(settings_a.snapshot(), settings_b.snapshot())
 
     def test_recording_root_dir_read_does_not_mutate_settings(self) -> None:
@@ -293,7 +301,8 @@ class StreamBusConnectionTest(unittest.TestCase):
         root_dir = backend.root_dir
 
         self.assertIsInstance(root_dir, Path)
-        self.assertIsNone(settings.get(STORAGE_ROOT_DIR_KEY))
+        self.assertEqual("", settings.storage.root_dir.value)
+        self.assertEqual("", settings.storage.export_root_dir.value)
         self.assertFalse(
             any(
                 isinstance(event, SettingChangedEvent)
@@ -303,18 +312,19 @@ class StreamBusConnectionTest(unittest.TestCase):
         event_stream.close()
 
     def test_settings_service_concurrent_updates_keep_valid_json(self) -> None:
-        settings = _build_settings_service()
+        settings = _build_concurrent_settings_service()
         errors: list[Exception] = []
 
         def _worker(worker_id: int) -> None:
             try:
                 for seq in range(25):
-                    settings.set(
-                        f"ui.worker_{worker_id}",
+                    setattr(
+                        settings.ui,
+                        f"worker_{worker_id}",
                         {"seq": seq, "labels": [worker_id, seq]},
-                        persist=True,
                     )
-                    _ = settings.get(f"ui.worker_{worker_id}")
+                    settings.save()
+                    _ = getattr(settings.ui, f"worker_{worker_id}").value
                     _ = settings.snapshot()
             except Exception as exc:
                 errors.append(exc)
@@ -333,7 +343,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         self.assertIsInstance(payload, dict)
         self.assertEqual(
             4,
-            len([key for key in payload["ui"] if key.startswith("worker_")]),
+            len([key for key in payload["values"]["ui"] if key.startswith("worker_")]),
         )
 
 
@@ -404,7 +414,8 @@ def _build_settings_service() -> SettingsServiceType:
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsStore(path=path)
-    StorageSettings(settings).set_storage_root_dir(temp_dir / "data", persist=False)
+    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    settings.storage.root_dir = str(temp_dir / "data")
     return settings
 
 
@@ -414,6 +425,23 @@ def _build_empty_settings_service() -> SettingsServiceType:
     temp_dir = temp_root / f"settings_empty_{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     return SettingsStore(path=temp_dir / "settings.json")
+
+
+def _build_concurrent_settings_service() -> SettingsServiceType:
+    settings = _build_settings_service()
+    settings.add(
+        ui=SettingsGroup(
+            worker_0=ValueSpec(default={}),
+            worker_1=ValueSpec(default={}),
+            worker_2=ValueSpec(default={}),
+            worker_3=ValueSpec(default={}),
+        )
+    )
+    return settings
+
+
+def _declare_preview_rate_settings(settings: SettingsServiceType) -> None:
+    settings.add(ui=SettingsGroup(preview=SettingsGroup(rate_hz=SettingsInt(default=30))))
 
 
 if __name__ == "__main__":

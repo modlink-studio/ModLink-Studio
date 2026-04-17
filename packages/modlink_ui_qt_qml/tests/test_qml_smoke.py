@@ -69,7 +69,7 @@ def _drain_qt(app: QApplication) -> None:
 def test_qml_window_loads(qapp: QApplication) -> None:
     _ = qapp
     script = """
-from modlink_core import ModLinkEngine, SettingsStore
+from modlink_core import ModLinkEngine
 from modlink_ui_qt_qml import create_application, load_window
 from modlink_qt_bridge import QtModLinkBridge
 from modlink_sdk import Driver, StreamDescriptor
@@ -110,8 +110,7 @@ class PreviewDemoDriver(Driver):
         return
 
 app = create_application([])
-settings = SettingsStore()
-runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings=settings, parent=app)
+runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], parent=app)
 bridge = QtModLinkBridge(runtime, parent=app)
 qml_engine, controller = load_window(bridge, parent=app)
 app.processEvents()

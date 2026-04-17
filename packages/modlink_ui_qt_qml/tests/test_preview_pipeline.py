@@ -262,35 +262,33 @@ def test_main_page_loads_and_saves_stream_settings(
     _ = qapp
     settings = SettingsStore(path=tmp_path / "settings.json")
     descriptor = PreviewDemoDriver().descriptors()[0]
-    settings.set(
-        "ui.preview.streams",
-        {
-            descriptor.stream_id: {
-                "payload_type": "signal",
-                "settings": {
-                    "window_seconds": 4,
-                    "layout_mode": "stacked",
-                    "visible_channel_indices": [],
-                    "y_range_mode": "auto",
-                    "manual_y_min": -1.0,
-                    "manual_y_max": 1.0,
-                    "filter": {
-                        "family": "butterworth",
-                        "mode": "none",
-                        "order": 4,
-                        "low_cutoff_hz": 1.0,
-                        "high_cutoff_hz": 40.0,
-                        "notch_enabled": False,
-                        "notch_frequencies_hz": [],
-                        "notch_q": 30.0,
-                        "chebyshev1_ripple_db": 1.0,
-                    },
+    PreviewStreamSettingsStore(QtSettingsBridge(settings))
+    settings.ui.preview.streams = {
+        descriptor.stream_id: {
+            "payload_type": "signal",
+            "settings": {
+                "window_seconds": 4,
+                "layout_mode": "stacked",
+                "visible_channel_indices": [],
+                "y_range_mode": "auto",
+                "manual_y_min": -1.0,
+                "manual_y_max": 1.0,
+                "filter": {
+                    "family": "butterworth",
+                    "mode": "none",
+                    "order": 4,
+                    "low_cutoff_hz": 1.0,
+                    "high_cutoff_hz": 40.0,
+                    "notch_enabled": False,
+                    "notch_frequencies_hz": [],
+                    "notch_q": 30.0,
+                    "chebyshev1_ripple_db": 1.0,
                 },
-            }
-        },
-        persist=False,
-    )
-    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings=settings)
+            },
+        }
+    }
+    settings.save()
+    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings_path=settings.path)
     bridge = QtModLinkBridge(runtime)
     controller = MainPageController(bridge)
 
@@ -301,7 +299,7 @@ def test_main_page_loads_and_saves_stream_settings(
     assert preview_controller.layoutMode == "stacked"
 
     preview_controller.setWindowSeconds(12)
-    snapshot = settings.snapshot()
+    snapshot = runtime.settings.snapshot()
     assert snapshot["ui"]["preview"]["streams"][descriptor.stream_id]["settings"]["window_seconds"] == 12
 
     bridge.shutdown()
@@ -312,7 +310,7 @@ def test_main_page_preview_items_stay_stable_during_flush(
 ) -> None:
     _ = qapp
     settings = SettingsStore(path=tmp_path / "settings.json")
-    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings=settings)
+    runtime = ModLinkEngine(driver_factories=[PreviewDemoDriver], settings_path=settings.path)
     bridge = QtModLinkBridge(runtime)
     controller = MainPageController(bridge)
     descriptor = PreviewDemoDriver().descriptors()[0]
