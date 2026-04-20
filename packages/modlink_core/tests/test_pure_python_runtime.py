@@ -19,7 +19,7 @@ from modlink_core.events import (
     DriverExecutorFailedEvent,
 )
 from modlink_core.recording import RecordingBackend
-from modlink_core.settings import SettingsGroup, SettingsStore, SettingsStr
+from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_sdk import Driver, FrameEnvelope, LoopDriver, SearchResult, StreamDescriptor
 
 
@@ -897,7 +897,7 @@ def _build_settings_path() -> Path:
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsStore(path=path)
-    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    declare_core_settings(settings)
     settings.storage.root_dir = str(temp_dir / "data")
     settings.save()
     return path

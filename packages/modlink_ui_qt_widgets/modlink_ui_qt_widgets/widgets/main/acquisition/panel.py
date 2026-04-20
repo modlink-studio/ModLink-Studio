@@ -637,6 +637,3 @@ class AcquisitionControlPanel(SimpleCardWidget):
             position=InfoBarPosition.TOP_RIGHT,
             parent=parent,
         )
-
-
-__all__ = ["AcquisitionControlPanel"]

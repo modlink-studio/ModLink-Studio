@@ -18,13 +18,12 @@ from ..events import (
     RecordingFailedEvent,
 )
 from ..models import RecordingSnapshot, RecordingStartSummary, RecordingStopSummary
-from ..settings import SettingsGroup, SettingsStore, SettingsStr
+from ..settings import SettingsStore
 from ..storage import (
     add_recording_marker,
     add_recording_segment,
     append_recording_frame,
     create_recording,
-    recordings_dir,
     resolved_storage_root_dir,
 )
 
@@ -56,14 +55,6 @@ class RecordingBackend:
     ) -> None:
         self._bus = bus
         self._settings = settings
-        self._settings.add(
-            storage=SettingsGroup(
-                root_dir=SettingsStr(default=""),
-                export_root_dir=SettingsStr(default=""),
-            )
-        )
-        if self._settings.path is not None and self._settings.path.exists():
-            self._settings.load(ignore_unknown=True)
         self._publish_event = publish_event
         self._parent = parent
         self._command_queue: queue.Queue[RecordingCommand | object] = queue.Queue()
@@ -124,7 +115,7 @@ class RecordingBackend:
 
     def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
         storage_root_dir = self.root_dir
-        recordings_root_dir = recordings_dir(self._settings)
+        recordings_root_dir = storage_root_dir / "recordings"
         return self._submit_command(
             self._start_recording_worker,
             str(storage_root_dir),

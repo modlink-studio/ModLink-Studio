@@ -8,8 +8,12 @@ from typing import Literal
 from PyQt6.QtCore import QObject, pyqtSignal
 from qfluentwidgets import FluentIcon as FIF
 
-from modlink_core.settings import SettingsGroup, SettingsList, SettingsStr
-from modlink_core.storage import recordings_dir
+from modlink_core.settings import (
+    SettingsGroup,
+    SettingsList,
+    SettingsStr,
+    resolved_storage_root_dir,
+)
 from modlink_qt_bridge import QtModLinkBridge
 
 ActionKind = Literal["primary", "secondary"]
@@ -112,12 +116,6 @@ class AcquisitionViewModel(QObject):
         self._pending_recording_stop_notice = False
         self._last_known_recording_state = self.engine.recording.is_recording
         self._settings = self.engine.settings
-        self._settings.add(
-            storage=SettingsGroup(
-                root_dir=SettingsStr(default=""),
-                export_root_dir=SettingsStr(default=""),
-            )
-        )
         declare_acquisition_settings(self._settings)
         if self._settings.path is not None and self._settings.path.exists():
             self._settings.load(ignore_unknown=True)
@@ -228,7 +226,7 @@ class AcquisitionViewModel(QObject):
         return normalize_labels(self._settings.ui.labels.items.value)
 
     def build_output_directory(self) -> str:
-        return str(recordings_dir(self._settings))
+        return str(resolved_storage_root_dir(self._settings) / "recordings")
 
     def current_primary_action(self) -> AcquisitionActionState:
         if self.is_recording:
@@ -373,13 +371,3 @@ class AcquisitionViewModel(QObject):
             head = max(12, 96 - 18)
             cleaned_detail = f"{cleaned_detail[:head]} ..."
         return f"{friendly} 详情：{cleaned_detail}"
-
-
-__all__ = [
-    "AcquisitionActionState",
-    "AcquisitionFieldState",
-    "AcquisitionFormValues",
-    "AcquisitionPanelState",
-    "AcquisitionViewModel",
-    "declare_acquisition_settings",
-]

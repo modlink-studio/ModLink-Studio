@@ -10,6 +10,7 @@ from platformdirs import user_config_path
 from modlink_sdk import DriverFactory
 
 from ..bus import StreamBus
+from ..core_settings import declare_core_settings
 from ..drivers import DriverPortal, discover_driver_factories
 from ..event_stream import BackendEventBroker, EventStream
 from ..events import SettingChangedEvent
@@ -41,6 +42,7 @@ class ModLinkEngine:
             version=settings_version,
             on_change=self._publish_setting_changed,
         )
+        declare_core_settings(self._settings)
         if self._settings.path is not None and self._settings.path.exists():
             self._settings.load(ignore_unknown=True)
         self.bus = StreamBus(event_broker=self._event_broker, parent=self)

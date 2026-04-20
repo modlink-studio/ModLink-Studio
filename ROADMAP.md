@@ -129,10 +129,10 @@ data/
 当前状态：
 
 - `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 现已重组为纯函数模块，recording 写入路径已切到 `recordings/`
-- `modlink_core.storage` 顶层只保留 public API，文件 IO / ID / path 等辅助能力已下沉到私有 `_internal/`，不再暴露给上层
+- `modlink_core.storage` 顶层只保留实际 read/write public API；文件 IO / ID 辅助能力已下沉到私有 `_internal/`，storage 路径解析与 `storage.root_dir` / `storage.export_root_dir` 的解释逻辑已回到 `modlink_core.storage`
 - recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
 - Qt bridge、QML 与 widgets 的 acquisition 录制调用面已切到 recording-only 语义：统一使用 `storage.root_dir`，UI 不再携带 `session_name`，录制完成提示直接基于 `RecordingStopSummary`
-- settings 收口已完成：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，Qt bridge / QML / widgets / server 已统一切到属性树读写 + 显式 `save()`；settings 内容声明回到各组件初始化阶段，不再由 engine 集中声明
+- settings 收口已继续细化：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，Qt bridge / QML / widgets / server 已统一切到属性树读写 + 显式 `save()`；其中 `modlink_core` 自己只保留单一 `declare_core_settings(...)` 声明入口，storage 相关路径策略回到 `modlink_core.storage`，其他 UI/feature settings 仍在各组件初始化阶段声明
 - replay reader、catalog、历史格式兼容都明确后置，不再让预建设的读接口提前塑造当前 storage 边界
 
 **架构原则：**

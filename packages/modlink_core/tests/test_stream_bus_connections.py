@@ -22,11 +22,13 @@ from modlink_core.events import (
 from modlink_core.settings import (
     SettingsGroup,
     SettingsInt,
-    SettingsStore as SettingsServiceType,
-    SettingsStr,
     ValueSpec,
+    declare_core_settings,
 )
-from modlink_core.storage import recordings_dir
+from modlink_core.settings import (
+    SettingsStore as SettingsServiceType,
+)
+from modlink_core.storage import default_storage_root_dir, resolved_storage_root_dir
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 
@@ -232,7 +234,7 @@ class StreamBusConnectionTest(unittest.TestCase):
         recording_dir = Path(stop_summary.recording_path)
         self.assertEqual(
             recording_dir,
-            recordings_dir(settings) / stop_summary.recording_id,
+            resolved_storage_root_dir(settings) / "recordings" / stop_summary.recording_id,
         )
         manifest = json.loads((recording_dir / "recording.json").read_text(encoding="utf-8"))
         self.assertEqual("completed_case", manifest["recording_label"])
@@ -301,8 +303,9 @@ class StreamBusConnectionTest(unittest.TestCase):
         root_dir = backend.root_dir
 
         self.assertIsInstance(root_dir, Path)
-        self.assertEqual("", settings.storage.root_dir.value)
-        self.assertEqual("", settings.storage.export_root_dir.value)
+        self.assertEqual(default_storage_root_dir(), root_dir)
+        with self.assertRaises(AttributeError):
+            _ = settings.storage
         self.assertFalse(
             any(
                 isinstance(event, SettingChangedEvent)
@@ -414,7 +417,7 @@ def _build_settings_service() -> SettingsServiceType:
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / "settings.json"
     settings = SettingsStore(path=path)
-    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    declare_core_settings(settings)
     settings.storage.root_dir = str(temp_dir / "data")
     return settings
 

@@ -85,6 +85,3 @@ def _remove_managed_handlers(logger: logging.Logger) -> None:
 
 def _mark_managed(handler: logging.Handler) -> None:
     setattr(handler, _MANAGED_HANDLER_FLAG, True)
-
-
-__all__ = ["configure_host_logging"]

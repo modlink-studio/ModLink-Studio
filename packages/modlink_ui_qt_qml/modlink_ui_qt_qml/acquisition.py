@@ -4,8 +4,7 @@ import time
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.settings import SettingsGroup, SettingsStr
-from modlink_core.storage import STORAGE_ROOT_DIR_KEY, recordings_dir
+from modlink_core.settings import STORAGE_ROOT_DIR_KEY, resolved_storage_root_dir
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import UI_LABELS_KEY, declare_label_settings, normalize_labels
@@ -27,12 +26,6 @@ class AcquisitionController(QObject):
         super().__init__(parent)
         self._engine = engine
         self._settings = engine.settings
-        self._settings.add(
-            storage=SettingsGroup(
-                root_dir=SettingsStr(default=""),
-                export_root_dir=SettingsStr(default=""),
-            )
-        )
         declare_label_settings(self._settings)
         if self._settings.path is not None and self._settings.path.exists():
             self._settings.load(ignore_unknown=True)
@@ -75,7 +68,7 @@ class AcquisitionController(QObject):
 
     @pyqtProperty(str, notify=outputDirectoryChanged)
     def outputDirectory(self) -> str:
-        return str(recordings_dir(self._settings))
+        return str(resolved_storage_root_dir(self._settings) / "recordings")
 
     @pyqtProperty(str, notify=primaryActionTextChanged)
     def primaryActionText(self) -> str:

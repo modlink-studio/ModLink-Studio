@@ -4,8 +4,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
-from modlink_core.settings import SettingsGroup, SettingsStr
-from modlink_core.storage import STORAGE_ROOT_DIR_KEY, resolved_storage_root_dir
+from modlink_core.settings import STORAGE_ROOT_DIR_KEY, resolved_storage_root_dir
 from modlink_qt_bridge import QtModLinkBridge
 
 from .constants import (
@@ -33,12 +32,6 @@ class SettingsPageController(QObject):
     ) -> None:
         super().__init__(parent)
         self._settings = engine.settings
-        self._settings.add(
-            storage=SettingsGroup(
-                root_dir=SettingsStr(default=""),
-                export_root_dir=SettingsStr(default=""),
-            )
-        )
         declare_preview_refresh_rate_settings(self._settings)
         declare_label_settings(self._settings)
         if self._settings.path is not None and self._settings.path.exists():

@@ -4,8 +4,6 @@ from pathlib import Path
 
 from platformdirs import user_documents_path
 
-from ..settings import SettingsStore
-
 STORAGE_ROOT_DIR_KEY = "storage.root_dir"
 EXPORT_ROOT_DIR_KEY = "storage.export_root_dir"
 
@@ -17,39 +15,23 @@ def default_storage_root_dir() -> Path:
     return Path.home() / "ModLink Studio" / "data"
 
 
-def resolved_storage_root_dir(settings: SettingsStore) -> Path:
+def resolved_storage_root_dir(settings: object) -> Path:
     configured = _read_optional_path(settings, "root_dir")
     if configured is not None:
         return configured
     return default_storage_root_dir()
 
 
-def resolved_export_root_dir(settings: SettingsStore) -> Path:
+def resolved_export_root_dir(settings: object) -> Path:
     configured = _read_optional_path(settings, "export_root_dir")
     if configured is not None:
         return configured
     return resolved_storage_root_dir(settings) / "exports"
 
 
-def recordings_dir(settings: SettingsStore) -> Path:
-    return resolved_storage_root_dir(settings) / "recordings"
-
-
-def sessions_dir(settings: SettingsStore) -> Path:
-    return resolved_storage_root_dir(settings) / "sessions"
-
-
-def experiments_dir(settings: SettingsStore) -> Path:
-    return resolved_storage_root_dir(settings) / "experiments"
-
-
-def exports_dir(settings: SettingsStore) -> Path:
-    return resolved_export_root_dir(settings)
-
-
-def _read_optional_path(settings: SettingsStore, name: str) -> Path | None:
+def _read_optional_path(settings: object, name: str) -> Path | None:
     try:
-        storage = settings.storage
+        storage = getattr(settings, "storage")
     except AttributeError:
         return None
     try:
@@ -63,16 +45,3 @@ def _read_optional_path(settings: SettingsStore, name: str) -> Path | None:
     if value == "":
         return None
     return Path(value).expanduser()
-
-
-__all__ = [
-    "EXPORT_ROOT_DIR_KEY",
-    "STORAGE_ROOT_DIR_KEY",
-    "default_storage_root_dir",
-    "experiments_dir",
-    "exports_dir",
-    "recordings_dir",
-    "resolved_export_root_dir",
-    "resolved_storage_root_dir",
-    "sessions_dir",
-]

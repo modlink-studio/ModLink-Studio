@@ -4,7 +4,18 @@ import json
 
 import pytest
 
-from modlink_core.settings import SettingsBool, SettingsGroup, SettingsInt, SettingsStore
+from modlink_core.settings import (
+    SettingsBool,
+    SettingsGroup,
+    SettingsInt,
+    SettingsStore,
+    declare_core_settings,
+)
+from modlink_core.storage import (
+    default_storage_root_dir,
+    resolved_export_root_dir,
+    resolved_storage_root_dir,
+)
 
 
 def _build_settings(path):
@@ -209,3 +220,42 @@ def test_store_requires_path_for_save_and_load() -> None:
 
     with pytest.raises(ValueError, match="path is required"):
         settings.load()
+
+
+def test_declare_core_settings_is_idempotent_and_resolves_declared_paths(tmp_path) -> None:
+    settings = SettingsStore(path=tmp_path / "settings.json")
+
+    declare_core_settings(settings)
+    declare_core_settings(settings)
+    settings.storage.root_dir = str(tmp_path / "data")
+    settings.storage.export_root_dir = str(tmp_path / "exports")
+
+    assert settings.snapshot()["storage"] == {
+        "root_dir": str(tmp_path / "data"),
+        "export_root_dir": str(tmp_path / "exports"),
+    }
+    assert resolved_storage_root_dir(settings) == tmp_path / "data"
+    assert resolved_export_root_dir(settings) == tmp_path / "exports"
+
+
+def test_declare_core_settings_declares_core_owned_storage_group(tmp_path) -> None:
+    settings = SettingsStore(path=tmp_path / "settings.json")
+
+    declare_core_settings(settings)
+    settings.storage.root_dir = str(tmp_path / "core-data")
+
+    assert resolved_storage_root_dir(settings) == tmp_path / "core-data"
+
+
+def test_storage_path_resolution_uses_defaults_without_declaring_storage_group(tmp_path) -> None:
+    events: list[tuple[str, object]] = []
+    settings = SettingsStore(
+        path=tmp_path / "settings.json",
+        on_change=lambda key, value: events.append((key, value)),
+    )
+
+    assert resolved_storage_root_dir(settings) == default_storage_root_dir()
+    assert resolved_export_root_dir(settings) == default_storage_root_dir() / "exports"
+    assert events == []
+    with pytest.raises(AttributeError, match="unknown key: storage"):
+        _ = settings.storage

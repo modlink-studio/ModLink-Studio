@@ -301,6 +301,3 @@ class SettingsStore:
         if on_change is None:
             return
         on_change(key, value)
-
-
-__all__ = ["SettingsNode", "SettingsStore"]

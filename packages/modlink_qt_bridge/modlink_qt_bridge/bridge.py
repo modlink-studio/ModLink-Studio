@@ -25,8 +25,7 @@ from modlink_core.events import (
 from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStopSummary
 from modlink_core.recording.backend import RecordingBackend
 from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings import SettingsStore
-from modlink_core.storage import resolved_storage_root_dir
+from modlink_core.settings import SettingsStore, resolved_storage_root_dir
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
 

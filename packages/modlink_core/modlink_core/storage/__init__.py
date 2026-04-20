@@ -1,14 +1,3 @@
-from .settings import (
-    EXPORT_ROOT_DIR_KEY,
-    STORAGE_ROOT_DIR_KEY,
-    default_storage_root_dir,
-    experiments_dir,
-    exports_dir,
-    recordings_dir,
-    resolved_export_root_dir,
-    resolved_storage_root_dir,
-    sessions_dir,
-)
 from .experiments import (
     add_session_to_experiment,
     create_experiment,
@@ -27,6 +16,13 @@ from .sessions import (
     list_sessions,
     read_session,
 )
+from .settings import (
+    EXPORT_ROOT_DIR_KEY,
+    STORAGE_ROOT_DIR_KEY,
+    default_storage_root_dir,
+    resolved_export_root_dir,
+    resolved_storage_root_dir,
+)
 
 __all__ = [
     "add_recording_marker",
@@ -38,16 +34,12 @@ __all__ = [
     "create_recording",
     "create_session",
     "default_storage_root_dir",
-    "experiments_dir",
     "EXPORT_ROOT_DIR_KEY",
-    "exports_dir",
     "list_experiments",
     "list_sessions",
     "read_experiment",
     "read_session",
-    "recordings_dir",
     "resolved_export_root_dir",
     "resolved_storage_root_dir",
-    "sessions_dir",
     "STORAGE_ROOT_DIR_KEY",
 ]
