@@ -4,6 +4,7 @@ from .bridge import (
     QtDriverTask,
     QtModLinkBridge,
     QtRecordingBridge,
+    QtReplayBridge,
     QtSettingsBridge,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "QtDriverTask",
     "QtModLinkBridge",
     "QtRecordingBridge",
+    "QtReplayBridge",
     "QtSettingsBridge",
 ]

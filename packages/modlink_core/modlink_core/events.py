@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Literal
-
 from dataclasses import dataclass
+from typing import Any, Literal
 
 
 @dataclass(frozen=True, slots=True)

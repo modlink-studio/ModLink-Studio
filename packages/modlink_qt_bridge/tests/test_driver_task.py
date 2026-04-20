@@ -8,8 +8,9 @@ from concurrent.futures import Future
 import pytest
 
 QtCore = pytest.importorskip("PyQt6.QtCore")
-QCoreApplication = QtCore.QCoreApplication
 QThread = QtCore.QThread
+QtWidgets = pytest.importorskip("PyQt6.QtWidgets")
+QApplication = QtWidgets.QApplication
 
 from modlink_qt_bridge import QtDriverTask
 
@@ -17,7 +18,7 @@ from modlink_qt_bridge import QtDriverTask
 class QtDriverTaskTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls._app = QCoreApplication.instance() or QCoreApplication([])
+        cls._app = QApplication.instance() or QApplication([])
 
     def test_already_completed_future_runs_refresh_then_callback_once(self) -> None:
         future: Future[object | None] = Future()

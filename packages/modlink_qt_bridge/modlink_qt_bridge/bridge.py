@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import CancelledError, Future
@@ -7,7 +8,7 @@ from pathlib import Path
 from threading import Event, RLock, Thread
 from uuid import uuid4
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal, pyqtSlot
 
 from modlink_core.bus import FrameStream, StreamBus
 from modlink_core.drivers import DriverPortal
@@ -22,10 +23,25 @@ from modlink_core.events import (
     RecordingFailedEvent,
     SettingChangedEvent,
 )
-from modlink_core.models import DriverSnapshot, RecordingSnapshot, RecordingStopSummary
+from modlink_core.models import (
+    DriverSnapshot,
+    ExportJobSnapshot,
+    RecordingSnapshot,
+    RecordingStopSummary,
+    ReplayMarker,
+    ReplayRecordingSummary,
+    ReplaySegment,
+    ReplaySnapshot,
+)
 from modlink_core.recording.backend import RecordingBackend
+from modlink_core.replay.backend import ReplayBackend
 from modlink_core.runtime.engine import ModLinkEngine
-from modlink_core.settings import SettingsStore, resolved_storage_root_dir
+from modlink_core.settings import (
+    STORAGE_ROOT_DIR_KEY,
+    SettingsStore,
+    resolved_export_root_dir,
+    resolved_storage_root_dir,
+)
 from modlink_sdk import FrameEnvelope, SearchResult, StreamDescriptor
 
 
@@ -262,6 +278,9 @@ class QtBusBridge(QObject):
     def descriptor(self, stream_id: str) -> StreamDescriptor | None:
         return self._descriptors.get(stream_id)
 
+    def _set_descriptors(self, descriptors: dict[str, StreamDescriptor]) -> None:
+        self._descriptors = dict(descriptors)
+
     def _emit_frames(self, frames: list[FrameEnvelope]) -> None:
         if not frames:
             return
@@ -411,6 +430,211 @@ class QtRecordingBridge(QObject):
         future.add_done_callback(_notify_completed)
 
 
+class QtReplayBridge(QObject):
+    sig_snapshot_changed = pyqtSignal(object)
+    sig_recordings_changed = pyqtSignal()
+    sig_annotations_changed = pyqtSignal()
+    sig_export_jobs_changed = pyqtSignal()
+    sig_bus_reset = pyqtSignal()
+    sig_error = pyqtSignal(str)
+    _sig_command_succeeded = pyqtSignal(object, bool)
+    _sig_error_requested = pyqtSignal(str)
+
+    def __init__(
+        self,
+        backend: ReplayBackend,
+        settings: QtSettingsBridge,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent=parent)
+        self._backend = backend
+        self._settings = settings
+        self._snapshot = backend.snapshot()
+        self._recordings = backend.recordings()
+        self._markers = backend.markers()
+        self._segments = backend.segments()
+        self._export_jobs = backend.export_jobs()
+        self.bus = QtBusBridge(backend.bus, parent=self)
+        self._shutdown_event = Event()
+        self._frame_stream: FrameStream | None = None
+        self._frame_thread: Thread | None = None
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(100)
+        self._poll_timer.timeout.connect(self._poll_backend)
+        self._poll_timer.start()
+        self._settings.sig_setting_changed.connect(self._on_setting_changed)
+        self._sig_command_succeeded.connect(
+            self._handle_command_succeeded,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._sig_error_requested.connect(
+            self._emit_error_message,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._reset_bus_from_backend()
+
+    @property
+    def root_dir(self) -> Path:
+        return resolved_storage_root_dir(self._settings)
+
+    @property
+    def export_root_dir(self) -> Path:
+        return resolved_export_root_dir(self._settings)
+
+    def snapshot(self) -> ReplaySnapshot:
+        return self._snapshot
+
+    def recordings(self) -> tuple[ReplayRecordingSummary, ...]:
+        return self._recordings
+
+    def markers(self) -> tuple[ReplayMarker, ...]:
+        return self._markers
+
+    def segments(self) -> tuple[ReplaySegment, ...]:
+        return self._segments
+
+    def export_jobs(self) -> tuple[ExportJobSnapshot, ...]:
+        return self._export_jobs
+
+    def refresh_recordings(self) -> None:
+        self._watch_command(self._backend.refresh_recordings())
+
+    def open_recording(self, recording_path: str | Path) -> None:
+        self._watch_command(self._backend.open_recording(recording_path), reset_bus=True)
+
+    def play(self) -> None:
+        self._watch_command(self._backend.play())
+
+    def pause(self) -> None:
+        self._watch_command(self._backend.pause())
+
+    def stop(self) -> None:
+        self._watch_command(self._backend.stop())
+
+    def set_speed(self, multiplier: float) -> None:
+        self._watch_command(self._backend.set_speed(multiplier))
+
+    def start_export(self, format_id: str) -> None:
+        self._watch_command(self._backend.start_export(format_id))
+
+    def shutdown(self) -> None:
+        self._poll_timer.stop()
+        self._shutdown_event.set()
+        self._close_frame_stream()
+
+    def _sync_snapshot(self) -> None:
+        snapshot = self._backend.snapshot()
+        if snapshot == self._snapshot:
+            return
+        self._snapshot = snapshot
+        self.sig_snapshot_changed.emit(snapshot)
+
+    def _sync_recordings(self) -> None:
+        recordings = self._backend.recordings()
+        if recordings == self._recordings:
+            return
+        self._recordings = recordings
+        self.sig_recordings_changed.emit()
+
+    def _sync_annotations(self) -> None:
+        markers = self._backend.markers()
+        segments = self._backend.segments()
+        if markers == self._markers and segments == self._segments:
+            return
+        self._markers = markers
+        self._segments = segments
+        self.sig_annotations_changed.emit()
+
+    def _sync_export_jobs(self) -> None:
+        export_jobs = self._backend.export_jobs()
+        if export_jobs == self._export_jobs:
+            return
+        self._export_jobs = export_jobs
+        self.sig_export_jobs_changed.emit()
+
+    def _poll_backend(self) -> None:
+        self._sync_snapshot()
+        self._sync_export_jobs()
+
+    def _reset_bus_from_backend(self) -> None:
+        self.bus._set_descriptors(self._backend.bus.descriptors())
+        self._close_frame_stream()
+        self._frame_stream = self._backend.bus.open_frame_stream(
+            maxsize=256,
+            drop_policy="drop_oldest",
+            consumer_name="qt_replay_bridge",
+        )
+        stream = self._frame_stream
+        self._frame_thread = Thread(
+            target=self._run_frame_pump,
+            args=(stream,),
+            name="modlink.qt_bridge.replay_frames",
+            daemon=True,
+        )
+        self._frame_thread.start()
+        self.sig_bus_reset.emit()
+
+    def _close_frame_stream(self) -> None:
+        stream = self._frame_stream
+        thread = self._frame_thread
+        self._frame_stream = None
+        self._frame_thread = None
+        if stream is not None:
+            stream.close()
+        if thread is not None and thread.is_alive():
+            thread.join(1.0)
+
+    def _run_frame_pump(self, frame_stream: FrameStream) -> None:
+        while not self._shutdown_event.is_set():
+            try:
+                first_frame = frame_stream.read(timeout=0.1)
+            except queue.Empty:
+                continue
+            except StreamClosedError:
+                return
+
+            frames = [first_frame, *frame_stream.read_many()]
+            latest_by_stream = {
+                frame.stream_id: frame for frame in frames if isinstance(frame, FrameEnvelope)
+            }
+            self.bus._emit_frames(list(latest_by_stream.values()))
+
+    @pyqtSlot(str)
+    def _emit_error_message(self, message: str) -> None:
+        self.sig_error.emit(message)
+
+    @pyqtSlot(object, bool)
+    def _handle_command_succeeded(self, _result: object, reset_bus: bool) -> None:
+        self._sync_snapshot()
+        self._sync_recordings()
+        self._sync_annotations()
+        self._sync_export_jobs()
+        if reset_bus:
+            self._reset_bus_from_backend()
+
+    @pyqtSlot(object)
+    def _on_setting_changed(self, event: object) -> None:
+        if getattr(event, "key", None) == STORAGE_ROOT_DIR_KEY:
+            self.refresh_recordings()
+
+    def _watch_command(self, future: Future[object], *, reset_bus: bool = False) -> None:
+        def _notify_completed(completed: Future[object]) -> None:
+            try:
+                result = completed.result()
+            except CancelledError:
+                self._sig_error_requested.emit("REPLAY_COMMAND_CANCELLED")
+                return
+            except Exception as exc:
+                self._sig_error_requested.emit(str(exc))
+                return
+            self._sig_command_succeeded.emit(result, reset_bus)
+
+        if future.done():
+            _notify_completed(future)
+            return
+        future.add_done_callback(_notify_completed)
+
+
 class QtModLinkBridge(QObject):
     def __init__(
         self,
@@ -433,6 +657,11 @@ class QtModLinkBridge(QObject):
         self.bus = QtBusBridge(engine.bus, parent=self)
         self.recording = QtRecordingBridge(
             engine.recording,
+            self.settings,
+            parent=self,
+        )
+        self.replay = QtReplayBridge(
+            engine.replay,
             self.settings,
             parent=self,
         )
@@ -465,6 +694,7 @@ class QtModLinkBridge(QObject):
         self._frame_stream.close()
         self._event_thread.join(2.0)
         self._frame_thread.join(2.0)
+        self.replay.shutdown()
         self._engine.shutdown()
 
     def _run_event_pump(self) -> None:
@@ -517,6 +747,10 @@ class QtModLinkBridge(QObject):
 
     def _resync_all(self) -> None:
         self.recording._apply_snapshot(self._engine.recording_snapshot())
+        self.replay._sync_snapshot()
+        self.replay._sync_recordings()
+        self.replay._sync_annotations()
+        self.replay._sync_export_jobs()
         self.settings._resync_snapshot(self._engine.settings_snapshot())
         snapshots = {snapshot.driver_id: snapshot for snapshot in self._engine.driver_snapshots()}
         for driver_id, portal in self._driver_portals.items():

@@ -11,7 +11,7 @@ from qfluentwidgets.components.navigation import NavigationItemPosition
 
 from modlink_qt_bridge import QtModLinkBridge
 
-from .pages import DevicePage, MainPage, SettingsPage
+from .pages import DevicePage, MainPage, ReplayPage, SettingsPage
 
 
 class MainWindow(MSFluentWindow):
@@ -26,10 +26,12 @@ class MainWindow(MSFluentWindow):
             self.setMicaEffectEnabled(False)
 
         self.main_page = MainPage(engine=self.engine, parent=self)
+        self.replay_page = ReplayPage(engine=self.engine, parent=self)
         self.device_page = DevicePage(engine=self.engine, parent=self)
         self.settings_page = SettingsPage(engine=self.engine, parent=self)
 
         self.addSubInterface(self.main_page, FIF.HOME, "实时展示", isTransparent=False)
+        self.addSubInterface(self.replay_page, FIF.PLAY_SOLID, "回放", isTransparent=False)
         self.addSubInterface(
             self.device_page,
             FIF.IOT,

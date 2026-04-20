@@ -5,6 +5,7 @@ from time import time_ns
 from typing import Any
 
 import numpy as np
+
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 from ._internal.files import (
@@ -105,9 +106,75 @@ def add_recording_segment(
     )
 
 
+def list_recordings(root_dir: Path) -> list[dict[str, Any]]:
+    base_dir = Path(root_dir) / "recordings"
+    if not base_dir.is_dir():
+        return []
+
+    manifests: list[dict[str, Any]] = []
+    for entry in sorted(base_dir.iterdir(), key=lambda item: item.name, reverse=True):
+        manifest_path = entry / "recording.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifests.append(read_json(manifest_path))
+        except Exception:
+            continue
+    return manifests
+
+
+def read_recording(root_dir: Path, recording_id: str) -> dict[str, Any]:
+    return read_json(_recording_dir(root_dir, recording_id) / "recording.json")
+
+
+def read_recording_stream(root_dir: Path, recording_id: str, stream_id: str) -> dict[str, Any]:
+    return read_json(_stream_dir(root_dir, recording_id, stream_id) / "stream.json")
+
+
+def read_recording_markers(root_dir: Path, recording_id: str) -> list[dict[str, str]]:
+    markers_path = _recording_dir(root_dir, recording_id) / "annotations" / "markers.csv"
+    if not markers_path.is_file():
+        return []
+    return read_csv_rows(markers_path)
+
+
+def read_recording_segments(root_dir: Path, recording_id: str) -> list[dict[str, str]]:
+    segments_path = _recording_dir(root_dir, recording_id) / "annotations" / "segments.csv"
+    if not segments_path.is_file():
+        return []
+    return read_csv_rows(segments_path)
+
+
+def read_recording_frames(root_dir: Path, recording_id: str, stream_id: str) -> list[dict[str, str]]:
+    return read_csv_rows(_stream_dir(root_dir, recording_id, stream_id) / "frames.csv")
+
+
+def load_recording_frame_data(
+    root_dir: Path,
+    recording_id: str,
+    stream_id: str,
+    file_name: str,
+) -> np.ndarray:
+    frame_path = _stream_dir(root_dir, recording_id, stream_id) / "frames" / str(file_name)
+    if not frame_path.is_file():
+        raise FileNotFoundError(frame_path)
+
+    with np.load(frame_path) as archive:
+        if "data" not in archive.files:
+            raise ValueError(f"recording frame '{frame_path}' is missing data payload")
+        return np.ascontiguousarray(archive["data"])
+
+
+def _recording_dir(root_dir: Path, recording_id: str) -> Path:
+    recording_dir = Path(root_dir) / "recordings" / str(recording_id)
+    if not (recording_dir / "recording.json").is_file():
+        raise FileNotFoundError(recording_dir / "recording.json")
+    return recording_dir
+
+
 def _stream_dir(root_dir: Path, recording_id: str, stream_id: str) -> Path:
     root_dir = Path(root_dir)
-    stream_dir = root_dir / "recordings" / recording_id / "streams" / safe_path_component(stream_id)
+    stream_dir = _recording_dir(root_dir, recording_id) / "streams" / safe_path_component(stream_id)
     if not (stream_dir / "stream.json").is_file():
         raise KeyError(stream_id)
     return stream_dir

@@ -36,3 +36,46 @@ class RecordingStopSummary:
     stopped_at_ns: int
     status: str
     frame_counts_by_stream: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class ReplaySnapshot:
+    state: str
+    is_started: bool
+    recording_id: str | None
+    recording_path: str | None
+    position_ns: int
+    duration_ns: int
+    speed_multiplier: float
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayRecordingSummary:
+    recording_id: str
+    recording_label: str | None
+    recording_path: str
+    stream_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayMarker:
+    timestamp_ns: int
+    label: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReplaySegment:
+    start_ns: int
+    end_ns: int
+    label: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ExportJobSnapshot:
+    job_id: str
+    recording_id: str
+    format_id: str
+    state: str
+    progress: float
+    output_path: str | None
+    error: str | None

@@ -14,11 +14,17 @@ from .events import (
 from .logging_setup import configure_host_logging
 from .models import (
     DriverSnapshot,
+    ExportJobSnapshot,
     RecordingSnapshot,
     RecordingStartSummary,
     RecordingStopSummary,
+    ReplayMarker,
+    ReplayRecordingSummary,
+    ReplaySegment,
+    ReplaySnapshot,
 )
 from .recording import RecordingBackend
+from .replay import ReplayBackend
 from .runtime import ModLinkEngine
 from .settings import (
     SettingsStore,
@@ -29,6 +35,12 @@ __all__ = [
     "RecordingSnapshot",
     "RecordingStartSummary",
     "RecordingStopSummary",
+    "ReplayBackend",
+    "ReplayMarker",
+    "ReplayRecordingSummary",
+    "ReplaySegment",
+    "ReplaySnapshot",
+    "ExportJobSnapshot",
     "BackendEventBroker",
     "DriverConnectionLostEvent",
     "DriverExecutorFailedEvent",

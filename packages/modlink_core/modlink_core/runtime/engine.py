@@ -14,8 +14,9 @@ from ..core_settings import declare_core_settings
 from ..drivers import DriverPortal, discover_driver_factories
 from ..event_stream import BackendEventBroker, EventStream
 from ..events import SettingChangedEvent
-from ..models import DriverSnapshot, RecordingSnapshot
+from ..models import DriverSnapshot, RecordingSnapshot, ReplaySnapshot
 from ..recording import RecordingBackend
+from ..replay import ReplayBackend
 from ..settings import SettingsStore
 
 DEFAULT_DRIVER_STARTUP_TIMEOUT_MS = 5000
@@ -52,6 +53,10 @@ class ModLinkEngine:
             publish_event=self._event_broker.publish,
             parent=self,
         )
+        self._replay = ReplayBackend(
+            settings=self._settings,
+            parent=self,
+        )
         self._driver_portals: dict[str, DriverPortal] = {}
         attached_portals: list[DriverPortal] = []
         try:
@@ -59,6 +64,7 @@ class ModLinkEngine:
                 portal = self._attach_driver(factory)
                 attached_portals.append(portal)
             self._recording.start()
+            self._replay.start()
             logger.info("ModLink engine started with %d driver portals", len(self._driver_portals))
         except Exception as exc:
             logger.exception("Engine startup failed; rolling back attached services")
@@ -73,8 +79,15 @@ class ModLinkEngine:
     def recording(self) -> RecordingBackend:
         return self._recording
 
+    @property
+    def replay(self) -> ReplayBackend:
+        return self._replay
+
     def recording_snapshot(self) -> RecordingSnapshot:
         return self._recording.snapshot()
+
+    def replay_snapshot(self) -> ReplaySnapshot:
+        return self._replay.snapshot()
 
     def driver_portals(self) -> tuple[DriverPortal, ...]:
         return tuple(self._driver_portals.values())
@@ -145,6 +158,13 @@ class ModLinkEngine:
             cleanup_failures.append(
                 f"cleanup failed while shutting down recording: {type(exc).__name__}: {exc}"
             )
+        try:
+            self._replay.shutdown()
+        except Exception as exc:
+            logger.exception("Engine startup rollback failed while shutting down replay")
+            cleanup_failures.append(
+                f"cleanup failed while shutting down replay: {type(exc).__name__}: {exc}"
+            )
 
         for note in cleanup_failures:
             startup_error.add_note(note)
@@ -164,6 +184,12 @@ class ModLinkEngine:
             self._recording.shutdown()
         except Exception as exc:
             logger.exception("Engine shutdown failed while shutting down recording")
+            if first_error is None:
+                first_error = exc
+        try:
+            self._replay.shutdown()
+        except Exception as exc:
+            logger.exception("Engine shutdown failed while shutting down replay")
             if first_error is None:
                 first_error = exc
         if first_error is not None:
