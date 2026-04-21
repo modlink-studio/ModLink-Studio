@@ -64,6 +64,17 @@ It contains app code, a headless core, an SDK, Qt bridges, and plugins, but that
 - Use domain names that match the actual responsibility of the code, not a more grandiose or more generic interpretation.
 - Do not upgrade a simple queue, state holder, or worker into a broader-sounding name unless it truly owns that broader responsibility.
 
+## Qt Widgets UI Structure
+
+- Treat `packages/modlink_ui/` as the concrete desktop frontend for ModLink Studio, not as a reusable UI framework.
+- When the Qt UI grows, prefer organizing by product feature such as `devices`, `live`, `replay`, and `settings`, not by broad buckets such as `pages`, `widgets`, and `dialogs`.
+- Keep the desktop shell thin. Window chrome, navigation, and global actions belong near the shell; feature-specific state and controls belong inside the owning feature.
+- Let each feature keep its own local page, dialogs, panels, and view models when they are not reused elsewhere.
+- Move code into `shared` only after the same UI behavior or component is repeated across real features; do not create shared UI layers in advance.
+- Keep `bridge` focused on adapting `modlink_core` state, events, and frame streams into Qt-friendly signals and snapshots. Do not let it grow into a second application service layer.
+- For tables, trees, recording lists, driver lists, and other data-heavy views, prefer Qt model/view patterns over item-based widget state when the UI needs refresh, filtering, sorting, or shared state.
+- When refactoring the UI, move toward `shell + features + shared + bridge`, and avoid introducing plugin-style UI extension points unless explicitly requested.
+
 ## Collaboration Rules For Codex
 
 - Before making large edits, first align on structure if the change introduces new modules, new abstractions, or cross-layer shared code.
