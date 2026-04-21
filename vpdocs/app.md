@@ -2,10 +2,9 @@
 
 App 层负责把已经存在的 SDK、Core、UI 和 bridge 装配成真正可启动的宿主程序。它的职责不是重新定义协议，而是把现有能力组合成最终入口。
 
-在 `0.2.0` 中，宿主入口在实现上仍然分成三条，但对外公开分发统一收口到 `modlink-studio` 一个主包：
+在当前阶段，宿主入口实现上只保留两条：
 
-- `modlink_studio`：主桌面宿主，使用 `modlink_ui_qt_widgets`
-- `modlink_studio_qml`：QML 宿主，使用 `modlink_ui_qt_qml`
+- `modlink_studio`：主桌面宿主，使用 `modlink_ui`
 - `modlink_server`：FastAPI 服务宿主，为后续 HTML / Web UI 准备
 
 ## 这页主要回答什么
@@ -29,21 +28,9 @@ modlink-studio
 python -m modlink_studio
 ```
 
-如果要直接联调 QML 宿主：
-
-```bash
-modlink-studio-qml
-```
-
-或：
-
-```bash
-python -m modlink_studio_qml
-```
-
 `modlink_server` 当前主要面向前端联调和宿主边界验证，而不是普通终端用户的默认入口。
 
-这三个入口在 `0.2.x-0.3.x` 阶段都会由同一个 `modlink-studio` distribution 提供，而不是拆成多个公开 PyPI 包。
+这两个入口当前都由同一个 `modlink-studio` distribution 提供，而不是拆成多个公开 PyPI 包。
 
 ## App 层到底负责什么
 
@@ -54,7 +41,7 @@ python -m modlink_studio_qml
 3. 初始化设置服务
 4. 发现当前环境里的 driver factories
 5. 创建 `ModLinkEngine`
-6. 创建主窗口或 QML window
+6. 创建主窗口
 7. 把 Qt 的 `aboutToQuit` 接到 runtime shutdown
 8. 启动 Qt 事件循环
 

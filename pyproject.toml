@@ -27,7 +27,6 @@ Packages = "https://pypi.org/project/modlink-studio/"
 
 [project.gui-scripts]
 modlink-studio = "modlink_studio.app:main"
-modlink-studio-qml = "modlink_studio_qml.app:main"
 
 [project.scripts]
 modlink-server = "modlink_server.app:main"
@@ -68,20 +67,15 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"packages/modlink_qt_bridge/**" = ["N"]
-"packages/modlink_ui_qt_widgets/**" = ["N"]
-"packages/modlink_ui_qt_qml/**" = ["N"]
+"packages/modlink_ui/**" = ["N"]
 "apps/modlink_studio/**" = ["N"]
-"apps/modlink_studio_qml/**" = ["N"]
 "**/tests/**" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
     "modlink_sdk",
     "modlink_core",
-    "modlink_ui_qt_widgets",
-    "modlink_ui_qt_qml",
-    "modlink_qt_bridge",
+    "modlink_ui",
     "modlink_plugin_manager",
 ]
 
@@ -94,30 +88,23 @@ include-package-data = false
 
 [tool.setuptools.package-data]
 modlink_studio = ["app_icon.png"]
-modlink_ui_qt_qml = ["qml/*.qml", "qml/**/*.qml"]
 
 [tool.setuptools.packages.find]
 where = [
     "apps/modlink_studio",
-    "apps/modlink_studio_qml",
     "apps/modlink_server",
     "packages/modlink_sdk",
     "packages/modlink_core",
-"packages/modlink_qt_bridge",
 "packages/modlink_plugin_manager",
-"packages/modlink_ui_qt_widgets",
-"packages/modlink_ui_qt_qml",
+"packages/modlink_ui",
 ]
 include = [
     "modlink_studio*",
-    "modlink_studio_qml*",
     "modlink_server*",
     "modlink_sdk*",
     "modlink_core*",
-    "modlink_qt_bridge*",
     "modlink_plugin_manager*",
-    "modlink_ui_qt_widgets*",
-    "modlink_ui_qt_qml*",
+    "modlink_ui*",
 ]
 namespaces = false
 

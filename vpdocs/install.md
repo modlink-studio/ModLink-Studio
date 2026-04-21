@@ -101,12 +101,6 @@ uv sync
 uv run modlink-studio
 ```
 
-如果要直接联调 QML 宿主：
-
-```bash
-uv run modlink-studio-qml
-```
-
 ## 独立脚手架工具
 
 driver 脚手架现在作为独立 npm 工具提供，而不是 `modlink-studio` 的运行时依赖：

@@ -1,11 +1,10 @@
 # UI 模块架构
 
-`0.2.0` 的 UI 不再被理解成“唯一的一套桌面界面”，而是两条并行推进的方向：
+当前阶段，桌面 UI 路线已经完全收敛到 widgets 主宿主：
 
-- `modlink_ui_qt_widgets`：当前主桌面宿主使用的 Qt Widgets UI 包
-- `modlink_ui_qt_qml`：新的 QML UI 包
+- `modlink_ui`：当前主桌面宿主使用的 Qt Widgets UI 包，内部同时承载 Qt bridge
 
-同时，`modlink_server` 建立的是另一条 host 边界，用于后续 HTML / Web UI，而不是再去扩展 Qt Widgets 的职责。
+同时，`modlink_server` 建立的是服务化 host 边界，而不是再去扩展 Qt Widgets 的职责。
 
 ## UI 最该依赖什么
 
@@ -20,9 +19,9 @@
 
 如果这些信息已经稳定，UI 通常也会稳定。UI 最好消费的是统一流模型，而不是某个具体设备自己的协议细节。
 
-## 0.2.0 的三条表现层方向
+## 当前表现层结构
 
-### `modlink_ui_qt_widgets`
+### `modlink_ui`
 
 这是当前主桌面宿主 `modlink_studio` 使用的 UI 包。它承担：
 
@@ -32,19 +31,9 @@
 
 `0.2.0` 里它仍然会继续保留，不作为被替代或被删除的旧路径。
 
-### `modlink_ui_qt_qml`
-
-这是 `0.2.0` 首次明确推进的新桌面 UI 方向。它当前承担：
-
-- QML 页面结构
-- preview controller / store / pipeline
-- 更适合继续扩展的预览和界面组织方式
-
-推进这条线的原因不是“多做一个界面”，而是随着实时预览类型、界面层级和后续交互复杂度增加，Qt Widgets 在表达能力和演进空间上的局限越来越明显。
-
 ### `modlink_server`
 
-`modlink_server` 不是另一套桌面 UI，但它确实属于 `0.2.0` 的 new UI / host 方向。
+`modlink_server` 不是另一套桌面 UI，它承担的是服务化 host 边界。
 
 它当前的意义是：
 
@@ -52,9 +41,9 @@
 - 固定 `HTTP + SSE + WebSocket` 三条 wire contract
 - 为后续 HTML / Web UI 提前建立 host 边界
 
-因此当文档里提到 `0.2.0` 的 new UI 时，实际上包含两条方向：
+当前更值得关注的是：
 
-- QML 桌面 UI
+- widgets 桌面 UI
 - FastAPI 服务化 host
 
 ## 一个合理的 UI 工作顺序

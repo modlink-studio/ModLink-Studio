@@ -130,9 +130,11 @@ data/
 - `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 现已重组为纯函数模块，recording 写入路径已切到 `recordings/`
 - `modlink_core.storage` 现同时承载最小 read/write public API：除写盘外，已补回无状态的 recording list/read/load 接口，供 replay 读取 recording / stream / annotations / frames / frame data
 - recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
-- Qt bridge、QML 与 widgets 的 acquisition 录制调用面已切到 recording-only 语义：统一使用 `storage.root_dir`，UI 不再携带 `session_name`，录制完成提示直接基于 `RecordingStopSummary`
-- settings 收口已继续细化：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，Qt bridge / QML / widgets / server 已统一切到属性树读写 + 显式 `save()`；其中 `modlink_core` 自己只保留单一 `declare_core_settings(...)` 声明入口，storage 相关路径策略回到 `modlink_core.storage`，其他 UI/feature settings 仍在各组件初始化阶段声明
-- 顶层 `modlink_core.replay` 已落地第一版 `RecordingReader`、`ReplayBackend` 与 `ExportService`；当前 widgets 主应用已经接上 recordings 列表、回放控制、annotations 展示与 analysis-first export，QML 与历史格式兼容仍后置
+- Qt bridge 与 widgets 的 acquisition 录制调用面已切到 recording-only 语义：统一使用 `storage.root_dir`，UI 不再携带 `session_name`，录制完成提示直接基于 `RecordingStopSummary`
+- settings 收口已继续细化：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，当前 widgets UI 与 server 已统一切到属性树读写 + 显式 `save()`；其中 `modlink_core` 自己只保留单一 `declare_core_settings(...)` 声明入口，storage 相关路径策略回到 `modlink_core.storage`，其他 UI/feature settings 仍在各组件初始化阶段声明
+- 顶层 `modlink_core.replay` 已落地第一版 `RecordingReader`、`ReplayBackend` 与 `ExportService`；当前 widgets 主应用已经接上 recordings 列表、回放控制、annotations 展示与 analysis-first export
+- 宿主与桌面 UI 路线已重新收敛：`modlink_studio_qml`、`modlink_studio_web` 与 `modlink_ui_qt_qml` 已删除，当前只保留 widgets 主宿主 `modlink_studio`
+- Qt UI 包结构已收口：当前只保留 `modlink_ui`，其中 `modlink_ui.bridge` 内聚了承接 Qt bridge 语义的实现
 
 **架构原则：**
 
@@ -222,7 +224,7 @@ class Protocol:
 - 实验管理页面（新建实验 → 填写受试者 → 选择协议 → 进入 session）
 - Session 内的录制面板升级：显示当前阶段、进度、下一步指引
 - widgets 主应用已新增 Replay 页面：基于 recordings 列表打开 recording，并复用现有 preview cards 进行复盘
-- Replay 页面已提供 analysis-first 导出区域与 job 状态展示；QML replay 页面仍待开始
+- Replay 页面已提供 analysis-first 导出区域与 job 状态展示
 - 受试者信息表单
 
 ---
@@ -362,8 +364,8 @@ packages/modlink_ai/
 0.5.x  生态扩展
   ├── 插件注册中心
   ├── 数据导出工具（HDF5/BIDS）
-  ├── 回放 API 服务化 / Web 化
-  └── Web UI（基于已有 Server API）
+  ├── 回放 API 服务化 / Web Replay 化
+  └── 更完整的 Web UI / PWA 分发能力
 ```
 
 ---
@@ -378,12 +380,13 @@ packages/modlink_ai/
 6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 storage 纯函数驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
 7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
 8. **保留历史数据导入路径（待开始）** — 当前主流程不兼容旧 recording；后续通过薄读取层或导入器兼容旧格式，而不是让旧结构继续塑造新主流程
+9. **收敛宿主路线（已完成）** — 已删除 `modlink_studio_qml`、`modlink_studio_web` 与 `modlink_ui_qt_qml`，当前只保留 widgets 主宿主 `modlink_studio`
 
 ---
 
 ## 六、技术债务（可穿插在任意版本中处理）
 
-- QML 迁移决策：是继续并行还是确定方向
+- QML / Web 宿主与 QML UI 包已移除；若后续重启对应方向，应重新单独评估
 - mypy/pyright 类型检查（从 SDK 开始）
 - UI 测试覆盖提升
 - 旧插件清理

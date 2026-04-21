@@ -13,12 +13,9 @@ DEFAULT_BACKUP_COUNT = 5
 _MANAGED_HANDLER_FLAG = "_modlink_managed_handler"
 _INFO_LOGGER_NAMES = (
     "modlink_core",
-    "modlink_qt_bridge",
-    "modlink_ui_qt_widgets",
-    "modlink_ui_qt_qml",
+    "modlink_ui",
     "modlink_server",
     "modlink_studio",
-    "modlink_studio_qml",
     "uvicorn",
     "uvicorn.error",
     "uvicorn.access",

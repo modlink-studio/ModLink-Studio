@@ -44,8 +44,7 @@
   - 基础包：
     - `modlink_sdk`
     - `modlink_core`
-    - `modlink_qt_bridge`
-    - `modlink_ui_qt_widgets`
+    - `modlink_ui`
     - `modlink_ui_qt_qml`
   - 宿主入口：
     - `modlink_studio`
@@ -129,7 +128,7 @@
 
 #### UI Structure
 
-- 调整 `modlink_ui_qt_widgets` 的页面和主界面组织方式
+- 调整 `modlink_ui` 的页面和主界面组织方式
 - 明确从 `0.1.x` 的单一 Widgets UI，过渡到 Widgets 与 QML/new UI 并行的结构
 - 开始推进 new UI 的原因，是 Qt Widgets 在复杂实时预览、后续界面扩展和表现层组织上的局限逐渐显现
 - 这里的 new UI 不只是一套 QML 界面，也包括以 `modlink_server` 为入口的服务化 host 边界，用于承接后续 HTML / Web UI

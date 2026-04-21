@@ -4,7 +4,7 @@ layout: home
 hero:
   name: ModLink Studio
   text: 设备接入、多模态采集与展示的文档站
-  tagline: 了解 0.2.0 的 PyPI 发布口径、driver 契约、纯 Python runtime 和双 UI / host 方向
+  tagline: 了解 0.2.0 的 PyPI 发布口径、driver 契约、纯 Python runtime 和当前 widgets 宿主路线
   actions:
     - theme: brand
       text: 开始安装
@@ -24,8 +24,8 @@ features:
     title: 纯 Python Runtime
     details: SDK 与 Core 已从 Qt 运行时语义中拆开，宿主围绕统一流模型和采集后端工作。
   - icon: 🖥️
-    title: 双 UI / Host 方向
-    details: 0.2.0 继续保留 Qt Widgets 宿主，同时推进 QML UI 和 FastAPI host，为后续 HTML / Web UI 做准备。
+    title: Widgets 宿主
+    details: 当前桌面宿主路线收敛到 Qt Widgets，FastAPI host 继续保留为服务化边界。
   - icon: ⚠️
     title: 0.2.0 破坏升级
     details: 0.2.0 不兼容 0.1.x 的 Qt-style driver API；当前版本边界是稳定采集、录制和保存。
@@ -39,7 +39,7 @@ features:
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
-- UI 当前保持 Qt Widgets 与 QML 两条桌面路线并行
+- 当前桌面宿主以 Qt Widgets 为准
 - FastAPI host 已建立服务化边界，用于后续 HTML / Web UI
 - 录制回放不属于 `0.2.0`，延后到 `0.3.0`
 
