@@ -132,7 +132,9 @@ def _parse_manifest(payload: dict[str, Any]) -> list[IndexedPlugin]:
                 or not isinstance(host_version_spec, str)
                 or not isinstance(wheel_url, str)
             ):
-                raise RuntimeError("Plugin release entries must include version, host_version_spec, and wheel_url.")
+                raise RuntimeError(
+                    "Plugin release entries must include version, host_version_spec, and wheel_url."
+                )
             releases.append(
                 PluginRelease(
                     version=version_text,
@@ -171,7 +173,9 @@ def _installed_plugins() -> list[InstalledPlugin]:
     installed: list[InstalledPlugin] = []
     for entry_point in sorted(entry_points(group=PLUGIN_ENTRY_POINT_GROUP), key=lambda item: item.name):
         dist = getattr(entry_point, "dist", None)
-        distribution_name = getattr(dist, "name", None) or getattr(dist, "metadata", {}).get("Name", "unknown")
+        distribution_name = getattr(dist, "name", None) or getattr(
+            dist, "metadata", {}
+        ).get("Name", "unknown")
         plugin_version = getattr(dist, "version", None)
         installed.append(
             InstalledPlugin(

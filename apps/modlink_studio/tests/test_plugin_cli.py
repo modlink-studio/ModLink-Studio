@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
-from modlink_plugin_manager import cli
+APP_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = APP_ROOT.parents[1]
+app_root_str = str(APP_ROOT)
+if app_root_str not in sys.path:
+    sys.path.insert(0, app_root_str)
+
+from modlink_studio.plugin import cli
 
 
 @dataclass

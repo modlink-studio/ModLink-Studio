@@ -135,7 +135,6 @@ modlink-studio/
 ├─ packages/
 │  ├─ modlink_sdk/
 │  ├─ modlink_core/
-│  ├─ modlink_plugin_manager/
 │  └─ modlink_ui/
 ├─ tools/
 │  └─ modlink_plugin_scaffold/
@@ -143,10 +142,10 @@ modlink-studio/
 ```
 
 - `apps/modlink_studio/`: 主桌面宿主入口
+- `apps/modlink_studio/modlink_studio/plugin/`: 跟随主宿主一起发布的插件管理 CLI
 - `apps/modlink_server/`: FastAPI 服务宿主入口
 - `packages/modlink_sdk/`: 当前仓库内的最小 SDK 契约
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
-- `packages/modlink_plugin_manager/`: 跟随主包一起安装的插件管理 CLI
 - `packages/modlink_ui/`: 当前唯一的 Qt Widgets UI 包，内部同时承载 Qt bridge
 - `tools/modlink_plugin_scaffold/`: 独立 npm driver 脚手架工具
 - `vpdocs/`: VitePress 文档站源码

@@ -30,7 +30,7 @@ modlink-studio = "modlink_studio.app:main"
 
 [project.scripts]
 modlink-server = "modlink_server.app:main"
-modlink-plugin = "modlink_plugin_manager.cli:main"
+modlink-plugin = "modlink_studio.plugin.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -76,7 +76,6 @@ known-first-party = [
     "modlink_sdk",
     "modlink_core",
     "modlink_ui",
-    "modlink_plugin_manager",
 ]
 
 [build-system]
@@ -95,7 +94,6 @@ where = [
     "apps/modlink_server",
     "packages/modlink_sdk",
     "packages/modlink_core",
-"packages/modlink_plugin_manager",
 "packages/modlink_ui",
 ]
 include = [
@@ -103,7 +101,6 @@ include = [
     "modlink_server*",
     "modlink_sdk*",
     "modlink_core*",
-    "modlink_plugin_manager*",
     "modlink_ui*",
 ]
 namespaces = false
