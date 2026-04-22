@@ -134,7 +134,8 @@ data/
 - settings 收口已继续细化：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，当前 widgets UI 与 server 已统一切到属性树读写 + 显式 `save()`；其中 `modlink_core` 自己只保留单一 `declare_core_settings(...)` 声明入口，storage 相关路径策略回到 `modlink_core.storage`，其他 UI/feature settings 仍在各组件初始化阶段声明
 - 顶层 `modlink_core.replay` 已落地第一版 `RecordingReader`、`ReplayBackend` 与 `ExportService`；当前 widgets 主应用已经接上 recordings 列表、回放控制、annotations 展示与 analysis-first export
 - 宿主与桌面 UI 路线已重新收敛：`modlink_studio_qml`、`modlink_studio_web` 与 `modlink_ui_qt_qml` 已删除，当前只保留 widgets 主宿主 `modlink_studio`
-- Qt UI 包结构已收口：当前只保留 `modlink_ui`，其中 `modlink_ui.bridge` 内聚了承接 Qt bridge 语义的实现
+- Qt UI 包结构进入 feature 化重构阶段：稳定基线仍在 `modlink_ui`，同时新增 `modlink_ui_v2` 作为 `shell + features + shared + bridge` 组织形态的迁移目标；两者的 Qt bridge 语义都继续内聚在各自包内
+- `modlink_ui_v2` 的 replay feature 已从单页平铺式 splitter 改为三段式页面流：`recordings` 列表页、单独的 `player` 回放页、单独的 `export` 导出页
 
 **架构原则：**
 
