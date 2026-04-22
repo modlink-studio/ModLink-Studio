@@ -23,13 +23,13 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core import SettingsStore
 from modlink_sdk import StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.main.preview.settings.models import (
+from modlink_ui.shared.preview.settings.models import (
     FieldPreviewSettings,
     RasterPreviewSettings,
     SignalPreviewSettings,
     VideoPreviewSettings,
 )
-from modlink_ui.widgets.main.preview.views import (
+from modlink_ui.shared.preview.views import (
     FieldStreamView,
     RasterStreamView,
     VideoStreamView,

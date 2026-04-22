@@ -37,7 +37,7 @@ from modlink_core.storage import (
 )
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 from modlink_ui.bridge import QtReplayBridge, QtSettingsBridge
-from modlink_ui.pages.replay import ReplayPage
+from modlink_ui.features.replay import ReplayPage
 
 
 class _EngineStub:

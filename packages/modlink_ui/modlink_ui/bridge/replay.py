@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
-from dataclasses import dataclass
+from concurrent.futures import CancelledError, Future
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal, pyqtSlot
@@ -20,22 +19,9 @@ from modlink_core.settings import (
     resolved_storage_root_dir,
 )
 
-from ._futures import watch_future_completion
 from .bus import QtBusBridge
 from .frame_pump import LatestFramePump
 from .settings import QtSettingsBridge
-
-_REPLAY_POLL_INTERVAL_MS = 100
-_REPLAY_FRAME_STREAM_MAXSIZE = 256
-
-
-@dataclass(slots=True)
-class _ReplayCache:
-    snapshot: ReplaySnapshot
-    recordings: tuple[ReplayRecordingSummary, ...]
-    markers: tuple[ReplayMarker, ...]
-    segments: tuple[ReplaySegment, ...]
-    export_jobs: tuple[ExportJobSnapshot, ...]
 
 
 class QtReplayBridge(QObject):
@@ -57,13 +43,11 @@ class QtReplayBridge(QObject):
         super().__init__(parent=parent)
         self._backend = backend
         self._settings = settings
-        self._cache = _ReplayCache(
-            snapshot=backend.snapshot(),
-            recordings=backend.recordings(),
-            markers=backend.markers(),
-            segments=backend.segments(),
-            export_jobs=backend.export_jobs(),
-        )
+        self._snapshot = backend.snapshot()
+        self._recordings = backend.recordings()
+        self._markers = backend.markers()
+        self._segments = backend.segments()
+        self._export_jobs = backend.export_jobs()
         self.bus = QtBusBridge(backend.bus, parent=self)
         self._is_shutdown = False
         self._frame_pump = LatestFramePump(
@@ -72,7 +56,7 @@ class QtReplayBridge(QObject):
             read_timeout=0.1,
         )
         self._poll_timer = QTimer(self)
-        self._poll_timer.setInterval(_REPLAY_POLL_INTERVAL_MS)
+        self._poll_timer.setInterval(100)
         self._poll_timer.timeout.connect(self._poll_backend)
         self._poll_timer.start()
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
@@ -95,19 +79,19 @@ class QtReplayBridge(QObject):
         return resolved_export_root_dir(self._settings)
 
     def snapshot(self) -> ReplaySnapshot:
-        return self._cache.snapshot
+        return self._snapshot
 
     def recordings(self) -> tuple[ReplayRecordingSummary, ...]:
-        return self._cache.recordings
+        return self._recordings
 
     def markers(self) -> tuple[ReplayMarker, ...]:
-        return self._cache.markers
+        return self._markers
 
     def segments(self) -> tuple[ReplaySegment, ...]:
-        return self._cache.segments
+        return self._segments
 
     def export_jobs(self) -> tuple[ExportJobSnapshot, ...]:
-        return self._cache.export_jobs
+        return self._export_jobs
 
     def resync_from_backend(self) -> None:
         self._sync_snapshot()
@@ -145,32 +129,32 @@ class QtReplayBridge(QObject):
 
     def _sync_snapshot(self) -> None:
         snapshot = self._backend.snapshot()
-        if snapshot == self._cache.snapshot:
+        if snapshot == self._snapshot:
             return
-        self._cache.snapshot = snapshot
+        self._snapshot = snapshot
         self.sig_snapshot_changed.emit(snapshot)
 
     def _sync_recordings(self) -> None:
         recordings = self._backend.recordings()
-        if recordings == self._cache.recordings:
+        if recordings == self._recordings:
             return
-        self._cache.recordings = recordings
+        self._recordings = recordings
         self.sig_recordings_changed.emit()
 
     def _sync_annotations(self) -> None:
         markers = self._backend.markers()
         segments = self._backend.segments()
-        if markers == self._cache.markers and segments == self._cache.segments:
+        if markers == self._markers and segments == self._segments:
             return
-        self._cache.markers = markers
-        self._cache.segments = segments
+        self._markers = markers
+        self._segments = segments
         self.sig_annotations_changed.emit()
 
     def _sync_export_jobs(self) -> None:
         export_jobs = self._backend.export_jobs()
-        if export_jobs == self._cache.export_jobs:
+        if export_jobs == self._export_jobs:
             return
-        self._cache.export_jobs = export_jobs
+        self._export_jobs = export_jobs
         self.sig_export_jobs_changed.emit()
 
     def _poll_backend(self) -> None:
@@ -181,7 +165,7 @@ class QtReplayBridge(QObject):
         self.bus._set_descriptors(self._backend.bus.descriptors())
         self._frame_pump.attach_stream(
             self._backend.bus.open_frame_stream(
-                maxsize=_REPLAY_FRAME_STREAM_MAXSIZE,
+                maxsize=256,
                 drop_policy="drop_oldest",
                 consumer_name="qt_replay_bridge",
             )
@@ -194,9 +178,9 @@ class QtReplayBridge(QObject):
 
     @pyqtSlot(object, bool)
     def _handle_command_succeeded(self, _result: object, reset_bus: bool) -> None:
-        self.resync_from_backend()
         if reset_bus:
             self._reset_bus_from_backend()
+        self.resync_from_backend()
 
     @pyqtSlot(object)
     def _on_setting_changed(self, event: object) -> None:
@@ -204,9 +188,18 @@ class QtReplayBridge(QObject):
             self.refresh_recordings()
 
     def _watch_command(self, future: Future[object], *, reset_bus: bool = False) -> None:
-        watch_future_completion(
-            future,
-            on_success=lambda result: self._sig_command_succeeded.emit(result, reset_bus),
-            on_error=self._sig_error_requested.emit,
-            cancelled_message="REPLAY_COMMAND_CANCELLED",
-        )
+        def _notify_completed(completed: Future[object]) -> None:
+            try:
+                result = completed.result()
+            except CancelledError:
+                self._sig_error_requested.emit("REPLAY_COMMAND_CANCELLED")
+                return
+            except Exception as exc:
+                self._sig_error_requested.emit(str(exc))
+                return
+            self._sig_command_succeeded.emit(result, reset_bus)
+
+        if future.done():
+            _notify_completed(future)
+            return
+        future.add_done_callback(_notify_completed)

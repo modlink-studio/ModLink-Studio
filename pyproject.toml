@@ -68,7 +68,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "packages/modlink_ui/**" = ["N"]
-"packages/modlink_ui_v2/**" = ["N"]
 "apps/modlink_studio/**" = ["N"]
 "**/tests/**" = ["E402"]
 
@@ -77,7 +76,6 @@ known-first-party = [
     "modlink_sdk",
     "modlink_core",
     "modlink_ui",
-    "modlink_ui_v2",
 ]
 
 [build-system]
@@ -97,7 +95,6 @@ where = [
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_ui",
-    "packages/modlink_ui_v2",
 ]
 include = [
     "modlink_studio*",
@@ -105,7 +102,6 @@ include = [
     "modlink_sdk*",
     "modlink_core*",
     "modlink_ui*",
-    "modlink_ui_v2*",
 ]
 namespaces = false
 

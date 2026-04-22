@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.models import RecordingStopSummary
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.main.acquisition.view_model import AcquisitionViewModel
+from modlink_ui.features.live.acquisition_view_model import AcquisitionViewModel
 
 
 class _AcquisitionStub(QObject):

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.events import SettingChangedEvent
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.settings.cards.save_directory import SaveDirectoryCard
+from modlink_ui.features.settings.cards.save_directory import SaveDirectoryCard
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 

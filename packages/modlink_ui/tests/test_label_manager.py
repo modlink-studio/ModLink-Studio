@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import QApplication
 
 from modlink_core.settings import SettingsStore
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.settings.cards.label_manager import LabelManagerCard
+from modlink_ui.features.settings.cards.label_manager import LabelManagerCard
 
 
 class LabelManagerCardTests(unittest.TestCase):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import Future
+from concurrent.futures import CancelledError, Future
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
@@ -10,7 +10,6 @@ from modlink_core.models import RecordingSnapshot, RecordingStopSummary
 from modlink_core.recording.backend import RecordingBackend
 from modlink_core.settings import resolved_storage_root_dir
 
-from ._futures import watch_future_completion
 from .settings import QtSettingsBridge
 
 
@@ -101,9 +100,18 @@ class QtRecordingBridge(QObject):
             self.sig_recording_completed.emit(result)
 
     def _watch_command(self, future: Future[object]) -> None:
-        watch_future_completion(
-            future,
-            on_success=self._sig_command_succeeded.emit,
-            on_error=self._sig_error_requested.emit,
-            cancelled_message="ACQ_COMMAND_CANCELLED",
-        )
+        def _notify_completed(completed: Future[object]) -> None:
+            try:
+                result = completed.result()
+            except CancelledError:
+                self._sig_error_requested.emit("ACQ_COMMAND_CANCELLED")
+                return
+            except Exception as exc:
+                self._sig_error_requested.emit(str(exc))
+                return
+            self._sig_command_succeeded.emit(result)
+
+        if future.done():
+            _notify_completed(future)
+            return
+        future.add_done_callback(_notify_completed)

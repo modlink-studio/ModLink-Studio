@@ -24,9 +24,9 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core import SettingsStore
 from modlink_sdk import StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.main.preview.views.field import FieldStreamView
-from modlink_ui.widgets.main.preview.views.raster import RasterStreamView
-from modlink_ui.widgets.main.preview.views.signal import SignalStreamView
+from modlink_ui.shared.preview.views.field import FieldStreamView
+from modlink_ui.shared.preview.views.raster import RasterStreamView
+from modlink_ui.shared.preview.views.signal import SignalStreamView
 
 
 class PreviewThemeTests(unittest.TestCase):
@@ -72,7 +72,7 @@ class PreviewThemeTests(unittest.TestCase):
 
     def test_signal_view_applies_dark_theme_colors(self) -> None:
         with patch(
-            "modlink_ui.widgets.main.preview.views.signal.isDarkTheme",
+            "modlink_ui.shared.preview.views.signal.isDarkTheme",
             return_value=True,
         ):
             view = SignalStreamView(self._signal_descriptor(), self._bridge())
@@ -89,7 +89,7 @@ class PreviewThemeTests(unittest.TestCase):
 
     def test_field_view_applies_dark_theme_background(self) -> None:
         with patch(
-            "modlink_ui.widgets.main.preview.views.image.isDarkTheme",
+            "modlink_ui.shared.preview.views.image.isDarkTheme",
             return_value=True,
         ):
             view = FieldStreamView(self._field_descriptor(), self._bridge())
@@ -99,7 +99,7 @@ class PreviewThemeTests(unittest.TestCase):
 
     def test_raster_view_applies_dark_theme_background(self) -> None:
         with patch(
-            "modlink_ui.widgets.main.preview.views.raster.isDarkTheme",
+            "modlink_ui.shared.preview.views.raster.isDarkTheme",
             return_value=True,
         ):
             view = RasterStreamView(self._raster_descriptor(), self._bridge())

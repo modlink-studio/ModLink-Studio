@@ -25,13 +25,13 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core import SettingsStore
 from modlink_sdk import StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.widgets.main.preview.settings.models import (
+from modlink_ui.shared.preview.settings.models import (
     RasterPreviewSettings,
     SignalPreviewSettings,
     normalize_preview_settings,
 )
-from modlink_ui.widgets.main.preview.views.signal import SignalStreamView
-from modlink_ui.widgets.main.preview.views.signal_layout import (
+from modlink_ui.shared.preview.views.signal import SignalStreamView
+from modlink_ui.shared.preview.views.signal_layout import (
     compute_expanded_signal_ranges,
     compute_signal_auto_range,
     compute_stacked_signal_range,

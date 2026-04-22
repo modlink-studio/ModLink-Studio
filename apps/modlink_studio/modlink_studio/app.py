@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from qfluentwidgets import Theme, setTheme
 
 from modlink_core import ModLinkEngine, configure_host_logging
-from modlink_ui_v2 import MainWindow
-from modlink_ui_v2.bridge import QtModLinkBridge
+from modlink_ui import MainWindow
+from modlink_ui.bridge import QtModLinkBridge
 
 logger = logging.getLogger(__name__)
 

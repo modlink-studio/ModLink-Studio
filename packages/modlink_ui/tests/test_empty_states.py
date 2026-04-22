@@ -26,10 +26,10 @@ from PyQt6.QtWidgets import QApplication
 from modlink_core.settings import SettingsStore
 from modlink_sdk import StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.pages.device import DevicePage
-from modlink_ui.pages.main import MainPage
-from modlink_ui.widgets.main.preview import StreamPreviewPanel
-from modlink_ui.widgets.shared import EmptyStateMessage
+from modlink_ui.features.devices import DevicePage
+from modlink_ui.features.live import LivePage
+from modlink_ui.shared import EmptyStateMessage
+from modlink_ui.shared.preview import StreamPreviewPanel
 
 
 class _BusStub(QObject):
@@ -145,8 +145,8 @@ class EmptyStateTests(unittest.TestCase):
         self.assertEqual(len(panel._cards), 1)
         panel.close()
 
-    def test_main_page_uses_preview_panel_empty_message(self) -> None:
-        page = MainPage(self._engine())
+    def test_live_page_uses_preview_panel_empty_message(self) -> None:
+        page = LivePage(self._engine())
         page.show()
         self._pump_events()
 

@@ -20,10 +20,10 @@ for path in (
 from PyQt6.QtWidgets import QApplication, QWidget
 
 from modlink_sdk import StreamDescriptor
-from modlink_ui.widgets.main.preview.settings.dialog import (
+from modlink_ui.shared.page import BasePage
+from modlink_ui.shared.preview.settings.dialog import (
     StreamPreviewSettingsPanel,
 )
-from modlink_ui.widgets.shared.base_page import BasePage
 
 
 class ScrollAreaTransparencyTests(unittest.TestCase):
