@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from concurrent.futures import CancelledError, Future
 from pathlib import Path
 
@@ -22,6 +23,8 @@ from modlink_core.settings import (
 from .bus import QtBusBridge
 from .frame_pump import LatestFramePump
 from .settings import QtSettingsBridge
+
+logger = logging.getLogger(__name__)
 
 
 class QtReplayBridge(QObject):
@@ -103,6 +106,7 @@ class QtReplayBridge(QObject):
         self._watch_command(self._backend.refresh_recordings())
 
     def open_recording(self, recording_path: str | Path) -> None:
+        logger.debug("Bridge open_recording requested for %s", recording_path)
         self._watch_command(self._backend.open_recording(recording_path), reset_bus=True)
 
     def play(self) -> None:
@@ -162,6 +166,7 @@ class QtReplayBridge(QObject):
         self._sync_export_jobs()
 
     def _reset_bus_from_backend(self) -> None:
+        logger.debug("Resetting replay bus bridge from backend descriptors")
         self.bus._set_descriptors(self._backend.bus.descriptors())
         self._frame_pump.attach_stream(
             self._backend.bus.open_frame_stream(
@@ -178,6 +183,7 @@ class QtReplayBridge(QObject):
 
     @pyqtSlot(object, bool)
     def _handle_command_succeeded(self, _result: object, reset_bus: bool) -> None:
+        logger.debug("Replay command completed successfully (reset_bus=%s)", reset_bus)
         if reset_bus:
             self._reset_bus_from_backend()
         self.resync_from_backend()
@@ -192,9 +198,11 @@ class QtReplayBridge(QObject):
             try:
                 result = completed.result()
             except CancelledError:
+                logger.warning("Replay command cancelled")
                 self._sig_error_requested.emit("REPLAY_COMMAND_CANCELLED")
                 return
             except Exception as exc:
+                logger.exception("Replay command failed")
                 self._sig_error_requested.emit(str(exc))
                 return
             self._sig_command_succeeded.emit(result, reset_bus)

@@ -159,6 +159,12 @@ uv sync
 uv run modlink-studio
 ```
 
+如果要带控制台和更高日志级别启动桌面宿主：
+
+```bash
+uv run modlink-studio-debug
+```
+
 如果要联调官方驱动源码，请切到独立仓库 `ModLink-Studio-Plugins` 进行构建与发布验证；主仓库不再承载官方驱动源码目录。
 
 根仓库执行 `uv sync --dev` 后，`apps/modlink_server/tests` 也会被当前工作区虚拟环境直接覆盖；不需要再单独创建 server 专用环境。

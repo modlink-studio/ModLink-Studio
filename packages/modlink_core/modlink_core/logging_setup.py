@@ -11,7 +11,7 @@ DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
 DEFAULT_BACKUP_COUNT = 5
 _MANAGED_HANDLER_FLAG = "_modlink_managed_handler"
-_INFO_LOGGER_NAMES = (
+_MANAGED_LOGGER_NAMES = (
     "modlink_core",
     "modlink_ui",
     "modlink_server",
@@ -29,6 +29,7 @@ def configure_host_logging(
     app_author: str = "ModLink",
     log_filename: str = "modlink.log",
     console: bool = True,
+    debug: bool = False,
     max_bytes: int = DEFAULT_MAX_LOG_BYTES,
     backup_count: int = DEFAULT_BACKUP_COUNT,
 ) -> Path:
@@ -42,6 +43,7 @@ def configure_host_logging(
     root_logger = logging.getLogger()
     _remove_managed_handlers(root_logger)
     root_logger.setLevel(logging.WARNING)
+    log_level = logging.DEBUG if debug else logging.INFO
 
     formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
     file_handler = RotatingFileHandler(
@@ -50,25 +52,29 @@ def configure_host_logging(
         backupCount=max(1, int(backup_count)),
         encoding="utf-8",
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
     _mark_managed(file_handler)
     root_logger.addHandler(file_handler)
 
     if console:
         console_handler = logging.StreamHandler(sys.stderr)
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(log_level)
         console_handler.setFormatter(formatter)
         _mark_managed(console_handler)
         root_logger.addHandler(console_handler)
 
-    for logger_name in _INFO_LOGGER_NAMES:
+    for logger_name in _MANAGED_LOGGER_NAMES:
         logger = logging.getLogger(logger_name)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(log_level)
         logger.propagate = True
 
     logging.captureWarnings(True)
-    logging.getLogger(__name__).info("Configured logging at %s", resolved_path)
+    logging.getLogger(__name__).info(
+        "Configured logging at %s (level=%s)",
+        resolved_path,
+        logging.getLevelName(log_level),
+    )
     return resolved_path
 
 

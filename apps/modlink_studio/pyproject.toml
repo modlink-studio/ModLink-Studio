@@ -21,6 +21,9 @@ Issues = "https://github.com/modlink-studio/ModLink-Studio/issues"
 [project.gui-scripts]
 modlink-studio = "modlink_studio.app:main"
 
+[project.scripts]
+modlink-studio-debug = "modlink_studio.app:debug_main"
+
 [tool.uv.sources]
 modlink-core = { workspace = true }
 modlink_ui = { workspace = true }

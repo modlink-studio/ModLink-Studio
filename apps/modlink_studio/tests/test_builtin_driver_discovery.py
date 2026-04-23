@@ -21,3 +21,4 @@ def test_modlink_studio_distribution_exposes_modlink_plugin_script() -> None:
     }
 
     assert "modlink-plugin" in console_scripts
+    assert "modlink-studio-debug" in console_scripts

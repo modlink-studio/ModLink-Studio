@@ -48,3 +48,22 @@ def test_configure_host_logging_replaces_previous_managed_handlers(tmp_path) -> 
             if getattr(handler, "_modlink_managed_handler", False):
                 root_logger.removeHandler(handler)
                 handler.close()
+
+
+def test_configure_host_logging_enables_debug_records_when_requested(tmp_path) -> None:
+    log_path = tmp_path / "modlink-debug.log"
+    root_logger = logging.getLogger()
+
+    try:
+        configure_host_logging(log_path=log_path, console=False, debug=True)
+        logging.getLogger("modlink_core.runtime.engine").debug("debug log smoke test")
+        for handler in root_logger.handlers:
+            if hasattr(handler, "flush"):
+                handler.flush()
+
+        assert "debug log smoke test" in log_path.read_text(encoding="utf-8")
+    finally:
+        for handler in list(root_logger.handlers):
+            if getattr(handler, "_modlink_managed_handler", False):
+                root_logger.removeHandler(handler)
+                handler.close()

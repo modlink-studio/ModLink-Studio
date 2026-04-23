@@ -30,7 +30,7 @@ class MainWindow(MSFluentWindow):
         self.settings_page = SettingsPage(engine=self.engine, parent=self)
 
         self.addSubInterface(self.live_page, FIF.HOME, "实时展示", isTransparent=False)
-        self.addSubInterface(self.replay_page, FIF.PLAY_SOLID, "回放", isTransparent=False)
+        self.addSubInterface(self.replay_page, FIF.PLAY, "回放", isTransparent=False)
         self.addSubInterface(
             self.device_page,
             FIF.IOT,

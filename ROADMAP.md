@@ -376,7 +376,7 @@ packages/modlink_ai/
 1. **敲定多层数据模型（进行中）** — 落定 `recording / session / experiment` 的边界、ID 规则与引用关系
 2. **完成 recording schema 设计（进行中）** — `modlink_core` 内部最小 schema 已落地：`recording.json`、单流 `stream.json`、`frames.csv`、`frames/*.npz`、annotations；后续只在 replay 真实需求推动下再扩字段
 3. **实现 recording catalog（进行中）** — storage 已补回最小 `list/read/load` recording 接口，当前 widgets replay 页面已能扫描 recordings 列表；更高层的 session / experiment catalog 仍待继续设计
-4. **实现 replay 核心链路（进行中）** — `modlink_core.replay` 已能基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，完成打开 / 播放 / 暂停 / 停止 / 1x/2x/4x；后续补 seek 与更多 UI 宿主
+4. **实现 replay 核心链路（进行中）** — `modlink_core.replay` 已能基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，完成打开 / 播放 / 暂停 / 停止 / 1x/2x/4x；widgets player 当前已将暂停/停止合并为单一“暂停/复位”按钮，后续补 seek 与更多 UI 宿主
 5. **设计并实现 export service（进行中）** — replay backend 已支持导出 job、进度与结果路径，首批完成 `signal_csv`、`signal_npz`、`raster_npz`、`field_npz`、`video_frames_zip`、`recording_bundle_zip`
 6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 storage 纯函数驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
 7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注

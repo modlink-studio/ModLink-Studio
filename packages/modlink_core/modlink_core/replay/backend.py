@@ -208,6 +208,7 @@ class ReplayBackend:
         return self._recordings
 
     def _open_recording_worker(self, recording_path: str | Path) -> ReplaySnapshot:
+        logger.info("Opening replay recording from %s", recording_path)
         reader = RecordingReader(recording_path)
         self._reader = reader
         self._markers = reader.markers()
@@ -219,6 +220,12 @@ class ReplayBackend:
         self._play_started_position_ns = 0
         self._rebuild_bus(reader)
         self._set_state("ready")
+        logger.debug(
+            "Replay recording opened: recording_id=%s duration_ns=%s stream_count=%s",
+            reader.recording_id,
+            reader.duration_ns,
+            len(reader.descriptors()),
+        )
         return self.snapshot()
 
     def _play_worker(self) -> None:

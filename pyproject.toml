@@ -16,6 +16,8 @@ dependencies = [
     "scipy>=1.15.2",
     "fastapi>=0.118.0",
     "uvicorn>=0.37.0",
+    "typer>=0.15.0",
+    "pydantic>=2.0.0",
 ]
 
 [project.urls]
@@ -29,8 +31,10 @@ Packages = "https://pypi.org/project/modlink-studio/"
 modlink-studio = "modlink_studio.app:main"
 
 [project.scripts]
+modlink-studio-debug = "modlink_studio.app:debug_main"
 modlink-server = "modlink_server.app:main"
 modlink-plugin = "modlink_studio.plugin.cli:main"
+modlink-plugin-scaffold = "modlink_scaffold.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -95,6 +99,7 @@ where = [
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_ui",
+    "tools/modlink_plugin_scaffold_py",
 ]
 include = [
     "modlink_studio*",
@@ -102,6 +107,7 @@ include = [
     "modlink_sdk*",
     "modlink_core*",
     "modlink_ui*",
+    "modlink_scaffold*",
 ]
 namespaces = false
 

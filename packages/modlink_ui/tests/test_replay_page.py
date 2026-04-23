@@ -26,7 +26,7 @@ for path in (
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
-from modlink_core.models import ReplaySnapshot
+from modlink_core.models import ReplayMarker, ReplaySegment, ReplaySnapshot
 from modlink_core.replay import ReplayBackend
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_core.storage import (
@@ -38,6 +38,7 @@ from modlink_core.storage import (
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 from modlink_ui.bridge import QtReplayBridge, QtSettingsBridge
 from modlink_ui.features.replay import ReplayPage
+from modlink_ui.features.replay.timeline import ReplayAnnotationTimeline
 
 
 class _EngineStub:
@@ -128,10 +129,14 @@ class ReplayPageTests(unittest.TestCase):
         page.show()
 
         try:
+            recordings_page = page._recordings_page
+            player_page = page._player_page
+            export_page = page._export_page
             self.assertEqual("recordings", page._route)
-            self._pump_events_until(lambda: page._recording_list.count() == 1)
-            page._recording_list.setCurrentRow(0)
-            page._open_button.click()
+            self.assertEqual(0, recordings_page.header_action_layout.count())
+            self._pump_events_until(lambda: recordings_page.recording_list.count() == 1)
+            recordings_page.recording_list.setCurrentRow(0)
+            recordings_page.open_button.click()
             self._pump_events_until(
                 lambda: replay_bridge.snapshot().recording_id == recording_id
                 and page._route == "player"
@@ -139,9 +144,26 @@ class ReplayPageTests(unittest.TestCase):
 
             self.assertEqual(recording_id, replay_bridge.snapshot().recording_id)
             self.assertEqual("player", page._route)
-            self.assertTrue(page._preview_panel._cards)
+            self.assertTrue(player_page.preview_panel._cards)
+            self._pump_events_until(lambda: player_page.transport_bar.isVisible())
+            self.assertIs(player_page.transport_bar.parentWidget(), player_page)
+            self.assertEqual(2, player_page.header_action_layout.count())
+            self.assertGreater(player_page._floating_panel_spacer.height(), 0)
+            self.assertTrue(player_page.export_route_button.isEnabled())
+            self.assertIs(player_page.preview_panel.parentWidget(), player_page.playback_panel)
+            self.assertEqual("列表", player_page.recordings_route_button.text())
+            self.assertEqual("导出", player_page.export_route_button.text())
+            self.assertFalse(player_page.recordings_route_button.icon().isNull())
+            self.assertFalse(player_page.export_route_button.icon().isNull())
+            self.assertEqual(
+                Qt.AlignmentFlag.AlignCenter,
+                player_page.playback_panel.position_badge.alignment(),
+            )
+            badge_center_y = player_page.playback_panel.position_badge.geometry().center().y()
+            play_center_y = player_page.play_button.geometry().center().y()
+            self.assertLess(abs(badge_center_y - play_center_y), 8)
 
-            page._play_button.click()
+            player_page.play_button.click()
             self._pump_events_until(
                 lambda: replay_bridge.snapshot().state in {"playing", "finished"},
                 timeout=2.0,
@@ -149,13 +171,17 @@ class ReplayPageTests(unittest.TestCase):
 
             page._show_export_page()
             self.assertEqual("export", page._route)
-            page._export_button.click()
-            self._pump_events_until(lambda: page._jobs_list.count() == 1, timeout=2.0)
+            self._pump_events_until(lambda: not player_page.transport_bar.isVisible())
+            self.assertEqual(2, export_page.header_action_layout.count())
+            self.assertTrue(export_page.player_route_button.isVisible())
+            self.assertTrue(export_page.recordings_route_button.isVisible())
+            export_page.export_button.click()
+            self._pump_events_until(lambda: export_page.jobs_list.count() == 1, timeout=2.0)
             self._pump_events_until(
                 lambda: replay_bridge.export_jobs() and replay_bridge.export_jobs()[-1].state == "completed",
                 timeout=2.0,
             )
-            self.assertEqual(1, page._jobs_list.count())
+            self.assertEqual(1, export_page.jobs_list.count())
         finally:
             page.close()
             replay_bridge.shutdown()
@@ -173,20 +199,101 @@ class ReplayPageTests(unittest.TestCase):
         page.show()
 
         try:
-            self._pump_events_until(lambda: page._recording_list.count() == 2)
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 2)
             self._select_recording(page, second_recording_id)
 
             self._create_recording(descriptor, recording_label="third", with_two_frames=False)
             replay_bridge.refresh_recordings()
-            self._pump_events_until(lambda: page._recording_list.count() == 3)
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 3)
 
-            current_item = page._recording_list.currentItem()
+            current_item = page._recordings_page.recording_list.currentItem()
             self.assertIsNotNone(current_item)
             self.assertEqual(
                 second_recording_id,
                 current_item.data(Qt.ItemDataRole.UserRole),
             )
             self.assertNotEqual(first_recording_id, second_recording_id)
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_reopen_same_recording_after_returning_to_list_routes_back_to_player(self) -> None:
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(
+            descriptor,
+            recording_label="reopen_same_recording",
+        )
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            recordings_page = page._recordings_page
+            self._pump_events_until(lambda: recordings_page.recording_list.count() == 1)
+            recordings_page.recording_list.setCurrentRow(0)
+            recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: replay_bridge.snapshot().recording_id == recording_id
+                and page._route == "player"
+            )
+
+            page._show_recordings_page()
+            self.assertEqual("recordings", page._route)
+            recordings_page.open_button.click()
+            self._pump_events_until(lambda: page._route == "player")
+            self.assertEqual(recording_id, replay_bridge.snapshot().recording_id)
+            self.assertIsNone(page._pending_open_recording_path)
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_recording_list_items_expand_for_long_titles(self) -> None:
+        descriptor = self._descriptor()
+        short_label = "short"
+        long_label = (
+            "rec_20260421T153943_302514500Z"
+            "_extra_suffix_for_test"
+            "_extra_suffix_for_test"
+            "_extra_suffix_for_test"
+        )
+        self._create_recording(descriptor, recording_label=short_label)
+        self._create_recording(descriptor, recording_label=long_label)
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.resize(900, 720)
+        page.show()
+
+        try:
+            recording_list = page._recordings_page.recording_list
+            self._pump_events_until(lambda: recording_list.count() == 2)
+
+            items_by_title = {}
+            for row in range(recording_list.count()):
+                item = recording_list.item(row)
+                widget = recording_list.itemWidget(item)
+                self.assertIsNotNone(widget)
+                rendered_title = widget.title_label.text().replace("\u200b", "")
+                items_by_title[rendered_title] = (item, widget)
+
+            self.assertIn(short_label, items_by_title)
+            self.assertIn(long_label, items_by_title)
+
+            short_item, _ = items_by_title[short_label]
+            long_item, long_widget = items_by_title[long_label]
+            self.assertEqual(long_label, long_widget.title_label.text().replace("\u200b", ""))
+            self.assertEqual(
+                f"{long_item.data(Qt.ItemDataRole.UserRole)} · 1 streams",
+                long_widget.subtitle_label.text().replace("\u200b", ""),
+            )
+            self.assertGreater(long_item.sizeHint().height(), short_item.sizeHint().height())
         finally:
             page.close()
             replay_bridge.shutdown()
@@ -215,15 +322,16 @@ class ReplayPageTests(unittest.TestCase):
         page.show()
 
         try:
-            self._pump_events_until(lambda: page._recording_list.count() == 1)
-            page._recording_list.setCurrentRow(0)
-            page._open_button.click()
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 1)
+            page._recordings_page.recording_list.setCurrentRow(0)
+            page._recordings_page.open_button.click()
             self._pump_events_until(
                 lambda: replay_bridge.snapshot().recording_id == recording_id
                 and page._route == "player"
             )
             self._pump_events_until(
-                lambda: page._markers_list.count() == 2 and page._segments_list.count() == 1
+                lambda: page._player_page.timeline.marker_count == 2
+                and page._player_page.timeline.segment_count == 1
             )
 
             page._on_snapshot_changed(
@@ -238,20 +346,124 @@ class ReplayPageTests(unittest.TestCase):
                 )
             )
 
-            self.assertEqual(1, page._markers_list.currentRow())
-            self.assertTrue(page._markers_list.item(1).isSelected())
-            self.assertEqual(0, page._segments_list.currentRow())
-            self.assertTrue(page._segments_list.item(0).isSelected())
+            self.assertFalse(hasattr(page._player_page, "annotations_card"))
+            self.assertEqual(1, page._player_page.timeline.active_marker_index)
+            self.assertEqual(0, page._player_page.timeline.active_segment_index)
         finally:
             page.close()
             replay_bridge.shutdown()
             backend.shutdown()
 
+    def test_transport_button_switches_between_pause_and_reset(self) -> None:
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(
+            descriptor,
+            recording_label="transport_button",
+        )
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            player_page = page._player_page
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 1)
+            page._recordings_page.recording_list.setCurrentRow(0)
+            page._recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: replay_bridge.snapshot().recording_id == recording_id
+                and page._route == "player"
+            )
+
+            self.assertEqual("", player_page.play_button.text())
+            self.assertEqual("", player_page.pause_reset_button.text())
+            self.assertEqual("复位", player_page.pause_reset_button.toolTip())
+            self.assertFalse(player_page.pause_reset_button.isEnabled())
+
+            calls: list[str] = []
+            player_page.sig_pause_requested.connect(lambda: calls.append("pause"))
+            player_page.sig_reset_requested.connect(lambda: calls.append("stop"))
+
+            playing_snapshot = ReplaySnapshot(
+                state="playing",
+                is_started=True,
+                recording_id=recording_id,
+                recording_path=str(self._temp_dir / "recordings" / recording_id),
+                position_ns=600_000_000,
+                duration_ns=1_000_000_000,
+                speed_multiplier=1.0,
+            )
+            page._on_snapshot_changed(playing_snapshot)
+            self.assertEqual("暂停", player_page.pause_reset_button.toolTip())
+            self.assertTrue(player_page.pause_reset_button.isEnabled())
+            player_page.pause_reset_button.click()
+            self.assertEqual(["pause"], calls)
+
+            paused_snapshot = ReplaySnapshot(
+                state="paused",
+                is_started=True,
+                recording_id=recording_id,
+                recording_path=str(self._temp_dir / "recordings" / recording_id),
+                position_ns=600_000_000,
+                duration_ns=1_000_000_000,
+                speed_multiplier=1.0,
+            )
+            page._on_snapshot_changed(paused_snapshot)
+            self.assertEqual("复位", player_page.pause_reset_button.toolTip())
+            self.assertTrue(player_page.pause_reset_button.isEnabled())
+            player_page.pause_reset_button.click()
+            self.assertEqual(["pause", "stop"], calls)
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_timeline_handles_empty_state_and_short_segments(self) -> None:
+        timeline = ReplayAnnotationTimeline()
+        timeline.resize(480, 64)
+        timeline.show()
+
+        try:
+            timeline.clear()
+            timeline._refresh_geometry()
+            self.assertEqual(0, timeline.marker_count)
+            self.assertEqual(0, timeline.segment_count)
+            self.assertEqual(-1, timeline.active_marker_index)
+            self.assertEqual(-1, timeline.active_segment_index)
+
+            marker = ReplayMarker(timestamp_ns=220_000_000, label="cue")
+            segment = ReplaySegment(
+                start_ns=300_000_000,
+                end_ns=300_400_000,
+                label="blink",
+            )
+            timeline.set_annotations((marker,), (segment,))
+            timeline.set_playback(300_200_000, 1_000_000_000)
+            timeline._refresh_geometry()
+
+            self.assertEqual(1, timeline.marker_count)
+            self.assertEqual(1, timeline.segment_count)
+            self.assertEqual(0, timeline.active_marker_index)
+            self.assertEqual(0, timeline.active_segment_index)
+            self.assertGreaterEqual(
+                timeline._segment_regions[0].width(),
+                timeline._minimum_segment_width,
+            )
+            marker_tooltip = timeline._tooltip_text_at(timeline._marker_regions[0].center())
+            segment_tooltip = timeline._tooltip_text_at(timeline._segment_regions[0].center())
+            self.assertIn("cue", marker_tooltip or "")
+            self.assertIn("blink", segment_tooltip or "")
+        finally:
+            timeline.close()
+
     def _select_recording(self, page: ReplayPage, recording_id: str) -> None:
-        for index in range(page._recording_list.count()):
-            item = page._recording_list.item(index)
+        recording_list = page._recordings_page.recording_list
+        for index in range(recording_list.count()):
+            item = recording_list.item(index)
             if item.data(Qt.ItemDataRole.UserRole) == recording_id:
-                page._recording_list.setCurrentItem(item)
+                recording_list.setCurrentItem(item)
                 return
         raise AssertionError(f"recording_id not found in list: {recording_id}")
 

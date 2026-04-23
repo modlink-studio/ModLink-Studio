@@ -101,6 +101,12 @@ uv sync
 uv run modlink-studio
 ```
 
+如果要带控制台和调试日志启动：
+
+```bash
+uv run modlink-studio-debug
+```
+
 ## 独立脚手架工具
 
 driver 脚手架现在作为独立 npm 工具提供，而不是 `modlink-studio` 的运行时依赖：
