@@ -100,15 +100,17 @@ class ReplayRecordingsPanel(SimpleCardWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
-        layout.addWidget(StrongBodyLabel("Recordings", self))
-        layout.addWidget(self.recording_list, 1)
 
-        button_row = QHBoxLayout()
-        button_row.setContentsMargins(0, 0, 0, 0)
-        button_row.setSpacing(8)
-        button_row.addWidget(self.open_button, 1)
-        button_row.addWidget(self.refresh_button)
-        layout.addLayout(button_row)
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header_row.setSpacing(8)
+        header_row.addWidget(StrongBodyLabel("Recordings", self))
+        header_row.addStretch(1)
+        header_row.addWidget(self.open_button)
+        header_row.addWidget(self.refresh_button)
+        layout.addLayout(header_row)
+
+        layout.addWidget(self.recording_list, 1)
 
     def selected_recording_id(self) -> str | None:
         item = self.recording_list.currentItem()
