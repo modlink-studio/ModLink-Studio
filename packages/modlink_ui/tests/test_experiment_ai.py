@@ -21,8 +21,9 @@ for path in (
         sys.path.insert(0, path_str)
 
 from modlink_ui.features.live.experiment_ai import (
+    ExperimentAiToolRunner,
+    ExperimentAiToolState,
     OpenAICompatibleExperimentClient,
-    parse_experiment_ai_content,
 )
 from modlink_ui.shared.ui_settings.ai import AiAssistantConfig
 
@@ -39,23 +40,52 @@ class _Response:
 
 
 class ExperimentAiClientTests(unittest.TestCase):
-    def test_client_posts_openai_compatible_payload_and_parses_proposal(self) -> None:
+    def test_client_runs_tool_calls_and_returns_actions(self) -> None:
         calls: list[dict[str, object]] = []
+        responses = [
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "set_experiment_name",
+                                        "arguments": json.dumps({"value": "swallow_study"}),
+                                    },
+                                },
+                                {
+                                    "id": "call_2",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "set_steps",
+                                        "arguments": json.dumps({"steps": ["0ml", "5ml"]}),
+                                    },
+                                },
+                            ],
+                        }
+                    }
+                ]
+            },
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "已设置实验名称和步骤。",
+                        }
+                    }
+                ]
+            },
+        ]
 
         def post(url: str, **kwargs: object) -> _Response:
             calls.append({"url": url, **kwargs})
-            content = json.dumps(
-                {
-                    "message": "已生成实验设置草案。",
-                    "proposal": {
-                        "experiment_name": "swallow_study",
-                        "session_name": "healthy_H03",
-                        "steps": ["0ml", "5ml"],
-                    },
-                },
-                ensure_ascii=False,
-            )
-            return _Response({"choices": [{"message": {"content": content}}]})
+            return _Response(responses.pop(0))
 
         client = OpenAICompatibleExperimentClient(
             AiAssistantConfig(
@@ -65,24 +95,37 @@ class ExperimentAiClientTests(unittest.TestCase):
             ),
             post=post,
         )
-        reply = client.complete([{"role": "user", "content": "生成吞咽实验"}])
+        runner = ExperimentAiToolRunner(
+            ExperimentAiToolState(
+                experiment_name="",
+                session_name="",
+                recording_label="",
+                annotation_label="",
+                steps=[],
+                current_step_index=-1,
+            )
+        )
+        reply = client.complete(
+            [{"role": "user", "content": "生成吞咽实验"}],
+            tool_runner=runner,
+        )
 
         self.assertEqual("https://api.example.com/v1/chat/completions", calls[0]["url"])
         self.assertEqual("Bearer secret-key", calls[0]["headers"]["Authorization"])
         self.assertEqual("gpt-test", calls[0]["json"]["model"])
         self.assertEqual(0.2, calls[0]["json"]["temperature"])
-        self.assertEqual("已生成实验设置草案。", reply.message)
-        self.assertIsNotNone(reply.proposal)
-        assert reply.proposal is not None
-        self.assertEqual("swallow_study", reply.proposal.experiment_name)
-        self.assertEqual("healthy_H03", reply.proposal.session_name)
-        self.assertEqual(("0ml", "5ml"), reply.proposal.steps)
-
-    def test_non_json_model_content_falls_back_to_plain_message(self) -> None:
-        reply = parse_experiment_ai_content("先设置 session，再填写步骤。")
-
-        self.assertEqual("先设置 session，再填写步骤。", reply.message)
-        self.assertIsNone(reply.proposal)
+        self.assertIn("tools", calls[0]["json"])
+        self.assertEqual("auto", calls[0]["json"]["tool_choice"])
+        second_messages = calls[1]["json"]["messages"]
+        self.assertEqual("tool", second_messages[-2]["role"])
+        self.assertEqual("tool", second_messages[-1]["role"])
+        self.assertEqual("已设置实验名称和步骤。", reply.message)
+        self.assertEqual(
+            ["set_experiment_name", "set_steps"],
+            [action.name for action in reply.actions],
+        )
+        self.assertEqual("swallow_study", runner.state.experiment_name)
+        self.assertEqual(["0ml", "5ml"], runner.state.steps)
 
     def test_request_error_is_reported_as_runtime_error(self) -> None:
         def post(url: str, **_kwargs: object) -> object:
@@ -97,9 +140,19 @@ class ExperimentAiClientTests(unittest.TestCase):
             ),
             post=post,
         )
+        runner = ExperimentAiToolRunner(
+            ExperimentAiToolState(
+                experiment_name="",
+                session_name="",
+                recording_label="",
+                annotation_label="",
+                steps=[],
+                current_step_index=-1,
+            )
+        )
 
         with self.assertRaisesRegex(RuntimeError, "无法连接 AI 服务"):
-            client.complete([{"role": "user", "content": "test"}])
+            client.complete([{"role": "user", "content": "test"}], tool_runner=runner)
 
 
 if __name__ == "__main__":

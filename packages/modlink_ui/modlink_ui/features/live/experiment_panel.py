@@ -16,11 +16,12 @@ from qfluentwidgets import (
     LineEdit,
     MessageBoxBase,
     PlainTextEdit,
-    PushButton,
     SimpleCardWidget,
     SingleDirectionScrollArea,
     SmoothMode,
     StrongBodyLabel,
+    SubtitleLabel,
+    ToolButton,
     TransparentToolButton,
 )
 from qfluentwidgets import FluentIcon as FIF
@@ -35,11 +36,14 @@ from modlink_ui.shared.ui_settings.ai import (
     load_ai_assistant_config,
 )
 
+from .acquisition_view_model import AcquisitionViewModel
 from .experiment_ai import (
     ChatMessage,
-    ExperimentAiProposal,
+    ExperimentAiAction,
     ExperimentAiReply,
     ExperimentAiRequestWorker,
+    ExperimentAiToolRunner,
+    ExperimentAiToolState,
     OpenAICompatibleExperimentClient,
     build_experiment_ai_messages,
 )
@@ -144,6 +148,7 @@ class ExperimentAiChatPanel(QWidget):
         self,
         view_model: ExperimentRuntimeViewModel,
         settings: QtSettingsBridge,
+        acquisition_view_model: AcquisitionViewModel | None = None,
         parent: QWidget | None = None,
         *,
         client_factory: ExperimentAiClientFactory | None = None,
@@ -151,12 +156,12 @@ class ExperimentAiChatPanel(QWidget):
         super().__init__(parent=parent)
         self.view_model = view_model
         self._settings = settings
+        self._acquisition_view_model = acquisition_view_model
         self._client_factory = client_factory or OpenAICompatibleExperimentClient
         self._config = load_ai_assistant_config(self._settings)
         self._conversation: list[ChatMessage] = []
         self._request_thread: QThread | None = None
         self._request_worker: ExperimentAiRequestWorker | None = None
-        self.latest_proposal_button: PushButton | None = None
 
         self.setObjectName("experiment-ai-chat-panel")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -200,13 +205,14 @@ class ExperimentAiChatPanel(QWidget):
         input_row.setSpacing(8)
 
         self.input = LineEdit(self)
-        self.input.setPlaceholderText("让 AI 帮你生成或修改实验设置")
+        self.input.setPlaceholderText("输入指令...")
         self.input.setClearButtonEnabled(True)
         self.input.returnPressed.connect(self._send_current_message)
         self.input.textChanged.connect(self._refresh_send_state)
 
-        self.send_button = PushButton("发送", self)
-        self.send_button.setIcon(FIF.SEND)
+        self.send_button = ToolButton(FIF.SEND, self)
+        self.send_button.setFixedSize(36, 36)
+        self.send_button.setToolTip("发送")
         self.send_button.clicked.connect(self._send_current_message)
 
         input_row.addWidget(self.input, 1)
@@ -219,7 +225,7 @@ class ExperimentAiChatPanel(QWidget):
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
         self._append_message(
             "assistant",
-            "我可以根据当前实验设置生成 experiment、session 和步骤队列草案。",
+            "我可以帮你设置 experiment、session、标签和步骤，也可以切换上一步/下一步。",
         )
         self._refresh_config()
 
@@ -239,11 +245,23 @@ class ExperimentAiChatPanel(QWidget):
             self._refresh_send_state()
             return
 
+        snapshot = self.view_model.snapshot()
+        recording_label = self._acquisition_field_value("recording_label")
+        annotation_label = self._acquisition_field_value("annotation_label")
         messages = build_experiment_ai_messages(
-            self.view_model.snapshot(),
+            snapshot,
             self._conversation,
+            recording_label=recording_label,
+            annotation_label=annotation_label,
         )
-        worker = ExperimentAiRequestWorker(client, messages)
+        tool_runner = ExperimentAiToolRunner(
+            ExperimentAiToolState.from_snapshot(
+                snapshot,
+                recording_label=recording_label,
+                annotation_label=annotation_label,
+            )
+        )
+        worker = ExperimentAiRequestWorker(client, messages, tool_runner)
         thread = QThread(self)
         worker.moveToThread(thread)
 
@@ -266,10 +284,9 @@ class ExperimentAiChatPanel(QWidget):
         if not isinstance(reply, ExperimentAiReply):
             self._on_ai_failed("AI 响应格式不正确")
             return
+        self._apply_actions(reply.actions)
         self._append_message("assistant", reply.message)
         self._conversation.append({"role": "assistant", "content": reply.message})
-        if reply.proposal is not None:
-            self._append_proposal(reply.proposal)
 
     def _on_ai_failed(self, message: str) -> None:
         self._append_message("error", f"请求失败：{message}")
@@ -301,6 +318,46 @@ class ExperimentAiChatPanel(QWidget):
         self.input.setEnabled(self._config.is_configured and self._request_thread is None)
         self.send_button.setEnabled(can_send)
 
+    def _acquisition_field_value(self, key: str) -> str:
+        if self._acquisition_view_model is None:
+            return ""
+        try:
+            return self._acquisition_view_model.get_field_value(key)
+        except KeyError:
+            return ""
+
+    def _apply_actions(self, actions: tuple[ExperimentAiAction, ...]) -> None:
+        for action in actions:
+            self._apply_action(action)
+
+    def _apply_action(self, action: ExperimentAiAction) -> None:
+        arguments = action.arguments
+        if action.name == "set_experiment_name":
+            self.view_model.set_experiment_name(str(arguments.get("value", "")))
+            return
+        if action.name == "set_session_name":
+            self.view_model.set_session_name(str(arguments.get("value", "")))
+            return
+        if action.name == "set_steps":
+            raw_steps = arguments.get("steps", [])
+            if isinstance(raw_steps, list):
+                self.view_model.set_steps_text("\n".join(str(step) for step in raw_steps))
+            return
+        if action.name == "set_label":
+            if self._acquisition_view_model is None:
+                return
+            target = str(arguments.get("target", "recording_label"))
+            if target not in {"recording_label", "annotation_label"}:
+                return
+            value = str(arguments.get("value", ""))
+            self._acquisition_view_model.set_field_value(target, value)
+            return
+        if action.name == "previous_step":
+            self.view_model.prev_step()
+            return
+        if action.name == "next_step":
+            self.view_model.next_step()
+
     def _append_message(self, role: str, text: str) -> None:
         row = QFrame(self.messages_widget)
         row.setObjectName(f"experiment-ai-message-{role}")
@@ -318,37 +375,6 @@ class ExperimentAiChatPanel(QWidget):
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
         self._scroll_messages_to_bottom()
 
-    def _append_proposal(self, proposal: ExperimentAiProposal) -> None:
-        proposal_card = QFrame(self.messages_widget)
-        proposal_card.setObjectName("experiment-ai-proposal")
-        proposal_card.setProperty("role", "proposal")
-        layout = QVBoxLayout(proposal_card)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(6)
-
-        title = CaptionLabel("待应用草案", proposal_card)
-        summary = BodyLabel(self._proposal_summary(proposal), proposal_card)
-        summary.setWordWrap(True)
-
-        apply_button = PushButton("应用到实验设置", proposal_card)
-        apply_button.setIcon(FIF.ACCEPT)
-        apply_button.clicked.connect(lambda: self._apply_proposal(proposal))
-        self.latest_proposal_button = apply_button
-
-        layout.addWidget(title)
-        layout.addWidget(summary)
-        layout.addWidget(apply_button)
-        self.messages_layout.insertWidget(self.messages_layout.count() - 1, proposal_card)
-        self._scroll_messages_to_bottom()
-
-    def _apply_proposal(self, proposal: ExperimentAiProposal) -> None:
-        if proposal.experiment_name is not None:
-            self.view_model.set_experiment_name(proposal.experiment_name)
-        if proposal.session_name is not None:
-            self.view_model.set_session_name(proposal.session_name)
-        if proposal.steps is not None:
-            self.view_model.set_steps_text("\n".join(proposal.steps))
-
     def _scroll_messages_to_bottom(self) -> None:
         def scroll() -> None:
             bar = self.messages_area.verticalScrollBar()
@@ -364,20 +390,6 @@ class ExperimentAiChatPanel(QWidget):
             return "错误"
         return "AI"
 
-    @staticmethod
-    def _proposal_summary(proposal: ExperimentAiProposal) -> str:
-        lines: list[str] = []
-        if proposal.experiment_name is not None:
-            lines.append(f"Experiment: {proposal.experiment_name}")
-        if proposal.session_name is not None:
-            lines.append(f"Session: {proposal.session_name}")
-        if proposal.steps is not None:
-            preview = ", ".join(proposal.steps[:6])
-            if len(proposal.steps) > 6:
-                preview += " ..."
-            lines.append(f"Steps: {preview if preview else '空'}")
-        return "\n".join(lines) if lines else "没有可应用字段。"
-
 
 class LiveExperimentSidebar(SimpleCardWidget):
     sig_close_requested = pyqtSignal()
@@ -386,6 +398,7 @@ class LiveExperimentSidebar(SimpleCardWidget):
         self,
         view_model: ExperimentRuntimeViewModel,
         settings: QtSettingsBridge,
+        acquisition_view_model: AcquisitionViewModel | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
@@ -431,39 +444,45 @@ class LiveExperimentSidebar(SimpleCardWidget):
 
         self.current_step_card = SimpleCardWidget(self)
         self.current_step_card.setBorderRadius(14)
-        current_step_layout = QVBoxLayout(self.current_step_card)
-        current_step_layout.setContentsMargins(14, 12, 14, 12)
-        current_step_layout.setSpacing(6)
-        current_step_layout.addWidget(StrongBodyLabel("当前步骤", self.current_step_card))
-        self.current_step_label = BodyLabel("未设置步骤", self.current_step_card)
-        self.current_step_label.setWordWrap(True)
-        self.current_step_position_label = CaptionLabel("第 0 / 0 步", self.current_step_card)
-        current_step_layout.addWidget(self.current_step_label)
-        current_step_layout.addWidget(self.current_step_position_label)
+        current_step_layout = QHBoxLayout(self.current_step_card)
+        current_step_layout.setContentsMargins(10, 12, 10, 12)
+        current_step_layout.setSpacing(8)
 
-        controls_row = QHBoxLayout()
-        controls_row.setContentsMargins(0, 0, 0, 0)
-        controls_row.setSpacing(8)
-
-        self.prev_button = PushButton("Prev", self)
+        self.prev_button = TransparentToolButton(FIF.LEFT_ARROW, self.current_step_card)
+        self.prev_button.setFixedSize(32, 32)
+        self.prev_button.setToolTip("上一步")
         self.prev_button.clicked.connect(self.view_model.prev_step)
 
-        self.next_button = PushButton("Next", self)
+        self.next_button = TransparentToolButton(FIF.RIGHT_ARROW, self.current_step_card)
+        self.next_button.setFixedSize(32, 32)
+        self.next_button.setToolTip("下一步")
         self.next_button.clicked.connect(self.view_model.next_step)
 
-        controls_row.addStretch(1)
-        controls_row.addWidget(self.prev_button)
-        controls_row.addWidget(self.next_button)
+        step_text_layout = QVBoxLayout()
+        step_text_layout.setContentsMargins(0, 0, 0, 0)
+        step_text_layout.setSpacing(4)
+
+        self.current_step_label = SubtitleLabel("未设置步骤", self.current_step_card)
+        self.current_step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.current_step_label.setWordWrap(True)
+        self.current_step_position_label = CaptionLabel("0/0", self.current_step_card)
+        self.current_step_position_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        step_text_layout.addWidget(self.current_step_label)
+        step_text_layout.addWidget(self.current_step_position_label)
+
+        current_step_layout.addWidget(self.prev_button)
+        current_step_layout.addLayout(step_text_layout, 1)
+        current_step_layout.addWidget(self.next_button)
 
         self.ai_chat_panel = ExperimentAiChatPanel(
             self.view_model,
             self.settings,
+            acquisition_view_model,
             self,
         )
 
         root_layout.addLayout(header_row)
         root_layout.addWidget(self.current_step_card)
-        root_layout.addLayout(controls_row)
         root_layout.addWidget(self.ai_chat_panel, 1)
 
         self.view_model.sig_snapshot_changed.connect(self._sync_from_snapshot)
@@ -494,9 +513,7 @@ class LiveExperimentSidebar(SimpleCardWidget):
         current_position = (
             0 if current_step is None or snapshot.current_step_index < 0 else snapshot.current_step_index + 1
         )
-        self.current_step_position_label.setText(
-            f"第 {current_position} / {len(snapshot.steps)} 步"
-        )
+        self.current_step_position_label.setText(f"{current_position}/{len(snapshot.steps)}")
 
         self.prev_button.setEnabled(snapshot.can_go_previous)
         self.next_button.setEnabled(snapshot.can_go_next)

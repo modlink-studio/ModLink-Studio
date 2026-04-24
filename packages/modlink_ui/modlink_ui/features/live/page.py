@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, QTimer
 from PyQt6.QtWidgets import QWidget
-from qfluentwidgets import PushButton
 from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import PushButton
 
 from modlink_ui.bridge import QtModLinkBridge
 from modlink_ui.shared import BasePage
@@ -31,6 +31,7 @@ class LivePage(BasePage):
         self.experiment_sidebar = LiveExperimentSidebar(
             self.experiment_runtime,
             engine.settings,
+            self.acquisition_panel.view_model,
             self,
         )
         self.experiment_sidebar.hide()
@@ -51,8 +52,12 @@ class LivePage(BasePage):
         self.scroll_area.viewport().installEventFilter(self)
         self.acquisition_panel.installEventFilter(self)
         self.experiment_sidebar.installEventFilter(self)
-        self.experiment_sidebar_toggle_button.clicked.connect(self._toggle_experiment_sidebar)
-        self.experiment_sidebar.sig_close_requested.connect(self._hide_experiment_sidebar)
+        self.experiment_sidebar_toggle_button.clicked.connect(
+            self._toggle_experiment_sidebar
+        )
+        self.experiment_sidebar.sig_close_requested.connect(
+            self._hide_experiment_sidebar
+        )
         QTimer.singleShot(0, self._sync_floating_widgets)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -146,14 +151,15 @@ class LivePage(BasePage):
         viewport_top_left = viewport.mapTo(self, QPoint(0, 0))
         top_margin = 16
         side_margin = 16
-        floating_gap = 16
+        floating_gap = 6
+        sidebar_top_offset = -45
         preferred_width = 340
         available_width = viewport.width() - side_margin * 2
         if available_width <= 0:
             return
         panel_width = min(preferred_width, available_width)
         panel_x = viewport_top_left.x() + viewport.width() - panel_width - side_margin
-        panel_top = viewport_top_left.y() + top_margin
+        panel_top = viewport_top_left.y() + top_margin + sidebar_top_offset
         panel_bottom_limit = viewport_top_left.y() + viewport.height() - top_margin
         acquisition_top = self.acquisition_panel.geometry().top()
         if acquisition_top > 0:

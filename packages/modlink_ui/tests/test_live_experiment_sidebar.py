@@ -28,7 +28,7 @@ from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_sdk import StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
 from modlink_ui.features.live import LivePage
-from modlink_ui.features.live.experiment_ai import ExperimentAiProposal, ExperimentAiReply
+from modlink_ui.features.live.experiment_ai import ExperimentAiAction, ExperimentAiReply
 from modlink_ui.features.live.experiment_panel import ExperimentAiChatPanel
 from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeViewModel
 from modlink_ui.shared.ui_settings.ai import declare_ai_assistant_settings
@@ -149,13 +149,13 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._pump_events()
 
         self.assertEqual("0ml", page.experiment_sidebar.current_step_label.text())
-        self.assertEqual("第 1 / 2 步", page.experiment_sidebar.current_step_position_label.text())
+        self.assertEqual("1/2", page.experiment_sidebar.current_step_position_label.text())
 
         page.experiment_sidebar.next_button.click()
         self._pump_events()
 
         self.assertEqual("5ml", page.experiment_sidebar.current_step_label.text())
-        self.assertEqual("第 2 / 2 步", page.experiment_sidebar.current_step_position_label.text())
+        self.assertEqual("2/2", page.experiment_sidebar.current_step_position_label.text())
         page.close()
 
     def test_settings_button_opens_dialog_and_saves_inputs(self) -> None:
@@ -201,7 +201,18 @@ class LiveExperimentSidebarTests(unittest.TestCase):
 
         self.assertTrue(page.acquisition_panel.isVisible())
         self.assertTrue(page.experiment_sidebar.isVisible())
-        self.assertLess(page.experiment_sidebar.geometry().bottom(), page.acquisition_panel.geometry().top())
+        gap = page.acquisition_panel.geometry().top() - page.experiment_sidebar.geometry().bottom() - 1
+        self.assertLessEqual(gap, 6)
+        page.close()
+
+    def test_sidebar_top_uses_fixed_upward_offset(self) -> None:
+        page = self._create_page()
+        page.experiment_sidebar_toggle_button.click()
+        self._pump_events()
+
+        viewport_top = page.scroll_area.viewport().mapTo(page, page.scroll_area.viewport().rect().topLeft()).y()
+
+        self.assertLess(page.experiment_sidebar.geometry().top(), viewport_top + 16)
         page.close()
 
     def test_ai_chat_panel_is_below_step_navigation_and_disabled_when_unconfigured(self) -> None:
@@ -210,32 +221,50 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._pump_events()
 
         root_layout = page.experiment_sidebar.layout()
-        self.assertIs(root_layout.itemAt(3).widget(), page.experiment_sidebar.ai_chat_panel)
+        self.assertIs(root_layout.itemAt(2).widget(), page.experiment_sidebar.ai_chat_panel)
         self.assertFalse(page.experiment_sidebar.ai_chat_panel.send_button.isEnabled())
         self.assertFalse(page.experiment_sidebar.ai_chat_panel.input.isEnabled())
         page.close()
 
-    def test_ai_chat_appends_messages_and_applies_proposal(self) -> None:
+    def test_ai_chat_appends_messages_and_applies_tool_actions(self) -> None:
         declare_ai_assistant_settings(self._settings_bridge)
         self._settings_bridge.ui.ai.base_url = "https://api.example.com/v1"
         self._settings_bridge.ui.ai.api_key = "secret-key"
         self._settings_bridge.ui.ai.model = "gpt-test"
 
         class _FakeClient:
-            def complete(self, _messages):
+            def complete(self, _messages, *, tool_runner):
+                _ = tool_runner
                 return ExperimentAiReply(
-                    "已生成实验设置草案。",
-                    ExperimentAiProposal(
-                        experiment_name="swallow_study",
-                        session_name="healthy_H03",
-                        steps=("0ml", "5ml"),
+                    "已更新实验设置。",
+                    actions=(
+                        ExperimentAiAction("set_experiment_name", {"value": "swallow_study"}),
+                        ExperimentAiAction("set_session_name", {"value": "healthy_H03"}),
+                        ExperimentAiAction("set_steps", {"steps": ["0ml", "5ml"]}),
+                        ExperimentAiAction(
+                            "set_label",
+                            {"target": "recording_label", "value": "healthy_H03_rest"},
+                        ),
+                        ExperimentAiAction("next_step", {}),
                     ),
                 )
 
+        class _FakeAcquisitionViewModel:
+            def __init__(self) -> None:
+                self.values = {"recording_label": "", "annotation_label": ""}
+
+            def get_field_value(self, key: str) -> str:
+                return self.values[key]
+
+            def set_field_value(self, key: str, value: str) -> None:
+                self.values[key] = value
+
         view_model = ExperimentRuntimeViewModel()
+        acquisition_view_model = _FakeAcquisitionViewModel()
         panel = ExperimentAiChatPanel(
             view_model,
             self._settings_bridge,
+            acquisition_view_model,
             client_factory=lambda _config: _FakeClient(),
         )
         panel.show()
@@ -244,23 +273,19 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         panel.input.setText("帮我生成吞咽实验设置")
         self.assertTrue(panel.send_button.isEnabled())
         panel.send_button.click()
-        self._pump_until(
-            lambda: panel.latest_proposal_button is not None and panel._request_thread is None
-        )
+        self._pump_until(lambda: panel._request_thread is None)
 
         self.assertEqual(
-            {"role": "assistant", "content": "已生成实验设置草案。"},
+            {"role": "assistant", "content": "已更新实验设置。"},
             panel._conversation[-1],
         )
-
-        assert panel.latest_proposal_button is not None
-        panel.latest_proposal_button.click()
-        self._pump_events()
 
         snapshot = view_model.snapshot()
         self.assertEqual("swallow_study", snapshot.experiment_name)
         self.assertEqual("healthy_H03", snapshot.session_name)
         self.assertEqual(["0ml", "5ml"], [step.label for step in snapshot.steps])
+        self.assertEqual("5ml", snapshot.current_step.label)
+        self.assertEqual("healthy_H03_rest", acquisition_view_model.values["recording_label"])
         panel.close()
 
     def test_ai_chat_failure_does_not_modify_experiment_state(self) -> None:
@@ -270,7 +295,8 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._settings_bridge.ui.ai.model = "gpt-test"
 
         class _FailingClient:
-            def complete(self, _messages):
+            def complete(self, _messages, *, tool_runner):
+                _ = tool_runner
                 raise RuntimeError("network down")
 
         view_model = ExperimentRuntimeViewModel()
@@ -288,7 +314,6 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._pump_until(lambda: panel._request_thread is None)
 
         self.assertEqual("original", view_model.snapshot().experiment_name)
-        self.assertIsNone(panel.latest_proposal_button)
         panel.close()
 
 
