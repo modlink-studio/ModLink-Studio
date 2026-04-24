@@ -139,7 +139,7 @@ class _ExperimentSettingsDialog(MessageBoxBase):
         self.steps_editor.setPlainText("\n".join(step.label for step in snapshot.steps))
 
 
-class ExperimentAiChatPanel(SimpleCardWidget):
+class ExperimentAiChatPanel(QWidget):
     def __init__(
         self,
         view_model: ExperimentRuntimeViewModel,
@@ -159,11 +159,10 @@ class ExperimentAiChatPanel(SimpleCardWidget):
         self.latest_proposal_button: PushButton | None = None
 
         self.setObjectName("experiment-ai-chat-panel")
-        self.setBorderRadius(14)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(14, 12, 14, 12)
+        root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(10)
 
         header_row = QHBoxLayout()
@@ -171,8 +170,6 @@ class ExperimentAiChatPanel(SimpleCardWidget):
         header_row.setSpacing(8)
 
         self.title_label = StrongBodyLabel("AI 助手", self)
-        self.status_label = CaptionLabel("", self)
-        self.status_label.setWordWrap(True)
 
         header_row.addWidget(self.title_label, 1)
 
@@ -216,7 +213,6 @@ class ExperimentAiChatPanel(SimpleCardWidget):
         input_row.addWidget(self.send_button)
 
         root_layout.addLayout(header_row)
-        root_layout.addWidget(self.status_label)
         root_layout.addWidget(self.messages_area, 1)
         root_layout.addLayout(input_row)
 
@@ -263,7 +259,6 @@ class ExperimentAiChatPanel(SimpleCardWidget):
 
         self._request_thread = thread
         self._request_worker = worker
-        self.status_label.setText("正在生成...")
         self._refresh_send_state()
         thread.start()
 
@@ -275,11 +270,9 @@ class ExperimentAiChatPanel(SimpleCardWidget):
         self._conversation.append({"role": "assistant", "content": reply.message})
         if reply.proposal is not None:
             self._append_proposal(reply.proposal)
-        self.status_label.setText("已生成建议。")
 
     def _on_ai_failed(self, message: str) -> None:
         self._append_message("error", f"请求失败：{message}")
-        self.status_label.setText("生成失败。")
 
     def _clear_request_worker(self) -> None:
         self._request_thread = None
@@ -297,10 +290,6 @@ class ExperimentAiChatPanel(SimpleCardWidget):
 
     def _refresh_config(self) -> None:
         self._config = load_ai_assistant_config(self._settings)
-        if self._config.is_configured:
-            self.status_label.setText(f"已配置 {self._config.model}。")
-        else:
-            self.status_label.setText("未配置 AI 助手。请在设置页填写 base URL、API key 和 model。")
         self._refresh_send_state()
 
     def _refresh_send_state(self) -> None:
@@ -359,7 +348,6 @@ class ExperimentAiChatPanel(SimpleCardWidget):
             self.view_model.set_session_name(proposal.session_name)
         if proposal.steps is not None:
             self.view_model.set_steps_text("\n".join(proposal.steps))
-        self.status_label.setText("草案已应用到实验设置。")
 
     def _scroll_messages_to_bottom(self) -> None:
         def scroll() -> None:
@@ -441,27 +429,7 @@ class LiveExperimentSidebar(SimpleCardWidget):
         header_row.addWidget(self.settings_button, 0, Qt.AlignmentFlag.AlignTop)
         header_row.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.scroll_area = SingleDirectionScrollArea(self, orient=Qt.Orientation.Vertical)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.scroll_area.setSmoothMode(SmoothMode.LINEAR)
-        self.scroll_area.smoothScroll.setDynamicEngineEnabled(True)
-        self.scroll_area.smoothScroll.widthThreshold = 0
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-        self.scroll_widget = QWidget(self.scroll_area)
-        self.scroll_widget.setObjectName("live-experiment-sidebar-scroll-widget")
-        self.scroll_widget.setStyleSheet(
-            "QWidget#live-experiment-sidebar-scroll-widget { background: transparent; }"
-        )
-        self.scroll_area.setWidget(self.scroll_widget)
-
-        content_layout = QVBoxLayout(self.scroll_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(14)
-
-        self.current_step_card = SimpleCardWidget(self.scroll_widget)
+        self.current_step_card = SimpleCardWidget(self)
         self.current_step_card.setBorderRadius(14)
         current_step_layout = QVBoxLayout(self.current_step_card)
         current_step_layout.setContentsMargins(14, 12, 14, 12)
@@ -477,10 +445,10 @@ class LiveExperimentSidebar(SimpleCardWidget):
         controls_row.setContentsMargins(0, 0, 0, 0)
         controls_row.setSpacing(8)
 
-        self.prev_button = PushButton("Prev", self.scroll_widget)
+        self.prev_button = PushButton("Prev", self)
         self.prev_button.clicked.connect(self.view_model.prev_step)
 
-        self.next_button = PushButton("Next", self.scroll_widget)
+        self.next_button = PushButton("Next", self)
         self.next_button.clicked.connect(self.view_model.next_step)
 
         controls_row.addStretch(1)
@@ -490,16 +458,13 @@ class LiveExperimentSidebar(SimpleCardWidget):
         self.ai_chat_panel = ExperimentAiChatPanel(
             self.view_model,
             self.settings,
-            self.scroll_widget,
+            self,
         )
 
-        content_layout.addWidget(self.current_step_card)
-        content_layout.addLayout(controls_row)
-        content_layout.addWidget(self.ai_chat_panel, 1)
-        content_layout.addStretch(1)
-
         root_layout.addLayout(header_row)
-        root_layout.addWidget(self.scroll_area, 1)
+        root_layout.addWidget(self.current_step_card)
+        root_layout.addLayout(controls_row)
+        root_layout.addWidget(self.ai_chat_panel, 1)
 
         self.view_model.sig_snapshot_changed.connect(self._sync_from_snapshot)
 

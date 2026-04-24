@@ -209,11 +209,10 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         page.experiment_sidebar_toggle_button.click()
         self._pump_events()
 
-        content_layout = page.experiment_sidebar.scroll_widget.layout()
-        self.assertIs(content_layout.itemAt(2).widget(), page.experiment_sidebar.ai_chat_panel)
+        root_layout = page.experiment_sidebar.layout()
+        self.assertIs(root_layout.itemAt(3).widget(), page.experiment_sidebar.ai_chat_panel)
         self.assertFalse(page.experiment_sidebar.ai_chat_panel.send_button.isEnabled())
         self.assertFalse(page.experiment_sidebar.ai_chat_panel.input.isEnabled())
-        self.assertIn("未配置", page.experiment_sidebar.ai_chat_panel.status_label.text())
         page.close()
 
     def test_ai_chat_appends_messages_and_applies_proposal(self) -> None:
@@ -286,7 +285,7 @@ class LiveExperimentSidebarTests(unittest.TestCase):
 
         panel.input.setText("更新实验设置")
         panel.send_button.click()
-        self._pump_until(lambda: panel._request_thread is None and "生成失败" in panel.status_label.text())
+        self._pump_until(lambda: panel._request_thread is None)
 
         self.assertEqual("original", view_model.snapshot().experiment_name)
         self.assertIsNone(panel.latest_proposal_button)

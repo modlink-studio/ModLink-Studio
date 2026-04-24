@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtWidgets import QLineEdit, QWidget
+from PyQt6.QtWidgets import QLineEdit, QVBoxLayout, QWidget
 from qfluentwidgets import (
     CaptionLabel,
     LineEdit,
@@ -19,6 +19,24 @@ from modlink_ui.shared.ui_settings.ai import (
     declare_ai_assistant_settings,
     load_ai_assistant_config,
 )
+
+
+class _AiAssistantField(QWidget):
+    def __init__(
+        self,
+        title: str,
+        input_widget: QWidget,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent=parent)
+        self.title_label = CaptionLabel(title, self)
+        self.input = input_widget
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.input)
 
 
 class _AiAssistantSettingsDialog(MessageBoxBase):
@@ -54,11 +72,15 @@ class _AiAssistantSettingsDialog(MessageBoxBase):
         self.model_input.setPlaceholderText("例如 gpt-4.1-mini 或兼容服务的模型名")
         self.model_input.setClearButtonEnabled(True)
 
+        self.base_url_field = _AiAssistantField("Base URL", self.base_url_input, self.widget)
+        self.api_key_field = _AiAssistantField("API key", self.api_key_input, self.widget)
+        self.model_field = _AiAssistantField("Model", self.model_input, self.widget)
+
         self.viewLayout.addWidget(self.title_label)
         self.viewLayout.addWidget(self.description_label)
-        self.viewLayout.addWidget(self.base_url_input)
-        self.viewLayout.addWidget(self.api_key_input)
-        self.viewLayout.addWidget(self.model_input)
+        self.viewLayout.addWidget(self.base_url_field)
+        self.viewLayout.addWidget(self.api_key_field)
+        self.viewLayout.addWidget(self.model_field)
 
         self._sync_from_config(load_ai_assistant_config(self._settings))
 
