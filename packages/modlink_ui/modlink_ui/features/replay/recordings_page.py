@@ -3,8 +3,8 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QHBoxLayout,
     QListWidgetItem,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -26,29 +26,15 @@ from modlink_ui.shared import BasePage, EmptyStateMessage
 class ReplayRecordingsPanel(SimpleCardWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.recording_list = ListWidget(self)
         self.recording_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-
-        self.open_button = PrimaryPushButton("打开所选", self)
-        self.open_button.setIcon(FIF.FOLDER)
-        self.refresh_button = PushButton("刷新列表", self)
-        self.refresh_button.setIcon(FIF.SYNC)
-        for button in (self.open_button, self.refresh_button):
-            button.setFixedWidth(132)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
 
-        header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
-        header_row.setSpacing(8)
-        header_row.addWidget(StrongBodyLabel("Recordings", self))
-        header_row.addStretch(1)
-        header_row.addWidget(self.open_button)
-        header_row.addWidget(self.refresh_button)
-        layout.addLayout(header_row)
-
+        layout.addWidget(StrongBodyLabel("Recordings", self))
         layout.addWidget(self.recording_list, 1)
 
     def selected_recording_id(self) -> str | None:
@@ -97,15 +83,22 @@ class ReplayRecordingsPage(BasePage):
             description="浏览已有 recordings，打开其中一条进入回放或导出工作台。",
             parent=parent,
         )
+        self._open_button = PrimaryPushButton("打开", self)
+        self._open_button.setIcon(FIF.FOLDER)
+        self._refresh_button = PushButton("刷新", self)
+        self._refresh_button.setIcon(FIF.SYNC)
+        for button in (self._open_button, self._refresh_button):
+            button.setMinimumWidth(88)
+            self.header_action_layout.addWidget(button)
+
         self.empty_state = EmptyStateMessage(
             "当前还没有发现 recording",
-            "点击“刷新列表”重新扫描 storage.root_dir/recordings。",
+            "点击“刷新”重新扫描 storage.root_dir/recordings。",
             self.scroll_widget,
         )
         self.recordings_panel = ReplayRecordingsPanel(self.scroll_widget)
         self.content_layout.addWidget(self.empty_state)
-        self.content_layout.addWidget(self.recordings_panel)
-        self.content_layout.addStretch(1)
+        self.content_layout.addWidget(self.recordings_panel, 1)
 
         self.recording_list.itemDoubleClicked.connect(lambda _item: self._emit_open_requested())
         self.open_button.clicked.connect(self._emit_open_requested)
@@ -117,11 +110,11 @@ class ReplayRecordingsPage(BasePage):
 
     @property
     def open_button(self) -> PrimaryPushButton:
-        return self.recordings_panel.open_button
+        return self._open_button
 
     @property
     def refresh_button(self) -> PushButton:
-        return self.recordings_panel.refresh_button
+        return self._refresh_button
 
     def selected_recording_id(self) -> str | None:
         return self.recordings_panel.selected_recording_id()

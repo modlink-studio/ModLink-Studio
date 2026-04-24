@@ -24,7 +24,7 @@ for path in (
         sys.path.insert(0, path_str)
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QAbstractItemView, QApplication
 
 from modlink_core.models import ReplayMarker, ReplaySegment, ReplaySnapshot
 from modlink_core.replay import ReplayBackend
@@ -133,13 +133,15 @@ class ReplayPageTests(unittest.TestCase):
             player_page = page._player_page
             export_page = page._export_page
             self.assertEqual("recordings", page._route)
-            self.assertEqual("打开所选", recordings_page.open_button.text())
-            self.assertEqual("刷新列表", recordings_page.refresh_button.text())
+            self.assertEqual("打开", recordings_page.open_button.text())
+            self.assertEqual("刷新", recordings_page.refresh_button.text())
             self.assertEqual(
                 recordings_page.open_button.width(),
                 recordings_page.refresh_button.width(),
             )
-            self.assertEqual(0, recordings_page.header_action_layout.count())
+            self.assertEqual(2, recordings_page.header_action_layout.count())
+            self.assertEqual(2, recordings_page.content_layout.count())
+            self.assertEqual(1, recordings_page.content_layout.stretch(1))
             self._pump_events_until(lambda: recordings_page.recording_list.count() == 1)
             recordings_page.recording_list.setCurrentRow(0)
             recordings_page.open_button.click()
@@ -187,6 +189,18 @@ class ReplayPageTests(unittest.TestCase):
             self.assertEqual(2, export_page.header_action_layout.count())
             self.assertTrue(export_page.player_route_button.isVisible())
             self.assertTrue(export_page.recordings_route_button.isVisible())
+            self.assertEqual("列表", export_page.recordings_route_button.text())
+            self.assertEqual("回放", export_page.player_route_button.text())
+            self.assertEqual(0, export_page.recordings_route_button.minimumHeight())
+            self.assertEqual(0, export_page.player_route_button.minimumHeight())
+            self.assertEqual(0, export_page.export_button.minimumHeight())
+            self.assertEqual(
+                QAbstractItemView.SelectionMode.SingleSelection,
+                export_page.jobs_list.selectionMode(),
+            )
+            self.assertEqual(2, export_page.content_layout.count())
+            self.assertEqual(1, export_page.content_layout.stretch(1))
+            self.assertFalse(hasattr(export_page, "summary_card"))
             export_page.export_button.click()
             self._pump_events_until(lambda: export_page.jobs_list.count() == 1, timeout=2.0)
             self._pump_events_until(

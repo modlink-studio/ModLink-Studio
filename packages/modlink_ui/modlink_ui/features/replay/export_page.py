@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QAbstractItemView, QListWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QListWidgetItem,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
@@ -20,7 +27,6 @@ from qfluentwidgets import (
 from modlink_core.models import ExportJobSnapshot, ReplaySnapshot
 from modlink_ui.shared import BasePage, EmptyStateMessage
 
-
 EXPORT_LABELS = {
     "signal_csv": "Signal CSV",
     "signal_npz": "Signal NPZ",
@@ -31,42 +37,10 @@ EXPORT_LABELS = {
 }
 
 
-class ReplayExportSummaryCard(SimpleCardWidget):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent=parent)
-        self.status_label = BodyLabel("尚未打开 recording。", self)
-        self.status_hint = CaptionLabel("先从 recordings 页打开一条 recording，再进入导出。", self)
-        self.status_hint.setWordWrap(True)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(10)
-        layout.addWidget(StrongBodyLabel("导出上下文", self))
-        layout.addWidget(self.status_label)
-        layout.addWidget(self.status_hint)
-
-    def apply_snapshot(self, snapshot: ReplaySnapshot, *, export_root_dir: object) -> None:
-        if snapshot.recording_id is None:
-            self.status_label.setText("尚未打开 recording。")
-            self.status_hint.setText(
-                f"先回到 recordings 页打开一条 recording。导出根目录：{export_root_dir}"
-            )
-            return
-
-        self.status_label.setText(
-            f"当前 recording：{snapshot.recording_id} · 状态：{snapshot.state}"
-        )
-        self.status_hint.setText(
-            f"recording_path：{snapshot.recording_path} · 导出根目录：{export_root_dir}"
-        )
-
-    def set_status_hint(self, text: str) -> None:
-        self.status_hint.setText(text)
-
-
 class ReplayExportCard(SimpleCardWidget):
     def __init__(self, export_root_dir: object, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.export_format_combo = ComboBox(self)
         for format_id, label in EXPORT_LABELS.items():
             self.export_format_combo.addItem(label, userData=format_id)
@@ -74,6 +48,7 @@ class ReplayExportCard(SimpleCardWidget):
         self.export_button = PrimaryPushButton("开始导出", self)
         self.export_button.setIcon(FIF.SAVE)
         self.export_hint = CaptionLabel("", self)
+        self.export_hint.setWordWrap(True)
         self.set_export_root_dir(export_root_dir)
 
         self.export_progress = ProgressBar(self)
@@ -82,18 +57,25 @@ class ReplayExportCard(SimpleCardWidget):
         self.export_progress.setFormat("尚未开始导出")
 
         self.jobs_list = ListWidget(self)
-        self.jobs_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.jobs_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.jobs_list.setWordWrap(True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
-        layout.addWidget(StrongBodyLabel("Export", self))
-        layout.addWidget(self.export_format_combo)
-        layout.addWidget(self.export_button)
+
+        controls_row = QHBoxLayout()
+        controls_row.setContentsMargins(0, 0, 0, 0)
+        controls_row.setSpacing(8)
+        controls_row.addWidget(BodyLabel("格式", self))
+        controls_row.addWidget(self.export_format_combo, 1)
+        controls_row.addWidget(self.export_button)
+
+        layout.addWidget(StrongBodyLabel("导出任务", self))
+        layout.addLayout(controls_row)
         layout.addWidget(self.export_hint)
         layout.addWidget(self.export_progress)
-        layout.addWidget(BodyLabel("Jobs", self))
+        layout.addWidget(BodyLabel("任务记录", self))
         layout.addWidget(self.jobs_list, 1)
 
     def selected_format_id(self) -> str | None:
@@ -141,7 +123,7 @@ class ReplayExportPage(BasePage):
         super().__init__(
             page_key="replay-export-page",
             title="导出",
-            description="打开一条 recording 后，在这里选择格式并查看导出任务。",
+            description="打开一条 recording 后，在这里选择格式并导出。",
             parent=parent,
         )
         self._snapshot = ReplaySnapshot(
@@ -158,7 +140,6 @@ class ReplayExportPage(BasePage):
         self.player_route_button = PushButton("回放", self)
         self.player_route_button.setIcon(FIF.PLAY_SOLID)
         for button in (self.recordings_route_button, self.player_route_button):
-            button.setMinimumHeight(38)
             button.setMinimumWidth(88)
             self.header_action_layout.addWidget(button)
 
@@ -167,12 +148,9 @@ class ReplayExportPage(BasePage):
             "先回到 recordings 页打开一条 recording，再开始导出。",
             self.scroll_widget,
         )
-        self.summary_card = ReplayExportSummaryCard(self.scroll_widget)
         self.export_card = ReplayExportCard(export_root_dir, self.scroll_widget)
         self.content_layout.addWidget(self.empty_state)
-        self.content_layout.addWidget(self.summary_card)
-        self.content_layout.addWidget(self.export_card)
-        self.content_layout.addStretch(1)
+        self.content_layout.addWidget(self.export_card, 1)
 
         self.export_button.clicked.connect(self._emit_export_requested)
         self.recordings_route_button.clicked.connect(self.sig_show_recordings_requested.emit)
@@ -202,11 +180,10 @@ class ReplayExportPage(BasePage):
         return self.export_card.selected_format_id()
 
     def set_status_hint(self, text: str) -> None:
-        self.summary_card.set_status_hint(text)
+        self.export_hint.setText(text)
 
     def apply_snapshot(self, snapshot: ReplaySnapshot, *, export_root_dir: object) -> None:
         self._snapshot = snapshot
-        self.summary_card.apply_snapshot(snapshot, export_root_dir=export_root_dir)
         self.export_card.set_export_root_dir(export_root_dir)
         self.export_card.set_export_enabled(snapshot.recording_id is not None)
         self.player_route_button.setEnabled(snapshot.recording_id is not None)
@@ -225,7 +202,7 @@ class ReplayExportPage(BasePage):
         recording_id = _format_recording_badge(snapshot.recording_id)
         self.title_label.setText("导出")
         self.description_label.setText(
-            f"当前 recording：{recording_id} · 选择格式并查看导出任务。"
+            f"当前 recording：{recording_id} · 选择格式并导出。"
         )
 
 
