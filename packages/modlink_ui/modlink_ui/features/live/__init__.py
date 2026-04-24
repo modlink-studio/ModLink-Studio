@@ -6,6 +6,12 @@ from .acquisition_view_model import (
     AcquisitionPanelState,
     AcquisitionViewModel,
 )
+from .experiment_panel import LiveExperimentSidebar
+from .experiment_runtime import (
+    ExperimentRuntimeSnapshot,
+    ExperimentRuntimeViewModel,
+    ExperimentStep,
+)
 from .page import LivePage
 
 __all__ = [
@@ -15,5 +21,9 @@ __all__ = [
     "AcquisitionFormValues",
     "AcquisitionPanelState",
     "AcquisitionViewModel",
+    "ExperimentRuntimeSnapshot",
+    "ExperimentRuntimeViewModel",
+    "ExperimentStep",
+    "LiveExperimentSidebar",
     "LivePage",
 ]
