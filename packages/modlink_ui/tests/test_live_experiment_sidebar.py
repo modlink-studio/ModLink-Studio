@@ -140,6 +140,25 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self.assertFalse(page.experiment_sidebar.isVisible())
         page.close()
 
+    def test_acquisition_action_buttons_use_text_and_default_height(self) -> None:
+        page = self._create_page()
+        action_buttons = (
+            page.acquisition_panel.controls_panel.toggle_recording_button,
+            page.acquisition_panel.controls_panel.insert_marker_button,
+            page.acquisition_panel.controls_panel.toggle_segment_button,
+            page.acquisition_panel.controls_panel.reset_segment_button,
+        )
+
+        self.assertFalse(hasattr(page.acquisition_panel, "detailed_panel"))
+        self.assertFalse(hasattr(page.acquisition_panel, "compact_panel"))
+        self.assertFalse(hasattr(page.acquisition_panel, "layout_toggle_button"))
+        for button in action_buttons:
+            self.assertTrue(button.text())
+            self.assertEqual(0, button.minimumHeight())
+            self.assertGreater(button.maximumHeight(), 1000)
+            self.assertFalse(button.icon().isNull())
+        page.close()
+
     def test_sidebar_updates_current_step_when_current_step_changes(self) -> None:
         page = self._create_page()
         page.experiment_sidebar_toggle_button.click()

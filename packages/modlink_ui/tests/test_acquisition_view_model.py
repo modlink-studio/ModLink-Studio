@@ -127,16 +127,12 @@ class AcquisitionViewModelTests(unittest.TestCase):
         self.assertFalse(self._view_model.is_segment_active)
         self.assertEqual([True, False], segment_state_changes)
 
-    def test_start_recording_uses_recording_label_and_recordings_root_preview(self) -> None:
+    def test_start_recording_uses_recording_label(self) -> None:
         self._view_model.set_field_value("recording_label", "resting_state")
 
         self._view_model.request_toggle_recording()
 
         self.assertEqual("resting_state", self._acquisition.started_recording_label)
-        self.assertEqual(
-            str(self._temp_dir / "recordings"),
-            self._view_model.build_output_directory(),
-        )
 
     def test_insert_marker_uses_none_when_label_is_empty(self) -> None:
         self._view_model.request_insert_marker()

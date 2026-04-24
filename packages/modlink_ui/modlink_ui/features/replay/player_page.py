@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     ComboBox,
-    PrimaryToolButton,
+    PrimaryPushButton,
     PushButton,
-    ToolButton,
-    isDarkTheme,
+    SimpleCardWidget,
 )
 from qfluentwidgets import (
     FluentIcon as FIF,
@@ -123,12 +122,12 @@ class ReplayPlaybackPanel(QWidget):
         self.position_badge.setMinimumWidth(180)
         self.timeline = ReplayAnnotationTimeline(self)
 
-        self.play_button = PrimaryToolButton(FIF.PLAY_SOLID, self)
-        self.play_button.setFixedSize(40, 40)
+        self.play_button = PrimaryPushButton("播放", self)
+        self.play_button.setIcon(FIF.PLAY_SOLID)
         self.play_button.setToolTip("播放")
         self.play_button.setAccessibleName("播放")
-        self.pause_reset_button = ToolButton(FIF.SYNC, self)
-        self.pause_reset_button.setFixedSize(40, 40)
+        self.pause_reset_button = PushButton("复位", self)
+        self.pause_reset_button.setIcon(FIF.SYNC)
         self.pause_reset_button.setToolTip("复位")
         self.pause_reset_button.setAccessibleName("复位")
         self.speed_label = BodyLabel("倍速", self)
@@ -141,11 +140,12 @@ class ReplayPlaybackPanel(QWidget):
         self.preview_panel = ReplayPreviewPanel(replay, settings, self)
         self.preview_panel.setMinimumHeight(360)
 
-        self.transport_bar = QFrame(self)
+        self.transport_bar = SimpleCardWidget(self)
         self.transport_bar.setObjectName("replay-transport-bar")
+        self.transport_bar.setBorderRadius(18)
         self.transport_bar.hide()
         transport_layout = QVBoxLayout(self.transport_bar)
-        transport_layout.setContentsMargins(16, 12, 16, 12)
+        transport_layout.setContentsMargins(18, 18, 18, 18)
         transport_layout.setSpacing(8)
         transport_layout.addWidget(self.timeline)
 
@@ -166,8 +166,6 @@ class ReplayPlaybackPanel(QWidget):
         layout.setSpacing(0)
         layout.addWidget(self.preview_panel, 1)
 
-        self._apply_styles()
-
     def selected_speed(self) -> float | None:
         value = self.speed_combo.currentData()
         if isinstance(value, (float, int)):
@@ -181,10 +179,12 @@ class ReplayPlaybackPanel(QWidget):
         )
         if snapshot.state == "playing":
             self.pause_reset_button.setIcon(FIF.PAUSE_BOLD)
+            self.pause_reset_button.setText("暂停")
             self.pause_reset_button.setToolTip("暂停")
             self.pause_reset_button.setAccessibleName("暂停")
         else:
             self.pause_reset_button.setIcon(FIF.SYNC)
+            self.pause_reset_button.setText("复位")
             self.pause_reset_button.setToolTip("复位")
             self.pause_reset_button.setAccessibleName("复位")
         self.pause_reset_button.setEnabled(
@@ -204,29 +204,6 @@ class ReplayPlaybackPanel(QWidget):
         progress_text = f"{format_time_ns(position_ns)} / {format_time_ns(duration_ns)}"
         self.position_badge.setText(progress_text)
         self.timeline.set_playback(position_ns, duration_ns)
-
-    def _apply_styles(self) -> None:
-        if isDarkTheme():
-            border_color = "rgba(255, 255, 255, 0.10)"
-            transport_background = "rgba(255, 255, 255, 0.05)"
-        else:
-            border_color = "rgba(15, 23, 42, 0.08)"
-            transport_background = "rgba(15, 23, 42, 0.04)"
-
-        self.position_badge.setStyleSheet(_neutral_badge_stylesheet())
-        self.transport_bar.setStyleSheet(
-            f"""
-            QFrame#replay-transport-bar {{
-                background: {transport_background};
-                border: 1px solid {border_color};
-                border-radius: 18px;
-            }}
-            QWidget#replay-annotation-timeline {{
-                background: transparent;
-            }}
-            """
-        )
-
 
 class ReplayPlayerPage(BasePage):
     sig_show_recordings_requested = pyqtSignal()
@@ -264,7 +241,6 @@ class ReplayPlayerPage(BasePage):
         self.export_route_button = PushButton("导出", self)
         self.export_route_button.setIcon(FIF.SAVE)
         for button in (self.recordings_route_button, self.export_route_button):
-            button.setMinimumHeight(38)
             button.setMinimumWidth(88)
             self.header_action_layout.addWidget(button)
 
@@ -286,11 +262,11 @@ class ReplayPlayerPage(BasePage):
         self.export_route_button.clicked.connect(self.sig_show_export_requested.emit)
 
     @property
-    def play_button(self) -> PrimaryToolButton:
+    def play_button(self) -> PrimaryPushButton:
         return self.playback_panel.play_button
 
     @property
-    def pause_reset_button(self) -> ToolButton:
+    def pause_reset_button(self) -> PushButton:
         return self.playback_panel.pause_reset_button
 
     @property
@@ -306,7 +282,7 @@ class ReplayPlayerPage(BasePage):
         return self.playback_panel.timeline
 
     @property
-    def transport_bar(self) -> QFrame:
+    def transport_bar(self) -> SimpleCardWidget:
         return self.playback_panel.transport_bar
 
     def selected_speed(self) -> float | None:
@@ -413,24 +389,6 @@ def _format_recording_badge(recording_id: str | None) -> str:
     if len(normalized) <= 26:
         return normalized
     return f"{normalized[:14]}...{normalized[-8:]}"
-
-
-def _neutral_badge_stylesheet() -> str:
-    if isDarkTheme():
-        background = "rgba(255, 255, 255, 0.06)"
-        border = "rgba(255, 255, 255, 0.10)"
-        color = "rgba(255, 255, 255, 0.90)"
-    else:
-        background = "rgba(15, 23, 42, 0.05)"
-        border = "rgba(15, 23, 42, 0.08)"
-        color = "rgb(53, 65, 89)"
-    return (
-        "padding: 6px 10px; "
-        f"background: {background}; "
-        f"border: 1px solid {border}; "
-        "border-radius: 12px; "
-        f"color: {color};"
-    )
 
 
 __all__ = ["ReplayPlayerPage", "can_reset_replay"]

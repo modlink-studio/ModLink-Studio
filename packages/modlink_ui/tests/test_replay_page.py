@@ -133,6 +133,12 @@ class ReplayPageTests(unittest.TestCase):
             player_page = page._player_page
             export_page = page._export_page
             self.assertEqual("recordings", page._route)
+            self.assertEqual("打开所选", recordings_page.open_button.text())
+            self.assertEqual("刷新列表", recordings_page.refresh_button.text())
+            self.assertEqual(
+                recordings_page.open_button.width(),
+                recordings_page.refresh_button.width(),
+            )
             self.assertEqual(0, recordings_page.header_action_layout.count())
             self._pump_events_until(lambda: recordings_page.recording_list.count() == 1)
             recordings_page.recording_list.setCurrentRow(0)
@@ -153,6 +159,12 @@ class ReplayPageTests(unittest.TestCase):
             self.assertIs(player_page.preview_panel.parentWidget(), player_page.playback_panel)
             self.assertEqual("列表", player_page.recordings_route_button.text())
             self.assertEqual("导出", player_page.export_route_button.text())
+            self.assertEqual(0, player_page.recordings_route_button.minimumHeight())
+            self.assertEqual(0, player_page.export_route_button.minimumHeight())
+            self.assertEqual("播放", player_page.play_button.text())
+            self.assertEqual("复位", player_page.pause_reset_button.text())
+            self.assertEqual(0, player_page.play_button.minimumHeight())
+            self.assertEqual(0, player_page.pause_reset_button.minimumHeight())
             self.assertFalse(player_page.recordings_route_button.icon().isNull())
             self.assertFalse(player_page.export_route_button.icon().isNull())
             self.assertEqual(
@@ -252,7 +264,7 @@ class ReplayPageTests(unittest.TestCase):
             replay_bridge.shutdown()
             backend.shutdown()
 
-    def test_recording_list_items_expand_for_long_titles(self) -> None:
+    def test_recording_list_items_stay_compact_for_long_titles(self) -> None:
         descriptor = self._descriptor()
         short_label = "short"
         long_label = (
@@ -275,25 +287,41 @@ class ReplayPageTests(unittest.TestCase):
             recording_list = page._recordings_page.recording_list
             self._pump_events_until(lambda: recording_list.count() == 2)
 
-            items_by_title = {}
+            items_by_text = {}
             for row in range(recording_list.count()):
                 item = recording_list.item(row)
-                widget = recording_list.itemWidget(item)
-                self.assertIsNotNone(widget)
-                rendered_title = widget.title_label.text().replace("\u200b", "")
-                items_by_title[rendered_title] = (item, widget)
+                self.assertIsNone(recording_list.itemWidget(item))
+                items_by_text[item.text()] = item
 
-            self.assertIn(short_label, items_by_title)
-            self.assertIn(long_label, items_by_title)
+            short_text = f"{short_label} · 1 stream"
+            long_text = f"{long_label} · 1 stream"
+            self.assertIn(short_text, items_by_text)
+            self.assertIn(long_text, items_by_text)
+            self.assertEqual(long_text, items_by_text[long_text].text())
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
 
-            short_item, _ = items_by_title[short_label]
-            long_item, long_widget = items_by_title[long_label]
-            self.assertEqual(long_label, long_widget.title_label.text().replace("\u200b", ""))
+    def test_recording_list_does_not_repeat_id_when_label_is_missing(self) -> None:
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(descriptor, recording_label="")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            recording_list = page._recordings_page.recording_list
+            self._pump_events_until(lambda: recording_list.count() == 1)
+            item = recording_list.item(0)
             self.assertEqual(
-                f"{long_item.data(Qt.ItemDataRole.UserRole)} · 1 streams",
-                long_widget.subtitle_label.text().replace("\u200b", ""),
+                f"{recording_id} · 1 stream",
+                item.text(),
             )
-            self.assertGreater(long_item.sizeHint().height(), short_item.sizeHint().height())
+            self.assertIsNone(recording_list.itemWidget(item))
         finally:
             page.close()
             replay_bridge.shutdown()
@@ -377,8 +405,8 @@ class ReplayPageTests(unittest.TestCase):
                 and page._route == "player"
             )
 
-            self.assertEqual("", player_page.play_button.text())
-            self.assertEqual("", player_page.pause_reset_button.text())
+            self.assertEqual("播放", player_page.play_button.text())
+            self.assertEqual("复位", player_page.pause_reset_button.text())
             self.assertEqual("复位", player_page.pause_reset_button.toolTip())
             self.assertFalse(player_page.pause_reset_button.isEnabled())
 
@@ -396,6 +424,7 @@ class ReplayPageTests(unittest.TestCase):
                 speed_multiplier=1.0,
             )
             page._on_snapshot_changed(playing_snapshot)
+            self.assertEqual("暂停", player_page.pause_reset_button.text())
             self.assertEqual("暂停", player_page.pause_reset_button.toolTip())
             self.assertTrue(player_page.pause_reset_button.isEnabled())
             player_page.pause_reset_button.click()
@@ -411,6 +440,7 @@ class ReplayPageTests(unittest.TestCase):
                 speed_multiplier=1.0,
             )
             page._on_snapshot_changed(paused_snapshot)
+            self.assertEqual("复位", player_page.pause_reset_button.text())
             self.assertEqual("复位", player_page.pause_reset_button.toolTip())
             self.assertTrue(player_page.pause_reset_button.isEnabled())
             player_page.pause_reset_button.click()

@@ -1,101 +1,40 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
     QListWidgetItem,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 from qfluentwidgets import (
-    BodyLabel,
-    CaptionLabel,
+    FluentIcon as FIF,
+)
+from qfluentwidgets import (
     ListWidget,
     PrimaryPushButton,
     PushButton,
     SimpleCardWidget,
     StrongBodyLabel,
 )
-from qfluentwidgets import (
-    FluentIcon as FIF,
-)
 
 from modlink_core.models import ReplayRecordingSummary
 from modlink_ui.shared import BasePage, EmptyStateMessage
 
 
-def _wrap_recording_text_for_display(text: str) -> str:
-    if len(text) <= 24:
-        return text
-
-    parts: list[str] = []
-    chunk_length = 0
-    for char in text:
-        parts.append(char)
-        chunk_length += 1
-        if char in "_-/\\.":
-            parts.append("\u200b")
-            chunk_length = 0
-        elif chunk_length >= 16:
-            parts.append("\u200b")
-            chunk_length = 0
-    return "".join(parts)
-
-
-class ReplayRecordingItemWidget(QWidget):
-    def __init__(self, title: str, subtitle: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent=parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-
-        self.title_label = BodyLabel(_wrap_recording_text_for_display(title), self)
-        self.subtitle_label = CaptionLabel(_wrap_recording_text_for_display(subtitle), self)
-        for label in (self.title_label, self.subtitle_label):
-            label.setWordWrap(True)
-            label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 10, 16, 10)
-        layout.setSpacing(4)
-        layout.addWidget(self.title_label)
-        layout.addWidget(self.subtitle_label)
-
-
-class ReplayRecordingsListWidget(ListWidget):
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self.sync_item_sizes()
-
-    def sync_item_sizes(self) -> None:
-        viewport_width = max(self.viewport().width() - 8, 0)
-        for row in range(self.count()):
-            item = self.item(row)
-            widget = self.itemWidget(item)
-            if widget is None:
-                continue
-
-            height = widget.sizeHint().height()
-            layout = widget.layout()
-            if layout is not None and layout.hasHeightForWidth():
-                height = max(height, layout.totalHeightForWidth(viewport_width))
-            elif widget.hasHeightForWidth():
-                height = max(height, widget.heightForWidth(viewport_width))
-
-            item.setSizeHint(QSize(viewport_width, height))
-
-
 class ReplayRecordingsPanel(SimpleCardWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
-        self.recording_list = ReplayRecordingsListWidget(self)
+        self.recording_list = ListWidget(self)
         self.recording_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
 
-        self.open_button = PrimaryPushButton("打开所选 recording", self)
+        self.open_button = PrimaryPushButton("打开所选", self)
         self.open_button.setIcon(FIF.FOLDER)
         self.refresh_button = PushButton("刷新列表", self)
         self.refresh_button.setIcon(FIF.SYNC)
+        for button in (self.open_button, self.refresh_button):
+            button.setFixedWidth(132)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
@@ -134,20 +73,17 @@ class ReplayRecordingsPanel(SimpleCardWidget):
         selected_recording_id = self.selected_recording_id()
         self.recording_list.clear()
         for summary in recordings:
-            title = summary.recording_label or summary.recording_id
-            subtitle = f"{summary.recording_id} · {len(summary.stream_ids)} streams"
-            item = QListWidgetItem()
+            title = (summary.recording_label or "").strip() or summary.recording_id
+            stream_count = len(summary.stream_ids)
+            stream_text = f"{stream_count} {'stream' if stream_count == 1 else 'streams'}"
+            item_text = f"{title} · {stream_text}"
+            item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, summary.recording_id)
             item.setData(Qt.ItemDataRole.UserRole + 1, summary.recording_path)
-            item.setToolTip(f"{title}\n{subtitle}")
+            item.setToolTip(item_text)
             self.recording_list.addItem(item)
-            self.recording_list.setItemWidget(
-                item,
-                ReplayRecordingItemWidget(title, subtitle, self.recording_list),
-            )
             if summary.recording_id == selected_recording_id:
                 self.recording_list.setCurrentItem(item)
-        self.recording_list.sync_item_sizes()
 
 
 class ReplayRecordingsPage(BasePage):
