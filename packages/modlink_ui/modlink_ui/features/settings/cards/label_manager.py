@@ -223,6 +223,7 @@ class LabelManagerCard(PushSettingCard):
         self._labels = labels
         self._dialog: LabelManagerDialog | None = None
 
+        self.button.setFixedWidth(120)
         self.clicked.connect(self._open_dialog)
         self._settings.sig_setting_changed.connect(self._on_setting_changed)
         self._refresh_summary()

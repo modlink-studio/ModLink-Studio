@@ -21,8 +21,9 @@ for path in (
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QApplication
+from qfluentwidgets import TextBrowser
 
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_sdk import StreamDescriptor
@@ -286,6 +287,40 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self.assertEqual(["0ml", "5ml"], [step.label for step in snapshot.steps])
         self.assertEqual("5ml", snapshot.current_step.label)
         self.assertEqual("healthy_H03_rest", acquisition_view_model.values["recording_label"])
+        panel.close()
+
+    def test_ai_chat_renders_assistant_markdown(self) -> None:
+        declare_ai_assistant_settings(self._settings_bridge)
+        self._settings_bridge.ui.ai.base_url = "https://api.example.com/v1"
+        self._settings_bridge.ui.ai.api_key = "secret-key"
+        self._settings_bridge.ui.ai.model = "gpt-test"
+
+        class _FakeClient:
+            def complete(self, _messages, *, tool_runner):
+                _ = tool_runner
+                return ExperimentAiReply("**建议**\n\n- step_a\n- step_b")
+
+        panel = ExperimentAiChatPanel(
+            ExperimentRuntimeViewModel(),
+            self._settings_bridge,
+            client_factory=lambda _config: _FakeClient(),
+        )
+        panel.show()
+        self._pump_events()
+
+        panel.input.setText("生成步骤")
+        panel.send_button.click()
+        self._pump_until(lambda: panel._request_thread is None)
+
+        markdown_messages = panel.messages_widget.findChildren(TextBrowser)
+        self.assertGreaterEqual(len(markdown_messages), 2)
+        self.assertIn("建议", markdown_messages[-1].toPlainText())
+        self.assertNotIn("**建议**", markdown_messages[-1].toPlainText())
+        self.assertEqual(Qt.FocusPolicy.NoFocus, markdown_messages[-1].focusPolicy())
+        self.assertEqual(
+            Qt.TextInteractionFlag.NoTextInteraction,
+            markdown_messages[-1].textInteractionFlags(),
+        )
         panel.close()
 
     def test_ai_chat_failure_does_not_modify_experiment_state(self) -> None:

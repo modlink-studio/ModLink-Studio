@@ -21,6 +21,7 @@ from qfluentwidgets import (
     SmoothMode,
     StrongBodyLabel,
     SubtitleLabel,
+    TextBrowser,
     ToolButton,
     TransparentToolButton,
 )
@@ -59,6 +60,46 @@ def _section_label(text: str, parent: QWidget) -> BodyLabel:
     label = BodyLabel(text, parent)
     label.setStyleSheet("font-size: 12px;")
     return label
+
+
+class _MarkdownMessageBrowser(TextBrowser):
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("experiment-ai-markdown-message")
+        self.setReadOnly(True)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.viewport().setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.document().setDocumentMargin(0)
+        self.viewport().setAutoFillBackground(False)
+        self.setStyleSheet(
+            "QTextBrowser#experiment-ai-markdown-message {"
+            "background: transparent; border: none;"
+            "}"
+        )
+        self.setMarkdown(text)
+        self._fit_to_content()
+        QTimer.singleShot(0, self._fit_to_content)
+
+    def resizeEvent(self, event: object) -> None:
+        super().resizeEvent(event)
+        self._fit_to_content()
+
+    def wheelEvent(self, event: object) -> None:
+        event.ignore()
+
+    def _fit_to_content(self) -> None:
+        width = self.viewport().width() or self.width()
+        if width <= 0:
+            return
+        self.document().setTextWidth(width)
+        self.setFixedHeight(max(24, int(self.document().size().height()) + 2))
 
 
 class _SidebarField(QWidget):
@@ -367,11 +408,14 @@ class ExperimentAiChatPanel(QWidget):
         row_layout.setSpacing(4)
 
         role_label = CaptionLabel(self._role_title(role), row)
-        body_label = BodyLabel(text, row)
-        body_label.setWordWrap(True)
+        if role == "assistant":
+            body_widget = _MarkdownMessageBrowser(text, row)
+        else:
+            body_widget = BodyLabel(text, row)
+            body_widget.setWordWrap(True)
 
         row_layout.addWidget(role_label)
-        row_layout.addWidget(body_label)
+        row_layout.addWidget(body_widget)
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, row)
         self._scroll_messages_to_bottom()
 
