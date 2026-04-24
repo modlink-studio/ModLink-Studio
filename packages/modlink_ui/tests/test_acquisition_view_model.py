@@ -143,6 +143,17 @@ class AcquisitionViewModelTests(unittest.TestCase):
 
         self.assertIsNone(self._acquisition.last_marker_label)
 
+    def test_marker_and_segment_use_shared_annotation_label(self) -> None:
+        self._view_model.set_field_value("annotation_label", "trial_a")
+
+        self._view_model.request_insert_marker()
+        self._view_model.request_toggle_segment()
+        self._view_model.request_toggle_segment()
+
+        self.assertEqual("trial_a", self._acquisition.last_marker_label)
+        self.assertIsNotNone(self._acquisition.last_segment)
+        self.assertEqual("trial_a", self._acquisition.last_segment[2])
+
     def test_stop_completion_message_uses_stop_summary(self) -> None:
         info_messages: list[str] = []
         self._view_model.sig_info.connect(info_messages.append)

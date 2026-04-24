@@ -28,7 +28,11 @@ class LivePage(BasePage):
         self.acquisition_panel = AcquisitionControlPanel(engine, self)
         self.acquisition_panel.hide()
         self.experiment_runtime = ExperimentRuntimeViewModel(self)
-        self.experiment_sidebar = LiveExperimentSidebar(self.experiment_runtime, self)
+        self.experiment_sidebar = LiveExperimentSidebar(
+            self.experiment_runtime,
+            engine.settings,
+            self,
+        )
         self.experiment_sidebar.hide()
         self.preview_panel = StreamPreviewPanel(engine, self.scroll_widget)
         self.preview_panel.hide()
@@ -49,9 +53,6 @@ class LivePage(BasePage):
         self.experiment_sidebar.installEventFilter(self)
         self.experiment_sidebar_toggle_button.clicked.connect(self._toggle_experiment_sidebar)
         self.experiment_sidebar.sig_close_requested.connect(self._hide_experiment_sidebar)
-        self.experiment_runtime.sig_fill_recording_label_requested.connect(
-            self._fill_recording_label_from_experiment_sidebar
-        )
         QTimer.singleShot(0, self._sync_floating_widgets)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -96,9 +97,6 @@ class LivePage(BasePage):
 
     def _hide_experiment_sidebar(self) -> None:
         self.experiment_sidebar.hide()
-
-    def _fill_recording_label_from_experiment_sidebar(self, value: str) -> None:
-        self.acquisition_panel.view_model.set_field_value("recording_label", value)
 
     def _sync_floating_widgets(self) -> None:
         self._sync_floating_acquisition_panel()

@@ -315,6 +315,7 @@ packages/modlink_ai/
 
 ### 3.4 LLM 集成方案
 
+- 状态：live sidebar chat prototype 已完成第一版，使用 OpenAI-compatible Chat Completions；只生成 `experiment_name`、`session_name`、`steps` 草案，用户点击应用后才写回当前侧栏运行时状态
 - 使用 Claude API（anthropic SDK）
 - 用户在设置中配置 API key
 - 预留 provider 抽象层，后续可接 OpenAI 等其他 LLM
@@ -323,6 +324,7 @@ packages/modlink_ai/
 
 ### 3.5 UI 集成
 
+- 状态：live 实验侧栏已在 Prev / Next 下方新增 AI 多轮对话框原型，设置页已新增 AI 助手配置项
 - 在主窗口右侧或底部增加 AI 助手面板（类似聊天窗口）
 - AI 的建议同时以两种形式呈现：
   1. 对话消息（"我已经帮你填好了参数"）
@@ -354,6 +356,7 @@ packages/modlink_ai/
       │
       ▼
 0.4.x  AI 辅助
+  ├── live sidebar chat prototype（已完成第一版：OpenAI-compatible、非 streaming、草案按钮应用）
   ├── AI Assistant Service
   ├── LLM 集成（Claude API）
   ├── 协议自动编排

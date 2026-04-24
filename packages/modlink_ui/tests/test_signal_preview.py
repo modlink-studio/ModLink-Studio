@@ -30,7 +30,10 @@ from modlink_ui.shared.preview.settings.models import (
     SignalPreviewSettings,
     normalize_preview_settings,
 )
-from modlink_ui.shared.preview.views.signal import SignalStreamView
+from modlink_ui.shared.preview.views.signal import (
+    SignalStreamView,
+    _NonInteractiveAxisItem,
+)
 from modlink_ui.shared.preview.views.signal_layout import (
     compute_expanded_signal_ranges,
     compute_signal_auto_range,
@@ -209,6 +212,16 @@ class SignalViewGeometryTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             view.apply_preview_settings(RasterPreviewSettings())
+
+    def test_signal_axes_ignore_wheel_events(self) -> None:
+        descriptor = self._descriptor()
+        view = self._create_view(descriptor)
+
+        view._ensure_plot_layout(3)
+
+        plot_item = view._plot_bundles[0].plot_item
+        self.assertIsInstance(plot_item.getAxis("left"), _NonInteractiveAxisItem)
+        self.assertIsInstance(plot_item.getAxis("bottom"), _NonInteractiveAxisItem)
 
 
 if __name__ == "__main__":

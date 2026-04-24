@@ -5,11 +5,13 @@ from modlink_ui.shared.ui_settings.preview_refresh_rate import (
     normalize_preview_refresh_rate_hz,
 )
 
+from .ai_assistant import AiAssistantSettingsCard
 from .label_manager import LabelManagerCard
 from .preview_refresh_rate import PreviewRefreshRateCard
 from .save_directory import SaveDirectoryCard
 
 __all__ = [
+    "AiAssistantSettingsCard",
     "DEFAULT_PREVIEW_REFRESH_RATE_HZ",
     "LabelManagerCard",
     "PREVIEW_REFRESH_RATE_OPTIONS",

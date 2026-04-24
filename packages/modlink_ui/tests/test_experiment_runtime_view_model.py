@@ -66,37 +66,13 @@ class ExperimentRuntimeViewModelTests(unittest.TestCase):
         self.assertEqual(1, snapshot.current_step_index)
         self.assertEqual("beta", snapshot.current_step.label if snapshot.current_step else None)
 
-    def test_suggested_recording_label_requires_session_and_current_step(self) -> None:
-        self._view_model.set_session_name("healthy_H03")
-        self.assertFalse(self._view_model.snapshot().can_fill_recording_label)
-
-        self._view_model.set_steps_text("5ml")
+    def test_experiment_and_session_names_are_trimmed_in_snapshot(self) -> None:
+        self._view_model.set_experiment_name("  swallow_study  ")
+        self._view_model.set_session_name("  healthy_H03  ")
         snapshot = self._view_model.snapshot()
 
-        self.assertTrue(snapshot.can_fill_recording_label)
-        self.assertEqual("healthy_H03__5ml__step01", snapshot.suggested_recording_label)
-
-    def test_request_fill_does_not_emit_when_suggestion_is_missing(self) -> None:
-        requested_labels: list[str] = []
-        self._view_model.sig_fill_recording_label_requested.connect(requested_labels.append)
-
-        self._view_model.set_steps_text("5ml")
-        self._view_model.request_fill_suggested_label()
-
-        self.assertEqual([], requested_labels)
-
-    def test_retry_republishes_current_suggestion_without_moving_index(self) -> None:
-        requested_labels: list[str] = []
-        self._view_model.sig_fill_recording_label_requested.connect(requested_labels.append)
-        self._view_model.set_session_name("patient_P07")
-        self._view_model.set_steps_text("0ml\n15ml")
-        self._view_model.next_step()
-
-        self._view_model.retry_step()
-
-        snapshot = self._view_model.snapshot()
-        self.assertEqual(1, snapshot.current_step_index)
-        self.assertEqual(["patient_P07__15ml__step02"], requested_labels)
+        self.assertEqual("swallow_study", snapshot.experiment_name)
+        self.assertEqual("healthy_H03", snapshot.session_name)
 
 
 if __name__ == "__main__":

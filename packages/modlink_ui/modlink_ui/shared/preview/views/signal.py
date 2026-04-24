@@ -217,6 +217,11 @@ class _NonInteractiveViewBox(pg.ViewBox):
         event.ignore()
 
 
+class _NonInteractiveAxisItem(pg.AxisItem):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class _SignalRingBuffer:
     def __init__(self, channels: int, max_samples: int):
         self.channels = channels
@@ -579,7 +584,13 @@ class SignalStreamView(BaseStreamView):
         return visible_channel_indices
 
     def _create_plot_item(self, show_bottom_axis: bool) -> pg.PlotItem:
-        plot_item = self._graphics_widget.addPlot(viewBox=_NonInteractiveViewBox())
+        plot_item = self._graphics_widget.addPlot(
+            viewBox=_NonInteractiveViewBox(),
+            axisItems={
+                "left": _NonInteractiveAxisItem("left"),
+                "bottom": _NonInteractiveAxisItem("bottom"),
+            },
+        )
         plot_item.setMenuEnabled(False)
         plot_item.showGrid(x=True, y=True, alpha=0.16)
         plot_item.hideButtons()

@@ -67,8 +67,7 @@ class AcquisitionPanelState:
 @dataclass(slots=True)
 class AcquisitionFormValues:
     recording_label: str = ""
-    marker_label: str = ""
-    segment_label: str = ""
+    annotation_label: str = ""
 
 
 class AcquisitionViewModel(QObject):
@@ -88,8 +87,7 @@ class AcquisitionViewModel(QObject):
         self._state = self._build_default_state()
         self._values = AcquisitionFormValues(
             recording_label=self._state.fields[0].value,
-            marker_label=self._state.fields[1].value,
-            segment_label=self._state.fields[2].value,
+            annotation_label=self._state.fields[1].value,
         )
         self._pending_segment_start_ns: int | None = None
         self._pending_recording_stop_notice = False
@@ -133,14 +131,9 @@ class AcquisitionViewModel(QObject):
                     placeholder="例如 resting_state",
                 ),
                 AcquisitionFieldState(
-                    key="marker_label",
-                    label="Marker 标签",
-                    placeholder="例如 blink、event_a、cue",
-                ),
-                AcquisitionFieldState(
-                    key="segment_label",
-                    label="区间标签",
-                    placeholder="例如 trial_a、focus、rest",
+                    key="annotation_label",
+                    label="标注标签",
+                    placeholder="例如 blink、trial_a、focus、rest",
                 ),
             ),
             primary_action=AcquisitionActionState(
@@ -238,8 +231,8 @@ class AcquisitionViewModel(QObject):
         self.engine.recording.start_recording(recording_label)
 
     def request_insert_marker(self) -> None:
-        marker_label = self.get_field_value("marker_label").strip() or None
-        self.engine.recording.add_marker(marker_label)
+        annotation_label = self.get_field_value("annotation_label").strip() or None
+        self.engine.recording.add_marker(annotation_label)
 
     def request_toggle_segment(self) -> None:
         if self._pending_segment_start_ns is None:
@@ -249,12 +242,12 @@ class AcquisitionViewModel(QObject):
 
         start_ns = self._pending_segment_start_ns
         end_ns = time.time_ns()
-        segment_label = self.get_field_value("segment_label").strip() or None
+        annotation_label = self.get_field_value("annotation_label").strip() or None
         self._clear_pending_segment(notify=True)
         self.engine.recording.add_segment(
             start_ns=start_ns,
             end_ns=end_ns,
-            label=segment_label,
+            label=annotation_label,
         )
 
     def request_reset_segment(self) -> None:

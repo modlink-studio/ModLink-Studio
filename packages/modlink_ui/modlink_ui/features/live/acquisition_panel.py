@@ -323,8 +323,7 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
         state = self.view_model.state
         (
             recording_label_state,
-            marker_label_state,
-            segment_label_state,
+            annotation_label_state,
         ) = state.fields
         (
             insert_marker_state,
@@ -357,17 +356,12 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
         )
         self._bind_combo_box(self.recording_label_combo, recording_label_state.key)
 
-        marker_label_field = LabeledField(marker_label_state, parent=self)
-        self.marker_label_input = marker_label_field.input
-        self._bind_line_edit(self.marker_label_input, marker_label_state.key)
-
-        segment_label_field = LabeledField(segment_label_state, parent=self)
-        self.segment_label_input = segment_label_field.input
-        self._bind_line_edit(self.segment_label_input, segment_label_state.key)
+        annotation_label_field = LabeledField(annotation_label_state, parent=self)
+        self.annotation_label_input = annotation_label_field.input
+        self._bind_line_edit(self.annotation_label_input, annotation_label_state.key)
 
         form_grid.addWidget(recording_label_field, 0, 0)
-        form_grid.addWidget(marker_label_field, 0, 1)
-        form_grid.addWidget(segment_label_field, 1, 0)
+        form_grid.addWidget(annotation_label_field, 0, 1)
 
         action_grid = QGridLayout()
         action_grid.setContentsMargins(0, 0, 0, 0)
@@ -426,8 +420,7 @@ class DetailedAcquisitionPanel(SharedAcquisitionPanel):
 
     def sync_from_view_model(self) -> None:
         self._refresh_recording_label_options()
-        self._sync_line_edit(self.marker_label_input, "marker_label")
-        self._sync_line_edit(self.segment_label_input, "segment_label")
+        self._sync_line_edit(self.annotation_label_input, "annotation_label")
         self._sync_interaction_state()
 
         primary_action = self.view_model.current_primary_action()
@@ -450,8 +443,7 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
         state = self.view_model.state
         (
             recording_label_state,
-            marker_label_state,
-            segment_label_state,
+            annotation_label_state,
         ) = state.fields
         (
             insert_marker_state,
@@ -477,16 +469,14 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
         self._bind_combo_box(self.recording_label_combo, recording_label_state.key)
 
         self.annotation_label_input = LineEdit(self)
-        self.annotation_label_input.setPlaceholderText(
-            f"{marker_label_state.label} / {segment_label_state.label}"
-        )
+        self.annotation_label_input.setPlaceholderText(annotation_label_state.label)
         self.annotation_label_input.setClearButtonEnabled(True)
         self.annotation_label_input.setFixedHeight(34)
         self.annotation_label_input.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        self.annotation_label_input.textChanged.connect(self._set_compact_annotation_value)
+        self._bind_line_edit(self.annotation_label_input, annotation_label_state.key)
 
         self.insert_marker_button = TransparentToolButton(insert_marker_state.icon, self)
         self.insert_marker_button.setFixedSize(34, 34)
@@ -516,24 +506,9 @@ class CompactAcquisitionPanel(SharedAcquisitionPanel):
 
         self.sync_from_view_model()
 
-    def _set_compact_annotation_value(self, value: str) -> None:
-        self.view_model.update_field_value_from_ui("marker_label", value)
-        self.view_model.update_field_value_from_ui("segment_label", value)
-
-    def _sync_compact_annotation_value(self) -> None:
-        marker_label = self.view_model.get_field_value("marker_label").strip()
-        segment_label = self.view_model.get_field_value("segment_label").strip()
-        value = marker_label or segment_label
-        if self.annotation_label_input.text() == value:
-            return
-
-        was_blocked = self.annotation_label_input.blockSignals(True)
-        self.annotation_label_input.setText(value)
-        self.annotation_label_input.blockSignals(was_blocked)
-
     def sync_from_view_model(self) -> None:
         self._refresh_recording_label_options()
-        self._sync_compact_annotation_value()
+        self._sync_line_edit(self.annotation_label_input, "annotation_label")
         self._sync_interaction_state()
 
         primary_action = self.view_model.current_primary_action()
