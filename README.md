@@ -107,11 +107,28 @@ modlink-plugin uninstall host-camera
 npx @modlink-studio/plugin-scaffold --zh
 ```
 
+如果希望由 AI 从设备描述生成可运行插件，可以使用独立的 Python agent。它会先调用官方脚手架生成稳定项目骨架，再让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和修复：
+
+```bash
+$env:MODLINK_AI_BASE_URL = "https://api.example.com/v1"
+$env:MODLINK_AI_MODEL = "gpt-compatible-model"
+$env:MODLINK_AI_API_KEY = "..."
+uv run modlink-plugin-agent generate "生成一个串口双通道压力传感器插件" --out ./plugins
+```
+
 在仓库内联调脚手架时：
 
 ```bash
 npm install
 npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
+```
+
+AI agent、CI 或脚本也可以直接调用脚手架的 headless 模式：
+
+```bash
+npx @modlink-studio/plugin-scaffold schema --json
+npx @modlink-studio/plugin-scaffold validate --stdin --json
+npx @modlink-studio/plugin-scaffold generate --stdin --json --out ./plugins
 ```
 
 这个工具会交互式生成一个可启动的 driver 项目骨架，通常包括：
@@ -137,7 +154,8 @@ modlink-studio/
 │  ├─ modlink_core/
 │  └─ modlink_ui/
 ├─ tools/
-│  └─ modlink_plugin_scaffold/
+│  ├─ modlink_plugin_scaffold/
+│  └─ modlink_plugin_agent/
 └─ vpdocs/
 ```
 
@@ -148,6 +166,7 @@ modlink-studio/
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: 当前唯一的 Qt Widgets UI 包，内部同时承载 Qt bridge
 - `tools/modlink_plugin_scaffold/`: 独立 npm driver 脚手架工具
+- `tools/modlink_plugin_agent/`: 独立 Python AI driver 生成 agent
 - `vpdocs/`: VitePress 文档站源码
 
 ## Contributor Setup

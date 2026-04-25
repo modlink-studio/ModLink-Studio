@@ -35,7 +35,7 @@ modlink-studio = "modlink_studio.app:main"
 modlink-studio-debug = "modlink_studio.app:debug_main"
 modlink-server = "modlink_server.app:main"
 modlink-plugin = "modlink_studio.plugin.cli:main"
-modlink-plugin-scaffold = "modlink_scaffold.cli:main"
+modlink-plugin-agent = "modlink_plugin_agent.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -99,7 +99,7 @@ where = [
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_ui",
-    "tools/modlink_plugin_scaffold_py",
+    "tools/modlink_plugin_agent",
 ]
 include = [
     "modlink_studio*",
@@ -107,7 +107,7 @@ include = [
     "modlink_sdk*",
     "modlink_core*",
     "modlink_ui*",
-    "modlink_scaffold*",
+    "modlink_plugin_agent*",
 ]
 namespaces = false
 

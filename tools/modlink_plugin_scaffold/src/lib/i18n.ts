@@ -200,7 +200,8 @@ const en: Copy = {
     "streams.select": "Select which stream definition is currently shown on the right.",
     "streams.add": "Append a brand-new stream using the default values for its payload type.",
     "streams.delete": "Remove the selected stream from the generated driver project.",
-    "streams.streamKey": "Short device-local stream key, for example eeg, imu, camera, or temperature.",
+    "streams.streamKey":
+      "Short device-local stream key, for example eeg, imu, camera, or temperature.",
     "streams.displayName": "Visible stream name shown in the host UI and metadata.",
     "streams.payloadType": "Shape family for the emitted payload: signal, raster, field, or video.",
     "streams.sampleRateHz": "Nominal sample rate or frame rate written into the stream descriptor.",

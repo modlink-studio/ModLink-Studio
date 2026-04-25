@@ -234,6 +234,15 @@ class Protocol:
 
 **核心目标：AI 不控制硬件，只承担编排、建议、预填写等辅助职责；开始、停止、下一步等关键控制权始终由用户保留。**
 
+### 3.0 AI 插件生成工具
+
+状态：进行中。当前路线新增独立 Python CLI `modlink-plugin-agent`，用于从自然语言设备描述生成 ModLink driver plugin。它和确定性 npm 脚手架分工如下：
+
+- `tools/modlink_plugin_scaffold`：官方确定性脚手架，面向开发者、AI agent、CI 和脚本；新增 headless `schema / validate / generate` 命令
+- `tools/modlink_plugin_agent`：AI agent，采用 scaffold → full code 流程，先生成稳定插件骨架，再让 OpenAI-compatible 模型补全 driver 代码、README 和测试
+- agent 只允许写入生成插件项目目录，模型输出限定为 JSON 文件包，不允许模型返回或执行任意 shell 命令
+- 第一版允许在生成插件目录内创建 `.venv`、安装依赖、运行 `compileall` / `pytest`，并在失败时最多自动修复两轮
+
 ### 3.1 AI 的角色定义
 
 ```
@@ -357,6 +366,7 @@ packages/modlink_ai/
       ▼
 0.4.x  AI 辅助
   ├── live sidebar chat prototype（已完成第一版：OpenAI-compatible、非 streaming、本地工具调用）
+  ├── plugin AI agent（进行中：scaffold → full code，独立 Python CLI）
   ├── AI Assistant Service
   ├── LLM 集成（Claude API）
   ├── 协议自动编排
