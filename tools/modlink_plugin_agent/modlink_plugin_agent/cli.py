@@ -15,9 +15,9 @@ from .client import AiConfig, OpenAICompatibleJsonClient
 app = typer.Typer(
     name="modlink-plugin-agent",
     help=(
-        "AI agent for generating ModLink driver plugins. It starts from the official "
-        "deterministic scaffold, then asks an OpenAI-compatible model to fill in driver "
-        "code, README content, and tests. Examples: modlink-plugin-agent generate "
+        "Python-only AI agent for generating ModLink driver plugins. It uses an internal "
+        "deterministic scaffold writer, then asks an OpenAI-compatible model to fill in "
+        "driver code, README content, and tests. Examples: modlink-plugin-agent generate "
         '"serial two-channel pressure sensor" --out ./plugins; '
         'modlink-plugin-agent generate "生成串口双通道压力传感器插件" --out ./plugins'
     ),
@@ -51,11 +51,6 @@ def generate(
         "--api-key-env",
         help="Environment variable that contains the API key.",
     ),
-    scaffold_command: str | None = typer.Option(
-        None,
-        "--scaffold-command",
-        help="Override scaffold command, for example: modlink-plugin-scaffold",
-    ),
     max_repairs: int = typer.Option(2, "--max-repairs", min=0, help="Maximum AI repair attempts."),
     overwrite: bool = typer.Option(
         False, "--overwrite", help="Overwrite an existing plugin project."
@@ -81,7 +76,6 @@ def generate(
         client=client,
         config=PluginAgentConfig(
             out_dir=out.resolve(),
-            scaffold_command=scaffold_command,
             overwrite=overwrite,
             max_repairs=max_repairs,
         ),

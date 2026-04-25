@@ -8,11 +8,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .client import ChatMessage
-from .scaffold import run_scaffold_generate
+from .scaffold import generate_scaffold_project
 from .verifier import VerificationResult, verify_plugin_project
 from .workspace import (
     apply_file_edits,
-    normalize_json_object,
     parse_file_edits,
     summarize_project_files,
 )
@@ -28,7 +27,6 @@ type VerifyCallable = Callable[[Path], VerificationResult]
 @dataclass(frozen=True, slots=True)
 class PluginAgentConfig:
     out_dir: Path
-    scaffold_command: str | None = None
     overwrite: bool = False
     max_repairs: int = 2
 
@@ -59,15 +57,14 @@ class PluginAgent:
         scaffold_spec = _extract_scaffold_spec(
             self.client.complete_json(_build_scaffold_messages(request))
         )
-        scaffold_result = run_scaffold_generate(
+        scaffold_result = generate_scaffold_project(
             scaffold_spec,
             self.config.out_dir,
-            scaffold_command=self.config.scaffold_command,
             overwrite=self.config.overwrite,
         )
-        project_dir = Path(str(scaffold_result["projectDir"])).resolve()
-        normalized_spec = normalize_json_object(scaffold_result.get("spec"))
-        plugin_name = str(normalized_spec.get("pluginName") or scaffold_spec.get("pluginName"))
+        project_dir = scaffold_result.project_dir.resolve()
+        normalized_spec = scaffold_result.spec.as_json()
+        plugin_name = scaffold_result.spec.plugin_name
 
         edit_payload = self.client.complete_json(
             _build_code_messages(request, normalized_spec, summarize_project_files(project_dir))

@@ -107,7 +107,7 @@ modlink-plugin uninstall host-camera
 npx @modlink-studio/plugin-scaffold --zh
 ```
 
-如果希望由 AI 从设备描述生成可运行插件，可以使用独立的 Python agent。它会先调用官方脚手架生成稳定项目骨架，再让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和修复：
+如果希望由 AI 从设备描述生成可运行插件，可以使用独立的 Python agent。它内置确定性的 Python scaffold writer，不依赖 npm / npx；随后会让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和修复：
 
 ```bash
 $env:MODLINK_AI_BASE_URL = "https://api.example.com/v1"
@@ -121,14 +121,6 @@ uv run modlink-plugin-agent generate "生成一个串口双通道压力传感器
 ```bash
 npm install
 npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
-```
-
-AI agent、CI 或脚本也可以直接调用脚手架的 headless 模式：
-
-```bash
-npx @modlink-studio/plugin-scaffold schema --json
-npx @modlink-studio/plugin-scaffold validate --stdin --json
-npx @modlink-studio/plugin-scaffold generate --stdin --json --out ./plugins
 ```
 
 这个工具会交互式生成一个可启动的 driver 项目骨架，通常包括：

@@ -103,21 +103,13 @@
 npx @modlink-studio/plugin-scaffold --zh
 ```
 
-如果你希望从自然语言设备描述直接生成插件项目，可以使用 Python 侧的 AI agent。它会先调用官方脚手架固定项目骨架，再让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和自动修复：
+如果你希望从自然语言设备描述直接生成插件项目，可以使用 Python 侧的 AI agent。它内置确定性的 Python scaffold writer，不依赖 npm / npx；随后会让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和自动修复：
 
 ```bash
 export MODLINK_AI_BASE_URL="https://api.example.com/v1"
 export MODLINK_AI_MODEL="gpt-compatible-model"
 export MODLINK_AI_API_KEY="..."
 uv run modlink-plugin-agent generate "serial two-channel pressure sensor" --out ./plugins
-```
-
-如果要让 AI agent、CI 或脚本直接调用确定性脚手架，可以使用 headless 模式：
-
-```bash
-npx @modlink-studio/plugin-scaffold schema --json
-npx @modlink-studio/plugin-scaffold validate --stdin --json
-npx @modlink-studio/plugin-scaffold generate --stdin --json --out ./plugins
 ```
 
 如果你正在仓库里联调脚手架本身：

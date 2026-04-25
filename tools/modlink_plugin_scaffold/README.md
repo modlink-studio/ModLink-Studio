@@ -10,20 +10,11 @@
 npx @modlink-studio/plugin-scaffold --zh
 ```
 
-Headless / AI agent / CI 使用：
-
-```bash
-npx @modlink-studio/plugin-scaffold schema --json
-npx @modlink-studio/plugin-scaffold validate --stdin --json < plugin.spec.json
-npx @modlink-studio/plugin-scaffold generate --stdin --json --out ./plugins < plugin.spec.json
-```
-
 仓库内开发：
 
 ```bash
 npm install
 npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
-npm --workspace @modlink-studio/plugin-scaffold run dev -- schema --json
 ```
 
 全局安装后也可以直接运行：
@@ -45,35 +36,6 @@ modlink-plugin-scaffold --zh
 - `tests/test_smoke.py`
 
 生成目标仍然是独立的 Python driver 包，面向 `modlink-sdk` 与 `modlink.drivers` entry point 契约。
-
-## Headless Input
-
-`generate` 和 `validate` 从 stdin 读取 JSON。典型输入如下：
-
-```json
-{
-  "pluginName": "serial-pressure",
-  "displayName": "Serial Pressure",
-  "deviceId": "serial_pressure.01",
-  "providers": ["serial"],
-  "dataArrival": "poll",
-  "driverKind": "loop",
-  "dependencies": ["pyserial>=3.5"],
-  "streams": [
-    {
-      "streamKey": "pressure",
-      "displayName": "Pressure",
-      "payloadType": "signal",
-      "sampleRateHz": 100,
-      "chunkSize": 10,
-      "channelNames": ["left", "right"],
-      "unit": "kPa"
-    }
-  ]
-}
-```
-
-这些 headless 命令只负责确定性校验和生成，不调用 AI。AI 插件生成由 Python CLI `modlink-plugin-agent` 编排：它先调用本工具生成骨架，再补全 driver 代码并运行验证。
 
 ## Development Tooling
 

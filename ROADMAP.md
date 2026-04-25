@@ -238,8 +238,8 @@ class Protocol:
 
 状态：进行中。当前路线新增独立 Python CLI `modlink-plugin-agent`，用于从自然语言设备描述生成 ModLink driver plugin。它和确定性 npm 脚手架分工如下：
 
-- `tools/modlink_plugin_scaffold`：官方确定性脚手架，面向开发者、AI agent、CI 和脚本；新增 headless `schema / validate / generate` 命令
-- `tools/modlink_plugin_agent`：AI agent，采用 scaffold → full code 流程，先生成稳定插件骨架，再让 OpenAI-compatible 模型补全 driver 代码、README 和测试
+- `tools/modlink_plugin_scaffold`：官方交互式 npm 脚手架，继续面向开发者手动创建 driver 项目骨架
+- `tools/modlink_plugin_agent`：Python-only AI agent，采用 scaffold → full code 流程，先用内置 Python scaffold writer 生成稳定插件骨架，再让 OpenAI-compatible 模型补全 driver 代码、README 和测试
 - agent 只允许写入生成插件项目目录，模型输出限定为 JSON 文件包，不允许模型返回或执行任意 shell 命令
 - 第一版允许在生成插件目录内创建 `.venv`、安装依赖、运行 `compileall` / `pytest`，并在失败时最多自动修复两轮
 

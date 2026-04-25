@@ -13,6 +13,7 @@ if str(PACKAGE_ROOT) not in sys.path:
 from modlink_plugin_agent.agent import PluginAgent, PluginAgentConfig
 from modlink_plugin_agent.cli import app
 from modlink_plugin_agent.client import AiConfig, OpenAICompatibleJsonClient
+from modlink_plugin_agent.scaffold import generate_scaffold_project
 from modlink_plugin_agent.verifier import VerificationResult
 from modlink_plugin_agent.workspace import FileEdit, apply_file_edits
 
@@ -67,28 +68,19 @@ def test_openai_client_returns_json_object() -> None:
     assert result["pluginName"] == "demo-device"
 
 
-def test_agent_scaffolds_generates_repairs_and_verifies(tmp_path, monkeypatch) -> None:
-    project_dir = tmp_path / "demo_device"
+def test_python_scaffold_writes_project_tree(tmp_path) -> None:
+    result = generate_scaffold_project(_demo_spec(), tmp_path)
 
-    def fake_scaffold(spec, out_dir, **_kwargs):
-        project_dir.mkdir()
-        package_dir = project_dir / "demo_device"
-        package_dir.mkdir()
-        (project_dir / "pyproject.toml").write_text("[project]\nname='demo-device'\n")
-        (project_dir / "README.md").write_text("# Demo\n")
-        (package_dir / "driver.py").write_text("bad")
-        (package_dir / "factory.py").write_text("bad")
-        (project_dir / "tests").mkdir()
-        (project_dir / "tests" / "test_smoke.py").write_text("def test_smoke(): pass\n")
-        return {
-            "ok": True,
-            "projectDir": str(project_dir),
-            "spec": {
-                "pluginName": "demo_device",
-                "displayName": "Demo Device",
-                "deviceId": "demo_device.01",
-            },
-        }
+    assert result.project_dir == tmp_path / "demo_device"
+    assert (result.project_dir / "pyproject.toml").read_text(encoding="utf-8").find(
+        'demo-device = "demo_device.factory:create_driver"'
+    ) != -1
+    assert (result.project_dir / "demo_device" / "driver.py").exists()
+    assert result.spec.as_json()["pluginName"] == "demo_device"
+
+
+def test_agent_scaffolds_generates_repairs_and_verifies(tmp_path) -> None:
+    project_dir = tmp_path / "demo_device"
 
     verify_calls = 0
 
@@ -99,22 +91,9 @@ def test_agent_scaffolds_generates_repairs_and_verifies(tmp_path, monkeypatch) -
             return VerificationResult(False, "SyntaxError: bad driver")
         return VerificationResult(True, "pytest passed")
 
-    monkeypatch.setattr("modlink_plugin_agent.agent.run_scaffold_generate", fake_scaffold)
     client = _FakeClient(
         [
-            {
-                "pluginName": "demo-device",
-                "providers": ["serial"],
-                "streams": [
-                    {
-                        "streamKey": "pressure",
-                        "payloadType": "signal",
-                        "sampleRateHz": 100,
-                        "chunkSize": 10,
-                        "channelNames": ["left", "right"],
-                    }
-                ],
-            },
+            _demo_spec(),
             {
                 "files": [
                     {
@@ -163,3 +142,26 @@ def test_cli_reports_missing_ai_config() -> None:
 
     assert result.exit_code != 0
     assert "Missing AI configuration" in result.output
+
+
+def _demo_spec() -> dict[str, object]:
+    return {
+        "pluginName": "demo-device",
+        "displayName": "Demo Device",
+        "deviceId": "demo_device.01",
+        "providers": ["serial"],
+        "dataArrival": "poll",
+        "driverKind": "loop",
+        "dependencies": [],
+        "streams": [
+            {
+                "streamKey": "pressure",
+                "displayName": "Pressure",
+                "payloadType": "signal",
+                "sampleRateHz": 100,
+                "chunkSize": 10,
+                "channelNames": ["left", "right"],
+                "unit": "kPa",
+            }
+        ],
+    }
