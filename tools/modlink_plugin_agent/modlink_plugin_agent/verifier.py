@@ -26,14 +26,15 @@ def verify_plugin_project(
     root = project_dir.resolve()
     venv_dir = root / ".venv"
     python = _venv_python(venv_dir)
+    local_studio_path = _local_studio_path(root)
     commands = [
         [sys.executable, "-m", "venv", str(venv_dir)],
-        [str(python), "-m", "pip", "install", "-e", _local_sdk_path(root)]
-        if _local_sdk_path(root) is not None
+        [str(python), "-m", "pip", "install", "-e", local_studio_path]
+        if local_studio_path is not None
         else None,
         [str(python), "-m", "pip", "install", "-e", ".", "pytest"],
-        [str(python), "-m", "compileall", "."],
-        [str(python), "-m", "pytest"],
+        [str(python), "-m", "compileall", "-q", "-x", ".venv|egg-info|build|dist", "."],
+        [str(python), "-m", "pytest", "-W", "error::pytest.PytestUnhandledThreadExceptionWarning"],
     ]
 
     logs: list[str] = []
@@ -60,11 +61,14 @@ def _venv_python(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
-def _local_sdk_path(project_dir: Path) -> str | None:
+def _local_studio_path(project_dir: Path) -> str | None:
     for candidate in [project_dir, *project_dir.parents]:
-        sdk_path = candidate / "packages" / "modlink_sdk"
-        if (sdk_path / "pyproject.toml").exists():
-            return str(sdk_path)
+        if (
+            (candidate / "pyproject.toml").exists()
+            and (candidate / "packages" / "modlink_sdk" / "modlink_sdk").exists()
+            and (candidate / "apps" / "modlink_studio" / "modlink_studio").exists()
+        ):
+            return str(candidate)
     return None
 
 

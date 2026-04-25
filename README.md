@@ -92,14 +92,15 @@ modlink-plugin uninstall host-camera
 
 ## Driver Development
 
-`0.2.0` 这一版的公开发布重点是主宿主包 `modlink-studio`，不会同步公开独立的 `modlink-sdk` PyPI 包。
+`0.3.0` 继续以主宿主包 `modlink-studio` 作为公开安装入口。外部 driver 插件通常应该在自己的独立项目里开发，并把 `modlink-studio` 作为依赖；插件代码仍然从 `modlink_sdk` import SDK 类型，因为这个模块随 `modlink-studio` 分发。
 
-不过仓库里的 SDK 契约和 driver 接入模型已经稳定下来；如果当前要做内部联调或前置驱动开发，仍然建议按这条边界思考：
+典型外部插件项目安装方式是：
 
-- `modlink-sdk`
-- 设备自身的传输层依赖
+```bash
+python -m pip install -e .
+```
 
-只有在确实需要运行时服务时，才额外依赖 `modlink-core`。当前 `0.2.0` 阶段如果要做外部 driver 联调，应以源码仓库和本地环境为准，而不是假定存在独立公开的 SDK 安装包。
+安装到与宿主相同的环境后，`modlink.drivers` entry point 会被宿主发现。
 
 如果是新建 driver 项目，可以使用独立脚手架工具：
 
@@ -115,6 +116,12 @@ $env:MODLINK_AI_MODEL = "gpt-compatible-model"
 $env:MODLINK_AI_API_KEY = "..."
 uv run modlink-plugin-agent generate "生成一个串口双通道压力传感器插件" --out ./plugins
 ```
+
+如果模型服务响应较慢，可以加 `--timeout-s 300`。
+
+开发时也可以把 `tools/modlink_plugin_agent/.env.example` 复制为 `tools/modlink_plugin_agent/.env` 后填写。CLI 会读取 agent 目录和当前工作目录下的 `.env`；已经存在的真实环境变量优先。
+
+如果你希望让 Claude Code、Codex 等 coding agent 在外部插件项目里直接写 driver，可以使用 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。它描述的是外部插件项目的真实工作流：依赖 `modlink-studio`、暴露 `modlink.drivers` entry point、`pip install -e .` 验证。
 
 在仓库内联调脚手架时：
 

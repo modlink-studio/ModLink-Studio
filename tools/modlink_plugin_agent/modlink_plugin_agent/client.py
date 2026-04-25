@@ -60,7 +60,8 @@ class OpenAICompatibleJsonClient:
             data = response.json()
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code if exc.response is not None else "unknown"
-            raise RuntimeError(f"AI service returned HTTP {status}") from exc
+            hint = _http_status_hint(status)
+            raise RuntimeError(f"AI service returned HTTP {status}. {hint}") from exc
         except httpx.RequestError as exc:
             raise RuntimeError(f"Could not connect to AI service: {exc}") from exc
         except ValueError as exc:
@@ -109,3 +110,15 @@ def _parse_json_content(content: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise RuntimeError("AI response JSON must be an object")
     return parsed
+
+
+def _http_status_hint(status: object) -> str:
+    if status == 401:
+        return "Check the API key value and --api-key-env/.env configuration."
+    if status == 403:
+        return "Check whether the API key has access to the selected model."
+    if status == 404:
+        return "Check --base-url; it should point to an OpenAI-compatible /v1 endpoint."
+    if status == 400:
+        return "Check the model name and whether the provider supports JSON response_format."
+    return "Check the OpenAI-compatible service configuration."

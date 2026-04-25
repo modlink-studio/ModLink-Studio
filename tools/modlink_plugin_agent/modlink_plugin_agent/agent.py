@@ -179,8 +179,17 @@ def _code_system_message() -> ChatMessage:
             '{"files":[{"path":"relative/path.py","content":"full file content"}]}. '
             "Do not return shell commands. Do not write outside the project. Allowed files are "
             "pyproject.toml, README.md, tests/*.py, and Python modules inside the plugin package. "
-            "Drivers must implement the modlink_sdk Driver or LoopDriver contract, expose "
-            "create_driver(), return stable StreamDescriptor objects, and emit FrameEnvelope data "
-            "with shapes matching the descriptors. Tests must be offline and deterministic."
+            "External plugin projects depend on modlink-studio, not a separately published "
+            "modlink-sdk package; driver code still imports SDK types from modlink_sdk. "
+            "Drivers must implement the modlink_sdk Driver or LoopDriver contract. create_driver() "
+            "must return a driver instance. SearchResult requires title as the first argument; "
+            "use SearchResult(title='Device name', subtitle='', device_id='name.01', extra={...}). "
+            "StreamDescriptor requires device_id, stream_key, payload_type, nominal_sample_rate_hz, "
+            "chunk_size, and optional channel_names/display_name/metadata. FrameEnvelope requires "
+            "device_id, stream_key, timestamp_ns, and data. Emitted data shapes must match the "
+            "descriptors. Tests must be offline, deterministic, and aligned with these SDK "
+            "dataclass signatures. Streaming/background-thread tests must stop threads cleanly and "
+            "must not rely on exhausted mock side_effect iterators that raise StopIteration in a "
+            "background thread."
         ),
     }

@@ -30,6 +30,9 @@ tmp/
 *.egg-info/
 
 # OS / editor / local tool settings
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 .idea/

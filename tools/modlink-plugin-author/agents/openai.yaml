@@ -1,0 +1,4 @@
+interface:
+  display_name: "ModLink Plugin Author"
+  short_description: "Build external ModLink Studio driver plugin projects."
+  default_prompt: "Create a ModLink Studio driver plugin for my device."

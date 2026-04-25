@@ -13,6 +13,8 @@ type DataArrival = Literal["push", "poll", "unsure"]
 type PayloadType = Literal["signal", "raster", "field", "video"]
 
 _DEVICE_ID_PATTERN = re.compile(r"^[a-z0-9_]+\.[0-9]{2,}$")
+_DEVICE_ID_WITH_SUFFIX_PATTERN = re.compile(r"^([a-z0-9_]+)[._-]([0-9]{2,})$")
+_MODLINK_STUDIO_DEPENDENCY = "modlink-studio>=0.3.0rc1"
 _PAYLOAD_TYPES = {"signal", "raster", "field", "video"}
 _DATA_ARRIVALS = {"push", "poll", "unsure"}
 _DRIVER_KINDS = {"driver", "loop"}
@@ -157,10 +159,7 @@ def validate_scaffold_spec(raw_spec: dict[str, Any]) -> DriverSpec:
     if not plugin_name:
         raise ValueError("pluginName must contain at least one letter or number")
 
-    device_id = str(raw_spec.get("deviceId") or _make_device_id(plugin_name)).strip().lower()
-    device_id = device_id.replace("-", "_")
-    if not _DEVICE_ID_PATTERN.match(device_id):
-        raise ValueError("deviceId must match name.XX, for example my_driver.01")
+    device_id = _normalize_device_id(raw_spec.get("deviceId"), plugin_name)
 
     providers = tuple(_split_tokens(raw_spec.get("providers"), normalize=True))
     if not providers:
@@ -178,7 +177,17 @@ def validate_scaffold_spec(raw_spec: dict[str, Any]) -> DriverSpec:
         raw_spec.get("driverKind"), _DRIVER_KINDS, _recommended_driver_kind(data_arrival)
     )
     dependencies = tuple(
-        dict.fromkeys(["modlink-sdk", "numpy>=2.3.3", *_split_tokens(raw_spec.get("dependencies"))])
+        dict.fromkeys(
+            [
+                _MODLINK_STUDIO_DEPENDENCY,
+                "numpy>=2.3.3",
+                *[
+                    dependency
+                    for dependency in _split_tokens(raw_spec.get("dependencies"))
+                    if not _is_modlink_dependency(dependency)
+                ],
+            ]
+        )
     )
 
     return DriverSpec(
@@ -575,6 +584,26 @@ def _make_device_id(plugin_name: str) -> str:
     return f"{_normalize_token(plugin_name)}.01"
 
 
+def _normalize_device_id(value: object, plugin_name: str) -> str:
+    if value is None or str(value).strip() == "":
+        return _make_device_id(plugin_name)
+
+    raw = str(value).strip().lower().replace("-", "_")
+    cleaned = re.sub(r"[^a-z0-9_.]+", "_", raw)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_.")
+    if _DEVICE_ID_PATTERN.match(cleaned):
+        return cleaned
+
+    suffix_match = _DEVICE_ID_WITH_SUFFIX_PATTERN.match(cleaned)
+    if suffix_match is not None:
+        return f"{suffix_match.group(1)}.{suffix_match.group(2)}"
+
+    token = _normalize_token(cleaned)
+    if token:
+        return f"{token}.01"
+    return _make_device_id(plugin_name)
+
+
 def _split_tokens(value: object, *, normalize: bool = False) -> list[str]:
     if isinstance(value, list):
         raw_items = value
@@ -592,6 +621,11 @@ def _split_tokens(value: object, *, normalize: bool = False) -> list[str]:
         if token and token not in tokens:
             tokens.append(token)
     return tokens
+
+
+def _is_modlink_dependency(value: str) -> bool:
+    name = re.split(r"[<>=!~\[]", value, maxsplit=1)[0].strip().lower().replace("_", "-")
+    return name in {"modlink-sdk", "modlink-studio"}
 
 
 def _required_text(raw: dict[str, Any], key: str) -> str:

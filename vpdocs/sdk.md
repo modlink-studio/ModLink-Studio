@@ -4,12 +4,12 @@
 
 第一版的核心原则只有两条：
 
-- 外部 driver 项目优先依赖 `modlink-sdk` 这一层契约
+- 外部 driver 项目依赖公开主包 `modlink-studio`，代码从随主包分发的 `modlink_sdk` 导入 SDK 契约
 - 安装后通过 `modlink.drivers` entry point 被宿主发现
 
 当前文档以 `0.2.0` 主线为准。`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
 
-需要特别说明的是：`0.2.0` 的公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink-sdk` 这一层契约在仓库中已经稳定存在，但不会作为 `0.2.0` 的独立公开 PyPI 包同步发布。
+需要特别说明的是：公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink_sdk` 这一层契约由主包携带，不要求外部插件项目单独依赖一个公开的 `modlink-sdk` 包。
 
 开发前，请先完成宿主环境安装，见 [安装与发布](/install)。
 
@@ -111,6 +111,12 @@ export MODLINK_AI_MODEL="gpt-compatible-model"
 export MODLINK_AI_API_KEY="..."
 uv run modlink-plugin-agent generate "serial two-channel pressure sensor" --out ./plugins
 ```
+
+如果模型服务响应较慢，可以加 `--timeout-s 300`。
+
+开发环境也可以把 `tools/modlink_plugin_agent/.env.example` 复制成 `tools/modlink_plugin_agent/.env` 后填写；CLI 会读取 agent 目录和当前工作目录的 `.env`，但不会覆盖已经存在的真实环境变量。
+
+如果你希望在外部插件项目里直接让 Claude Code、Codex 等 coding agent 编写 driver，可以使用仓库里的 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。这个 skill 面向独立插件项目，而不是 ModLink-Studio 主仓库开发。
 
 如果你正在仓库里联调脚手架本身：
 
@@ -298,7 +304,7 @@ my_driver/
 name = "my-driver"
 version = "0.2.0"
 dependencies = [
-  "modlink-sdk",
+  "modlink-studio>=0.3.0rc1",
   "numpy>=2.3.3",
 ]
 
@@ -308,7 +314,8 @@ my-driver = "my_driver.factory:create_driver"
 
 这里的边界很重要：
 
-- driver 项目不要直接依赖 `modlink-studio`
+- driver 项目依赖公开主包 `modlink-studio`
+- driver 代码仍然从 `modlink_sdk` 导入 SDK 类型
 - 如无必要，不要依赖 `modlink-core`
 - 宿主只关心 `modlink.drivers` 和 SDK 契约
 
