@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import keyword
+import os
+import tempfile
+import time
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -34,6 +37,34 @@ def _iter_slots(spec_type: type[object]) -> tuple[str, ...]:
             seen.add(name)
             slots.append(name)
     return tuple(slots)
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    temp_path: Path | None = None
+    with tempfile.NamedTemporaryFile(
+        "w",
+        delete=False,
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        encoding="utf-8",
+    ) as handle:
+        temp_path = Path(handle.name)
+        handle.write(content)
+
+    try:
+        for attempt in range(6):
+            try:
+                os.replace(temp_path, path)
+                temp_path = None
+                return
+            except PermissionError:
+                if attempt == 5:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _specs_match(left: SettingsSpec, right: SettingsSpec) -> bool:
@@ -249,12 +280,10 @@ class SettingsStore:
                 "_version": self._version,
                 "values": self._root.dump_dict(),
             }
-            temp_path = resolved_path.with_suffix(resolved_path.suffix + ".tmp")
-            temp_path.write_text(
+            _atomic_write_text(
+                resolved_path,
                 json.dumps(payload, indent=2, ensure_ascii=False),
-                encoding="utf-8",
             )
-            temp_path.replace(resolved_path)
 
     def load(
         self,

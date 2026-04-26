@@ -27,6 +27,10 @@
 - 录制写盘与读取路径继续围绕 `recordings/`、`recording.json`、`streams/<stream_id>/stream.json`、`frames.csv` 和 `frames/*.npz` 收敛
 - pytest 默认使用 `--import-mode=importlib`，并忽略外部插件目录、构建产物和 `node_modules`
 
+### Fixed
+
+- 改进 Windows 下 settings 文件原子替换的重试处理，降低并发保存时的 transient `PermissionError` 风险
+
 ### Removed
 
 - 删除已不再维护的 QML / Web 宿主路线包，当前桌面宿主收敛到 widgets 主宿主 `modlink_studio`
