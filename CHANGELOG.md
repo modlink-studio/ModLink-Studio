@@ -6,7 +6,46 @@
 
 ### Summary
 
-`0.3.0rc1` 是当前 `0.3.0` 工作线上的首个发布候选版本。
+`0.3.0rc1` 是 `0.3.0` 工作线上的首个 release candidate。它在 `0.2.0` 的纯 Python runtime 基线上，重点补齐 recording replay、analysis export、当前 widgets 宿主里的回放页面，以及外部插件 author skill。
+
+这一版仍按预发布版本处理；公开安装入口继续收口为单主包 `modlink-studio`，外部 driver 项目仍依赖 `modlink-studio` 并通过 `modlink.drivers` entry point 被宿主发现。
+
+---
+
+### Added
+
+- 新增 `modlink_core.replay`，提供 `RecordingReader`、`ReplayBackend` 和 `ExportService`
+- widgets 主应用接入 Replay 页面，支持 recordings 列表、播放 / 暂停 / 停止、1x / 2x / 4x 和 annotations 展示
+- 新增 analysis-first 导出能力，首批覆盖 `signal_csv`、`signal_npz`、`raster_npz`、`field_npz`、`video_frames_zip` 和 `recording_bundle_zip`
+- 新增 live experiment AI assistant 原型，支持 OpenAI-compatible Chat Completions 和本地工具调用
+- 新增 `tools/modlink-plugin-author` skill，作为 Claude Code / Codex 编写外部 driver plugin 的推荐入口
+
+### Changed
+
+- Qt Widgets UI 包结构收敛为 `shell + features + shared + bridge`
+- Replay 页面从单页 splitter 调整为 recordings 列表页、player 页和 export 页
+- 录制写盘与读取路径继续围绕 `recordings/`、`recording.json`、`streams/<stream_id>/stream.json`、`frames.csv` 和 `frames/*.npz` 收敛
+- pytest 默认使用 `--import-mode=importlib`，并忽略外部插件目录、构建产物和 `node_modules`
+
+### Removed
+
+- 删除已不再维护的 QML / Web 宿主路线包，当前桌面宿主收敛到 widgets 主宿主 `modlink_studio`
+- 移除独立 npm 版 plugin scaffold，不再维护第二套插件生成入口
+- 移除实验性 Python plugin AI agent，改用可分发 skill 指导成熟 coding agent
+
+### Known Limitations
+
+- `0.3.0rc1` 仍是预发布版本，session / protocol 工作流尚未完整收口
+- 外部插件 author skill 只指导 coding agent 编写插件项目，不替代真实设备协议确认和硬件验证
+- `modlink-plugin` 当前仍主要覆盖官方驱动安装路径，后续会继续扩展为更完整的插件管理工具
+
+---
+
+## [0.2.0] - Released
+
+### Summary
+
+`0.2.0` 是 `0.1.x` 之后的基础链路稳定化版本。
 
 这一版本的重点不是在 `0.1.x` 基础上继续堆叠功能，而是把项目从以 Qt 风格 driver 为中心的实现，重构为以纯 Python runtime 为中心的结构。`0.2.0` 主要完成的是边界重整与基础链路稳定化，为后续版本的实验工作流、回放能力和 AI 辅助能力打地基。
 
@@ -50,8 +89,6 @@
     - `modlink_studio`
     - `modlink_studio_qml`
     - `modlink_server`
-  - 开发工具：
-    - `tools/modlink-plugin-author`
 
 ---
 
@@ -84,7 +121,6 @@
 
 #### Plugin / Ecosystem
 
-- 新增 `tools/modlink-plugin-author` skill，作为 Claude Code / Codex 编写外部 driver plugin 的推荐入口
 - 官方驱动从主仓库拆出，迁移到独立仓库 `ModLink-Studio-Plugins`，并改为通过主包插件管理命令 + GitHub 发布物安装
 - 外部 driver 开发路径明确为：
   - 外部插件项目依赖公开主包 `modlink-studio`
@@ -153,8 +189,6 @@
 ### Removed
 
 - 删除历史 `deprecated/` 目录，不再保留旧实现入口
-- 移除独立 npm 版 plugin scaffold，不再维护第二套插件生成入口
-- 移除实验性 Python plugin AI agent，改用可分发 skill 指导成熟 coding agent
 - 不再把录制回放视作 `0.2.0` 的发布前置能力
 
 ---
@@ -185,8 +219,7 @@
 2. 外部 driver 插件项目应依赖公开主包 `modlink-studio`
 3. driver 代码继续从 `modlink_sdk` 导入 SDK 契约，设备自身的传输层依赖按需添加
 4. 插件发现基于 `modlink.drivers` entry points
-5. 新 driver 项目建议使用 `tools/modlink-plugin-author/SKILL.md` 指导 Claude Code / Codex 生成
-6. `0.2.0` 的公开安装入口以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
+5. `0.2.0` 的公开安装入口以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
 
 ---
 

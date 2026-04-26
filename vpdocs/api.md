@@ -6,12 +6,12 @@
 
 如果目标是安装和运行宿主应用，先看 [安装与发布](/install)；如果目标是开发 driver，先看 [SDK 开发者指南](/sdk)。
 
-当前 API 说明以 `0.2.0` 主线为准：
+当前 API 说明以 `0.3.0rc1` 主线为准：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
 - 当前桌面 UI 包以 `modlink_ui` 为准
-- 插件管理 CLI 当前由 `modlink_plugin_manager` 提供
+- 插件管理 CLI 当前随 `modlink_studio` 一起分发
 
 ## Web API 入口
 
@@ -27,7 +27,6 @@
 
 - <a href="/pdoc/modlink_sdk.html" target="_self">modlink_sdk</a>
 - <a href="/pdoc/modlink_core.html" target="_self">modlink_core</a>
-- <a href="/pdoc/modlink_plugin_manager.html" target="_self">modlink_plugin_manager</a>
 - <a href="/pdoc/modlink_ui.html" target="_self">modlink_ui</a>
 - <a href="/pdoc/modlink_studio.html" target="_self">modlink_studio</a>
 

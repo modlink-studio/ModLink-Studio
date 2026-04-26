@@ -7,7 +7,7 @@
 - 外部 driver 项目依赖公开主包 `modlink-studio`，代码从随主包分发的 `modlink_sdk` 导入 SDK 契约
 - 安装后通过 `modlink.drivers` entry point 被宿主发现
 
-当前文档以 `0.2.0` 主线为准。`0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
+当前文档以 `0.3.0rc1` 主线为准。`0.2.0` 起不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
 
 需要特别说明的是：公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink_sdk` 这一层契约由主包携带，不要求外部插件项目单独依赖一个公开的 `modlink-sdk` 包。
 
@@ -98,6 +98,8 @@
 ## 用 coding agent 起步
 
 如果你希望在外部插件项目里直接让 Claude Code、Codex 等 coding agent 编写 driver，可以使用仓库里的 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。这个 skill 面向独立插件项目，而不是 ModLink-Studio 主仓库开发。
+
+推荐使用方式是在外部插件项目目录启动 coding agent，把这个 `SKILL.md` 作为 skill 或上下文加载，然后直接描述设备、连接方式、数据流类型和采样率。生成后仍应在插件项目内运行 `python -m pip install -e .` 和测试命令验证。
 
 推荐让 coding agent 在一个新建的独立 driver 项目里生成：
 
@@ -276,7 +278,7 @@ my_driver/
 ```toml
 [project]
 name = "my-driver"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
   "modlink-studio>=0.3.0rc1",
   "numpy>=2.3.3",
@@ -401,4 +403,4 @@ name.XX
 - `host-microphone`
 - `openbci-ganglion`
 
-在 `0.2.x` 当前阶段，这些 entry point 主要通过 `modlink-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。
+在 `0.3.0rc1` 当前阶段，这些 entry point 主要通过 `modlink-plugin install <plugin_id>` 安装进当前环境；后续会沿这条路径继续扩展到更通用的插件管理方式。
