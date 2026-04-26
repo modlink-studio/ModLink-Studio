@@ -18,7 +18,9 @@ from packaging.version import InvalidVersion, Version
 from platformdirs import user_cache_path
 
 PLUGIN_ENTRY_POINT_GROUP = "modlink.drivers"
-DEFAULT_PLUGIN_INDEX_URL = "https://modlink-studio.github.io/ModLink-Studio-Plugins/plugins/index.json"
+DEFAULT_PLUGIN_INDEX_URL = (
+    "https://modlink-studio.github.io/ModLink-Studio-Plugins/plugins/index.json"
+)
 PLUGIN_INDEX_URL_ENV = "MODLINK_PLUGIN_INDEX_URL"
 USER_AGENT = "modlink-plugin"
 
@@ -171,11 +173,13 @@ def _parse_manifest(payload: dict[str, Any]) -> list[IndexedPlugin]:
 
 def _installed_plugins() -> list[InstalledPlugin]:
     installed: list[InstalledPlugin] = []
-    for entry_point in sorted(entry_points(group=PLUGIN_ENTRY_POINT_GROUP), key=lambda item: item.name):
+    for entry_point in sorted(
+        entry_points(group=PLUGIN_ENTRY_POINT_GROUP), key=lambda item: item.name
+    ):
         dist = getattr(entry_point, "dist", None)
-        distribution_name = getattr(dist, "name", None) or getattr(
-            dist, "metadata", {}
-        ).get("Name", "unknown")
+        distribution_name = getattr(dist, "name", None) or getattr(dist, "metadata", {}).get(
+            "Name", "unknown"
+        )
         plugin_version = getattr(dist, "version", None)
         installed.append(
             InstalledPlugin(
@@ -191,7 +195,9 @@ def _indexed_plugins_by_id(indexed_plugins: list[IndexedPlugin]) -> dict[str, In
     return {plugin.plugin_id: plugin for plugin in indexed_plugins}
 
 
-def _installed_plugins_by_id(installed_plugins: list[InstalledPlugin]) -> dict[str, InstalledPlugin]:
+def _installed_plugins_by_id(
+    installed_plugins: list[InstalledPlugin],
+) -> dict[str, InstalledPlugin]:
     return {plugin.plugin_id: plugin for plugin in installed_plugins}
 
 
@@ -254,7 +260,9 @@ def _run_pip(*args: str) -> None:
     subprocess.run([sys.executable, "-m", "pip", *args], check=True)
 
 
-def _format_available(plugin: IndexedPlugin, installed: InstalledPlugin | None, host_version: str) -> str:
+def _format_available(
+    plugin: IndexedPlugin, installed: InstalledPlugin | None, host_version: str
+) -> str:
     try:
         release = _select_release(plugin, host_version)
         availability = f"available={release.version}"
@@ -264,7 +272,9 @@ def _format_available(plugin: IndexedPlugin, installed: InstalledPlugin | None, 
     return f"{plugin.plugin_id:<18} installed={installed_label:<14} {availability:<18} {plugin.display_name}"
 
 
-def _format_installed(plugin: InstalledPlugin, indexed_plugin: IndexedPlugin | None, host_version: str) -> str:
+def _format_installed(
+    plugin: InstalledPlugin, indexed_plugin: IndexedPlugin | None, host_version: str
+) -> str:
     if indexed_plugin is None:
         compatibility = "unknown"
         source = "third-party"
@@ -312,7 +322,9 @@ def _cmd_status() -> int:
         print("- none")
     else:
         for plugin in installed_plugins:
-            print(f"- {_format_installed(plugin, indexed_by_id.get(plugin.plugin_id), host_version)}")
+            print(
+                f"- {_format_installed(plugin, indexed_by_id.get(plugin.plugin_id), host_version)}"
+            )
 
     print()
     print("Available")
@@ -368,7 +380,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("status", help="Show plugin environment overview.")
 
-    install_parser = subparsers.add_parser("install", help="Install one plugin from the plugin index.")
+    install_parser = subparsers.add_parser(
+        "install", help="Install one plugin from the plugin index."
+    )
     install_parser.add_argument("plugin_id")
 
     uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall one installed plugin.")

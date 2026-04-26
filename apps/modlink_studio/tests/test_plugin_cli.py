@@ -76,7 +76,9 @@ def test_list_installed_shows_all_detected_plugins(monkeypatch, capsys) -> None:
         cli,
         "entry_points",
         lambda *, group: [
-            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0")),
+            _FakeEntryPoint(
+                "host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0")
+            ),
             _FakeEntryPoint("custom-eeg", _FakeDistribution("my-eeg-plugin", "1.2.3")),
         ],
     )
@@ -106,7 +108,9 @@ def test_status_reports_official_and_third_party_plugins(monkeypatch, capsys) ->
         cli,
         "entry_points",
         lambda *, group: [
-            _FakeEntryPoint("host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0")),
+            _FakeEntryPoint(
+                "host-camera", _FakeDistribution("modlink-plugin-host-camera", "0.2.0")
+            ),
             _FakeEntryPoint("custom-eeg", _FakeDistribution("my-eeg-plugin", "1.2.3")),
         ],
     )
@@ -122,7 +126,9 @@ def test_status_reports_official_and_third_party_plugins(monkeypatch, capsys) ->
     assert "host-microphone" in output
 
 
-def test_install_downloads_latest_compatible_release_and_runs_pip(monkeypatch, tmp_path, capsys) -> None:
+def test_install_downloads_latest_compatible_release_and_runs_pip(
+    monkeypatch, tmp_path, capsys
+) -> None:
     pip_calls: list[tuple[str, ...]] = []
 
     monkeypatch.setattr(cli, "_host_version", lambda: "0.2.1")
@@ -190,7 +196,9 @@ def test_manifest_uses_cache_when_network_fetch_fails(monkeypatch, tmp_path) -> 
         encoding="utf-8",
     )
     monkeypatch.setattr(cli, "_cache_path", lambda: cache_path)
-    monkeypatch.setattr(cli, "_fetch_json", lambda _url: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        cli, "_fetch_json", lambda _url: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
 
     manifest = cli._load_manifest()
 

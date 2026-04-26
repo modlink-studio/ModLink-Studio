@@ -60,4 +60,4 @@ def _ensure_debug_console() -> None:
 
     sys.stdout = open("CONOUT$", "w", encoding="utf-8", buffering=1, errors="replace")
     sys.stderr = open("CONOUT$", "w", encoding="utf-8", buffering=1, errors="replace")
-    sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")
+    sys.stdin = open("CONIN$", encoding="utf-8", errors="replace")

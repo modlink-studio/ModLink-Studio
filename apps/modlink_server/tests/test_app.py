@@ -97,7 +97,11 @@ class TimeoutSearchDriver(ApiDemoDriver):
 def settings_path(tmp_path: Path) -> Path:
     path = tmp_path / "settings.json"
     settings = SettingsStore(path=path)
-    settings.add(storage=SettingsGroup(root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")))
+    settings.add(
+        storage=SettingsGroup(
+            root_dir=SettingsStr(default=""), export_root_dir=SettingsStr(default="")
+        )
+    )
     settings.storage.root_dir = str(tmp_path / "data")
     settings.save()
     return path

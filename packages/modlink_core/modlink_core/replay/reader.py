@@ -49,10 +49,16 @@ class RecordingReader:
         raw_frame_refs: list[tuple[str, int, int, int | None, str]] = []
         for stream_id in stream_ids:
             if not isinstance(stream_id, str):
-                raise ValueError(f"recording '{self._recording_id}' contains a non-string stream_id")
+                raise ValueError(
+                    f"recording '{self._recording_id}' contains a non-string stream_id"
+                )
             stream_payload = read_recording_stream(self._root_dir, self._recording_id, stream_id)
             descriptors[stream_id] = _descriptor_from_payload(stream_payload)
-            stream_frame_refs = tuple(_parse_frame_rows(read_recording_frames(self._root_dir, self._recording_id, stream_id), stream_id))
+            stream_frame_refs = tuple(
+                _parse_frame_rows(
+                    read_recording_frames(self._root_dir, self._recording_id, stream_id), stream_id
+                )
+            )
             frames_by_stream[stream_id] = stream_frame_refs
             for ref in stream_frame_refs:
                 raw_frame_refs.append(

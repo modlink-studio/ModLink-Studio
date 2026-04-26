@@ -79,9 +79,7 @@ class _MarkdownMessageBrowser(TextBrowser):
         self.document().setDocumentMargin(0)
         self.viewport().setAutoFillBackground(False)
         self.setStyleSheet(
-            "QTextBrowser#experiment-ai-markdown-message {"
-            "background: transparent; border: none;"
-            "}"
+            "QTextBrowser#experiment-ai-markdown-message {background: transparent; border: none;}"
         )
         self.setMarkdown(text)
         self._fit_to_content()
@@ -555,7 +553,9 @@ class LiveExperimentSidebar(SimpleCardWidget):
             "未设置步骤" if current_step is None else current_step.label
         )
         current_position = (
-            0 if current_step is None or snapshot.current_step_index < 0 else snapshot.current_step_index + 1
+            0
+            if current_step is None or snapshot.current_step_index < 0
+            else snapshot.current_step_index + 1
         )
         self.current_step_position_label.setText(f"{current_position}/{len(snapshot.steps)}")
 

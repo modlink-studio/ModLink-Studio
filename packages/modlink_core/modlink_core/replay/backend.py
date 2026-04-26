@@ -199,7 +199,9 @@ class ReplayBackend:
             summaries.append(
                 ReplayRecordingSummary(
                     recording_id=recording_id,
-                    recording_label=label if isinstance(label, str) or label is None else str(label),
+                    recording_label=label
+                    if isinstance(label, str) or label is None
+                    else str(label),
                     recording_path=str(root_dir / "recordings" / recording_id),
                     stream_ids=stream_ids,
                 )
@@ -283,7 +285,10 @@ class ReplayBackend:
         reader = self._reader
         if reader is None:
             return
-        if self._timeline_index >= len(reader.frames()) and target_position_ns >= reader.duration_ns:
+        if (
+            self._timeline_index >= len(reader.frames())
+            and target_position_ns >= reader.duration_ns
+        ):
             self._position_ns = reader.duration_ns
             self._set_state("finished")
             return

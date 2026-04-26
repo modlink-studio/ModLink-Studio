@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from modlink_studio import app
 
 
@@ -82,7 +81,9 @@ def test_debug_main_passes_debug_logging_and_qt_args(monkeypatch, tmp_path: Path
     monkeypatch.setattr(app, "QtModLinkBridge", _fake_bridge)
     monkeypatch.setattr(app, "MainWindow", _fake_window)
     monkeypatch.setattr(app, "_load_app_icon", lambda: "icon")
-    monkeypatch.setattr(app.pg, "setConfigOptions", lambda **kwargs: captured.setdefault("pg", kwargs))
+    monkeypatch.setattr(
+        app.pg, "setConfigOptions", lambda **kwargs: captured.setdefault("pg", kwargs)
+    )
     monkeypatch.setattr(app, "setTheme", lambda theme: captured.setdefault("theme", theme))
 
     with pytest.raises(SystemExit) as exc_info:

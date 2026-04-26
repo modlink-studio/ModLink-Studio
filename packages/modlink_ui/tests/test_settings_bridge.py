@@ -14,9 +14,7 @@ class QtSettingsBridgeTests(unittest.TestCase):
         settings.storage.export_root_dir = "C:/tmp/modlink-export"
         bridge = QtSettingsBridge(settings)
         events: list[tuple[str, object]] = []
-        bridge.sig_setting_changed.connect(
-            lambda event: events.append((event.key, event.value))
-        )
+        bridge.sig_setting_changed.connect(lambda event: events.append((event.key, event.value)))
 
         bridge.resync_from_backend()
 

@@ -166,9 +166,7 @@ def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -
 
     assert experiment_id == "exp_demo"
     payload = json.loads(
-        (tmp_path / "experiments" / experiment_id / "experiment.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "experiments" / experiment_id / "experiment.json").read_text(encoding="utf-8")
     )
     assert payload == {
         "schema_version": 1,

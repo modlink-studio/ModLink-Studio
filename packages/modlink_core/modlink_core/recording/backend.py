@@ -274,9 +274,7 @@ class RecordingBackend:
             recording_id=recording_id,
             recording_path=recording_path,
             started_at_ns=started_at_ns,
-            frame_counts_by_stream={
-                stream_id: 0 for stream_id in recording_descriptors
-            },
+            frame_counts_by_stream={stream_id: 0 for stream_id in recording_descriptors},
         )
         self._set_state("recording")
         logger.info("Started recording %s at %s", recording_id, recording_path)

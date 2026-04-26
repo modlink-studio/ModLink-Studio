@@ -1,8 +1,8 @@
 from .ai import (
-    AiAssistantConfig,
     UI_AI_API_KEY_KEY,
     UI_AI_BASE_URL_KEY,
     UI_AI_MODEL_KEY,
+    AiAssistantConfig,
     declare_ai_assistant_settings,
     load_ai_assistant_config,
     normalize_ai_config,

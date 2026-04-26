@@ -52,12 +52,8 @@ class LivePage(BasePage):
         self.scroll_area.viewport().installEventFilter(self)
         self.acquisition_panel.installEventFilter(self)
         self.experiment_sidebar.installEventFilter(self)
-        self.experiment_sidebar_toggle_button.clicked.connect(
-            self._toggle_experiment_sidebar
-        )
-        self.experiment_sidebar.sig_close_requested.connect(
-            self._hide_experiment_sidebar
-        )
+        self.experiment_sidebar_toggle_button.clicked.connect(self._toggle_experiment_sidebar)
+        self.experiment_sidebar.sig_close_requested.connect(self._hide_experiment_sidebar)
         QTimer.singleShot(0, self._sync_floating_widgets)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -129,9 +125,7 @@ class LivePage(BasePage):
             max(360, viewport.width() - side_margin * 2),
         )
         panel_x = viewport_top_left.x() + max(0, (viewport.width() - panel_width) // 2)
-        panel_y = (
-            viewport_top_left.y() + viewport.height() - panel_height - bottom_margin
-        )
+        panel_y = viewport_top_left.y() + viewport.height() - panel_height - bottom_margin
 
         self.acquisition_panel.setGeometry(
             panel_x,

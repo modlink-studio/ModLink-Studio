@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
-
 import numpy as np
 
 from modlink_core.storage._internal.files import (
     append_csv_row,
     atomic_write_text,
-    read_json,
     read_csv_rows,
+    read_json,
     to_json_text,
     to_json_value,
     write_csv_header,

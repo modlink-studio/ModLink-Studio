@@ -205,6 +205,7 @@ class ReplayPlaybackPanel(QWidget):
         self.position_badge.setText(progress_text)
         self.timeline.set_playback(position_ns, duration_ns)
 
+
 class ReplayPlayerPage(BasePage):
     sig_show_recordings_requested = pyqtSignal()
     sig_show_export_requested = pyqtSignal()

@@ -146,8 +146,10 @@ class ReplayPageTests(unittest.TestCase):
             recordings_page.recording_list.setCurrentRow(0)
             recordings_page.open_button.click()
             self._pump_events_until(
-                lambda: replay_bridge.snapshot().recording_id == recording_id
-                and page._route == "player"
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
             )
 
             self.assertEqual(recording_id, replay_bridge.snapshot().recording_id)
@@ -204,7 +206,10 @@ class ReplayPageTests(unittest.TestCase):
             export_page.export_button.click()
             self._pump_events_until(lambda: export_page.jobs_list.count() == 1, timeout=2.0)
             self._pump_events_until(
-                lambda: replay_bridge.export_jobs() and replay_bridge.export_jobs()[-1].state == "completed",
+                lambda: (
+                    replay_bridge.export_jobs()
+                    and replay_bridge.export_jobs()[-1].state == "completed"
+                ),
                 timeout=2.0,
             )
             self.assertEqual(1, export_page.jobs_list.count())
@@ -263,8 +268,10 @@ class ReplayPageTests(unittest.TestCase):
             recordings_page.recording_list.setCurrentRow(0)
             recordings_page.open_button.click()
             self._pump_events_until(
-                lambda: replay_bridge.snapshot().recording_id == recording_id
-                and page._route == "player"
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
             )
 
             page._show_recordings_page()
@@ -368,12 +375,16 @@ class ReplayPageTests(unittest.TestCase):
             page._recordings_page.recording_list.setCurrentRow(0)
             page._recordings_page.open_button.click()
             self._pump_events_until(
-                lambda: replay_bridge.snapshot().recording_id == recording_id
-                and page._route == "player"
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
             )
             self._pump_events_until(
-                lambda: page._player_page.timeline.marker_count == 2
-                and page._player_page.timeline.segment_count == 1
+                lambda: (
+                    page._player_page.timeline.marker_count == 2
+                    and page._player_page.timeline.segment_count == 1
+                )
             )
 
             page._on_snapshot_changed(
@@ -415,8 +426,10 @@ class ReplayPageTests(unittest.TestCase):
             page._recordings_page.recording_list.setCurrentRow(0)
             page._recordings_page.open_button.click()
             self._pump_events_until(
-                lambda: replay_bridge.snapshot().recording_id == recording_id
-                and page._route == "player"
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
             )
 
             self.assertEqual("播放", player_page.play_button.text())

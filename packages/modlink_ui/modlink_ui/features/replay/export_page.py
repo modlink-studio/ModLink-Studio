@@ -201,9 +201,7 @@ class ReplayExportPage(BasePage):
     def _sync_header(self, snapshot: ReplaySnapshot) -> None:
         recording_id = _format_recording_badge(snapshot.recording_id)
         self.title_label.setText("导出")
-        self.description_label.setText(
-            f"当前 recording：{recording_id} · 选择格式并导出。"
-        )
+        self.description_label.setText(f"当前 recording：{recording_id} · 选择格式并导出。")
 
 
 def _format_recording_badge(recording_id: str | None) -> str:

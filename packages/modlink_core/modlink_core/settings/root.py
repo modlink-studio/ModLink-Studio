@@ -43,13 +43,12 @@ def _specs_match(left: SettingsSpec, right: SettingsSpec) -> bool:
     if isinstance(left, SettingsGroup):
         if left.children.keys() != right.children.keys():
             return False
-        return all(_specs_match(left.children[name], right.children[name]) for name in left.children)
+        return all(
+            _specs_match(left.children[name], right.children[name]) for name in left.children
+        )
 
     if isinstance(left, ValueSpec):
-        return all(
-            getattr(left, name) == getattr(right, name)
-            for name in _iter_slots(type(left))
-        )
+        return all(getattr(left, name) == getattr(right, name) for name in _iter_slots(type(left)))
 
     return False
 

@@ -157,9 +157,7 @@ def install_http_api(app: FastAPI) -> None:
         request: Request,
     ) -> dict[str, bool]:
         engine = _engine(request)
-        await _await_future(
-            engine.recording.start_recording(recording_label=body.recording_label)
-        )
+        await _await_future(engine.recording.start_recording(recording_label=body.recording_label))
         return {"ok": True}
 
     @app.post("/acquisition/stop-recording")
@@ -296,7 +294,9 @@ def _reset_setting(settings: SettingsStore, key: str) -> None:
     child.reset(notify=True)
 
 
-def _resolve_setting_parent(settings: SettingsStore, key: str) -> tuple[SettingsStore | SettingsNode, str]:
+def _resolve_setting_parent(
+    settings: SettingsStore, key: str
+) -> tuple[SettingsStore | SettingsNode, str]:
     segments = [segment for segment in str(key).split(".") if segment]
     if not segments:
         raise ValueError("setting key is required")

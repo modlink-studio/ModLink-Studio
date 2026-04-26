@@ -62,7 +62,10 @@ def test_recording_storage_read_api_lists_and_reads_valid_recordings(
         }
     ]
     assert read_recording(tmp_path, recording_id) == manifests[0]
-    assert read_recording_stream(tmp_path, recording_id, descriptor.stream_id)["stream_id"] == descriptor.stream_id
+    assert (
+        read_recording_stream(tmp_path, recording_id, descriptor.stream_id)["stream_id"]
+        == descriptor.stream_id
+    )
     assert read_recording_markers(tmp_path, recording_id) == [
         {"timestamp_ns": "1700000000123456999", "label": "start"}
     ]
@@ -157,9 +160,15 @@ def test_replay_backend_replays_on_its_own_bus(
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
     recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1))
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2))
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3))
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1)
+    )
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2)
+    )
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3)
+    )
 
     settings = _build_settings(tmp_path)
     backend = ReplayBackend(settings=settings)
@@ -207,7 +216,9 @@ def test_replay_export_formats_write_expected_outputs(
     expected_files: tuple[str, ...],
 ) -> None:
     descriptors = {
-        "signal": descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2, channel_names=("c3", "c4")),
+        "signal": descriptor_factory(
+            payload_type="signal", stream_key="signal", chunk_size=2, channel_names=("c3", "c4")
+        ),
         "raster": descriptor_factory(payload_type="raster", stream_key="raster", chunk_size=1),
         "field": descriptor_factory(payload_type="field", stream_key="field", chunk_size=1),
         "video": descriptor_factory(payload_type="video", stream_key="video", chunk_size=1),
@@ -235,7 +246,14 @@ def test_replay_export_formats_write_expected_outputs(
     append_recording_frame(
         tmp_path,
         recording_id,
-        frame_factory(descriptors["video"], timestamp_ns=1_000_000_300, seq=4, height=2, width=3, dtype=np.uint8),
+        frame_factory(
+            descriptors["video"],
+            timestamp_ns=1_000_000_300,
+            seq=4,
+            height=2,
+            width=3,
+            dtype=np.uint8,
+        ),
     )
 
     settings = _build_settings(tmp_path)
@@ -266,7 +284,9 @@ def test_replay_export_job_fails_when_format_has_no_matching_streams(
 ) -> None:
     descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
     recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1))
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1)
+    )
 
     settings = _build_settings(tmp_path)
     backend = ReplayBackend(settings=settings)

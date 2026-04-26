@@ -39,7 +39,8 @@ def test_configure_host_logging_replaces_previous_managed_handlers(tmp_path) -> 
                 handler.flush()
 
         lines = [
-            line for line in log_path.read_text(encoding="utf-8").splitlines()
+            line
+            for line in log_path.read_text(encoding="utf-8").splitlines()
             if "single line" in line
         ]
         assert len(lines) == 1

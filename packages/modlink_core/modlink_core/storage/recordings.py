@@ -145,7 +145,9 @@ def read_recording_segments(root_dir: Path, recording_id: str) -> list[dict[str,
     return read_csv_rows(segments_path)
 
 
-def read_recording_frames(root_dir: Path, recording_id: str, stream_id: str) -> list[dict[str, str]]:
+def read_recording_frames(
+    root_dir: Path, recording_id: str, stream_id: str
+) -> list[dict[str, str]]:
     return read_csv_rows(_stream_dir(root_dir, recording_id, stream_id) / "frames.csv")
 
 

@@ -126,7 +126,11 @@ class ExportService:
         try:
             request.output_dir.mkdir(parents=True, exist_ok=False)
             exporter = _EXPORTERS[request.format_id]
-            exporter(request.reader, request.output_dir, lambda value: self._update_progress(request.job_id, value))
+            exporter(
+                request.reader,
+                request.output_dir,
+                lambda value: self._update_progress(request.job_id, value),
+            )
         except Exception as exc:
             self._update_job(
                 request.job_id,
@@ -180,7 +184,9 @@ class ExportService:
             )
 
 
-def _export_signal_csv(reader: RecordingReader, output_dir: Path, update_progress: ExportProgress) -> None:
+def _export_signal_csv(
+    reader: RecordingReader, output_dir: Path, update_progress: ExportProgress
+) -> None:
     signal_streams = _streams_by_type(reader, "signal")
     if not signal_streams:
         raise RuntimeError("recording does not contain signal streams")
@@ -193,7 +199,9 @@ def _export_signal_csv(reader: RecordingReader, output_dir: Path, update_progres
             continue
         frame_refs = reader.frames_for_stream(stream_id)
         output_path = output_dir / f"{_export_name(reader, stream_id)}.csv"
-        channel_names = list(descriptor.channel_names) or [f"ch{index}" for index in range(_channel_count(reader, frame_refs))]
+        channel_names = list(descriptor.channel_names) or [
+            f"ch{index}" for index in range(_channel_count(reader, frame_refs))
+        ]
         with output_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.writer(handle)
             writer.writerow(["chunk_timestamp_ns", "seq", "sample_offset", *channel_names])
@@ -213,7 +221,9 @@ def _export_signal_csv(reader: RecordingReader, output_dir: Path, update_progres
                 update_progress(processed_frames / max(1, total_frames))
 
 
-def _export_signal_npz(reader: RecordingReader, output_dir: Path, update_progress: ExportProgress) -> None:
+def _export_signal_npz(
+    reader: RecordingReader, output_dir: Path, update_progress: ExportProgress
+) -> None:
     signal_streams = _streams_by_type(reader, "signal")
     if not signal_streams:
         raise RuntimeError("recording does not contain signal streams")
@@ -221,9 +231,13 @@ def _export_signal_npz(reader: RecordingReader, output_dir: Path, update_progres
     for index, stream_id in enumerate(signal_streams, start=1):
         descriptor = reader.descriptor(stream_id)
         frame_refs = reader.frames_for_stream(stream_id)
-        data = np.stack([_normalize_signal_frame(reader.load_frame(ref).data) for ref in frame_refs])
+        data = np.stack(
+            [_normalize_signal_frame(reader.load_frame(ref).data) for ref in frame_refs]
+        )
         timestamps_ns = np.asarray([ref.timestamp_ns for ref in frame_refs], dtype=np.int64)
-        seq = np.asarray([(-1 if ref.seq is None else ref.seq) for ref in frame_refs], dtype=np.int64)
+        seq = np.asarray(
+            [(-1 if ref.seq is None else ref.seq) for ref in frame_refs], dtype=np.int64
+        )
         export_name = _export_name(reader, stream_id)
         np.savez_compressed(
             output_dir / f"{export_name}.npz",
@@ -242,15 +256,21 @@ def _export_signal_npz(reader: RecordingReader, output_dir: Path, update_progres
         update_progress(index / max(1, len(signal_streams)))
 
 
-def _export_raster_npz(reader: RecordingReader, output_dir: Path, update_progress: ExportProgress) -> None:
+def _export_raster_npz(
+    reader: RecordingReader, output_dir: Path, update_progress: ExportProgress
+) -> None:
     _export_stacked_npz(reader, output_dir, update_progress, payload_type="raster")
 
 
-def _export_field_npz(reader: RecordingReader, output_dir: Path, update_progress: ExportProgress) -> None:
+def _export_field_npz(
+    reader: RecordingReader, output_dir: Path, update_progress: ExportProgress
+) -> None:
     _export_stacked_npz(reader, output_dir, update_progress, payload_type="field")
 
 
-def _export_video_frames_zip(reader: RecordingReader, output_dir: Path, update_progress: ExportProgress) -> None:
+def _export_video_frames_zip(
+    reader: RecordingReader, output_dir: Path, update_progress: ExportProgress
+) -> None:
     video_streams = _streams_by_type(reader, "video")
     if not video_streams:
         raise RuntimeError("recording does not contain video streams")
@@ -317,7 +337,9 @@ def _export_stacked_npz(
             output_dir / f"{export_name}.npz",
             data=np.stack(arrays),
             timestamps_ns=np.asarray([ref.timestamp_ns for ref in frame_refs], dtype=np.int64),
-            seq=np.asarray([(-1 if ref.seq is None else ref.seq) for ref in frame_refs], dtype=np.int64),
+            seq=np.asarray(
+                [(-1 if ref.seq is None else ref.seq) for ref in frame_refs], dtype=np.int64
+            ),
         )
         write_json(
             output_dir / f"{export_name}.json",

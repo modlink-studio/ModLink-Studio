@@ -109,9 +109,14 @@ include = [
 namespaces = false
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 norecursedirs = [
     ".pytest_cache",
     ".tmp-tests",
     "_tmp_runtime*",
     "pytest-cache-files-*",
+    "ModLink-Studio-Plugins",
+    "build",
+    "dist",
+    "node_modules",
 ]

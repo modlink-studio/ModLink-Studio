@@ -99,8 +99,12 @@ def test_recording_store_increments_frame_index_for_multiple_appends(
         / "frames.csv"
     )
 
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=100, seq=1))
-    append_recording_frame(tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=200, seq=2))
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=100, seq=1)
+    )
+    append_recording_frame(
+        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=200, seq=2)
+    )
 
     assert _read_csv_rows(frames_index_path) == [
         {

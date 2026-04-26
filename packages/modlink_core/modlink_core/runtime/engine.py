@@ -35,7 +35,9 @@ class ModLinkEngine:
         parent: object | None = None,
     ) -> None:
         resolved_driver_factories = tuple(discover_driver_factories())
-        logger.info("Starting ModLink engine with %d driver factories", len(resolved_driver_factories))
+        logger.info(
+            "Starting ModLink engine with %d driver factories", len(resolved_driver_factories)
+        )
         self._parent = parent
         self._event_broker = BackendEventBroker()
         self._settings = SettingsStore(
@@ -142,7 +144,9 @@ class ModLinkEngine:
             try:
                 portal.stop()
             except Exception as exc:
-                logger.exception("Engine startup rollback failed while stopping driver '%s'", portal.driver_id)
+                logger.exception(
+                    "Engine startup rollback failed while stopping driver '%s'", portal.driver_id
+                )
                 cleanup_failures.append(
                     "cleanup failed while stopping driver "
                     f"'{portal.driver_id}': {type(exc).__name__}: {exc}"
@@ -176,7 +180,9 @@ class ModLinkEngine:
             try:
                 portal.stop()
             except Exception as exc:
-                logger.exception("Engine shutdown failed while stopping driver '%s'", portal.driver_id)
+                logger.exception(
+                    "Engine shutdown failed while stopping driver '%s'", portal.driver_id
+                )
                 if first_error is None:
                     first_error = exc
         self._driver_portals.clear()

@@ -83,7 +83,9 @@ class _RecordingStub(QObject):
 
 
 class _EngineStub:
-    def __init__(self, bus: _BusStub, settings: QtSettingsBridge, recording: _RecordingStub) -> None:
+    def __init__(
+        self, bus: _BusStub, settings: QtSettingsBridge, recording: _RecordingStub
+    ) -> None:
         self.bus = bus
         self.settings = settings
         self.recording = recording
@@ -103,7 +105,9 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         declare_core_settings(settings)
         settings.storage.root_dir = str(self._temp_dir)
         self._settings_bridge = QtSettingsBridge(settings)
-        self._engine = _EngineStub(_BusStub(), self._settings_bridge, _RecordingStub(self._temp_dir))
+        self._engine = _EngineStub(
+            _BusStub(), self._settings_bridge, _RecordingStub(self._temp_dir)
+        )
 
     def tearDown(self) -> None:
         shutil.rmtree(self._temp_dir, ignore_errors=True)
@@ -221,7 +225,11 @@ class LiveExperimentSidebarTests(unittest.TestCase):
 
         self.assertTrue(page.acquisition_panel.isVisible())
         self.assertTrue(page.experiment_sidebar.isVisible())
-        gap = page.acquisition_panel.geometry().top() - page.experiment_sidebar.geometry().bottom() - 1
+        gap = (
+            page.acquisition_panel.geometry().top()
+            - page.experiment_sidebar.geometry().bottom()
+            - 1
+        )
         self.assertLessEqual(gap, 6)
         page.close()
 
@@ -230,7 +238,11 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         page.experiment_sidebar_toggle_button.click()
         self._pump_events()
 
-        viewport_top = page.scroll_area.viewport().mapTo(page, page.scroll_area.viewport().rect().topLeft()).y()
+        viewport_top = (
+            page.scroll_area.viewport()
+            .mapTo(page, page.scroll_area.viewport().rect().topLeft())
+            .y()
+        )
 
         self.assertLess(page.experiment_sidebar.geometry().top(), viewport_top + 16)
         page.close()

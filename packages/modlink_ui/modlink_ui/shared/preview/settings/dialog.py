@@ -38,9 +38,7 @@ class StreamPreviewSettingsPanel(SingleDirectionScrollArea):
         viewport_name = f"{self.scroll_widget.objectName()}-viewport"
         self.viewport().setObjectName(viewport_name)
         self.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        self.viewport().setStyleSheet(
-            f"QWidget#{viewport_name} {{ background: transparent; }}"
-        )
+        self.viewport().setStyleSheet(f"QWidget#{viewport_name} {{ background: transparent; }}")
         self.scroll_widget.setStyleSheet(
             f"QWidget#{self.scroll_widget.objectName()} {{ background: transparent; }}"
         )
