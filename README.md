@@ -108,19 +108,6 @@ python -m pip install -e .
 npx @modlink-studio/plugin-scaffold --zh
 ```
 
-如果希望由 AI 从设备描述生成可运行插件，可以使用独立的 Python agent。它内置确定性的 Python scaffold writer，不依赖 npm / npx；随后会让 OpenAI-compatible 模型补完 driver 代码、README 和测试，并在生成项目内创建 `.venv` 做验证和修复：
-
-```bash
-$env:MODLINK_AI_BASE_URL = "https://api.example.com/v1"
-$env:MODLINK_AI_MODEL = "gpt-compatible-model"
-$env:MODLINK_AI_API_KEY = "..."
-uv run modlink-plugin-agent generate "生成一个串口双通道压力传感器插件" --out ./plugins
-```
-
-如果模型服务响应较慢，可以加 `--timeout-s 300`。
-
-开发时也可以把 `tools/modlink_plugin_agent/.env.example` 复制为 `tools/modlink_plugin_agent/.env` 后填写。CLI 会读取 agent 目录和当前工作目录下的 `.env`；已经存在的真实环境变量优先。
-
 如果你希望让 Claude Code、Codex 等 coding agent 在外部插件项目里直接写 driver，可以使用 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。它描述的是外部插件项目的真实工作流：依赖 `modlink-studio`、暴露 `modlink.drivers` entry point、`pip install -e .` 验证。
 
 在仓库内联调脚手架时：
@@ -154,7 +141,7 @@ modlink-studio/
 │  └─ modlink_ui/
 ├─ tools/
 │  ├─ modlink_plugin_scaffold/
-│  └─ modlink_plugin_agent/
+│  └─ modlink-plugin-author/
 └─ vpdocs/
 ```
 
@@ -165,7 +152,7 @@ modlink-studio/
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: 当前唯一的 Qt Widgets UI 包，内部同时承载 Qt bridge
 - `tools/modlink_plugin_scaffold/`: 独立 npm driver 脚手架工具
-- `tools/modlink_plugin_agent/`: 独立 Python AI driver 生成 agent
+- `tools/modlink-plugin-author/`: 给 Claude Code / Codex 使用的外部插件开发 skill
 - `vpdocs/`: VitePress 文档站源码
 
 ## Contributor Setup

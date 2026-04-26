@@ -16,7 +16,6 @@ dependencies = [
     "scipy>=1.15.2",
     "fastapi>=0.118.0",
     "httpx>=0.28.1",
-    "python-dotenv>=1.0.0",
     "uvicorn>=0.37.0",
     "typer>=0.15.0",
     "pydantic>=2.0.0",
@@ -36,7 +35,6 @@ modlink-studio = "modlink_studio.app:main"
 modlink-studio-debug = "modlink_studio.app:debug_main"
 modlink-server = "modlink_server.app:main"
 modlink-plugin = "modlink_studio.plugin.cli:main"
-modlink-plugin-agent = "modlink_plugin_agent.cli:main"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -100,7 +98,6 @@ where = [
     "packages/modlink_sdk",
     "packages/modlink_core",
     "packages/modlink_ui",
-    "tools/modlink_plugin_agent",
 ]
 include = [
     "modlink_studio*",
@@ -108,7 +105,6 @@ include = [
     "modlink_sdk*",
     "modlink_core*",
     "modlink_ui*",
-    "modlink_plugin_agent*",
 ]
 namespaces = false
 

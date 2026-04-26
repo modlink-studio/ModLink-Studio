@@ -236,12 +236,12 @@ class Protocol:
 
 ### 3.0 AI 插件生成工具
 
-状态：方向调整中。当前更优先把“如何让 Claude Code、Codex 等 coding agent 写外部 ModLink driver plugin”沉淀成可分发 skill，而不是继续把能力收进自研多轮 agent。外部插件项目的默认模式是依赖公开主包 `modlink-studio`，在独立项目中通过 `pip install -e .` 安装，并通过 `modlink.drivers` entry point 被宿主发现。
+状态：已调整方向。当前不再维护自研 Python AI plugin agent，改为把“如何让 Claude Code、Codex 等 coding agent 写外部 ModLink driver plugin”沉淀成可分发 skill。外部插件项目的默认模式是依赖公开主包 `modlink-studio`，在独立项目中通过 `pip install -e .` 安装，并通过 `modlink.drivers` entry point 被宿主发现。
 
 - `tools/modlink_plugin_scaffold`：官方交互式 npm 脚手架，继续面向开发者手动创建 driver 项目骨架
 - `tools/modlink-plugin-author`：面向 Claude Code / Codex 的可分发 skill，指导 coding agent 在外部插件项目中编写、测试和验证 driver
-- `tools/modlink_plugin_agent`：保留为实验性 Python-only AI agent；不再优先扩展多轮对话能力
-- 生成模板和 skill 都应默认依赖 `modlink-studio`，而不是要求外部插件作者依赖未独立公开的 `modlink-sdk`
+- 已删除 `tools/modlink_plugin_agent`，避免维护一个能力弱于成熟 coding agent 的重复 LLM 编排层
+- skill 默认依赖 `modlink-studio`，而不是要求外部插件作者依赖未独立公开的 `modlink-sdk`
 
 ### 3.1 AI 的角色定义
 
