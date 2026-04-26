@@ -1,406 +1,126 @@
-# ModLink Studio 项目路线图
+# ModLink Studio Roadmap
 
-## 背景
+本文档记录当前版本边界、后续路线和明确不做的方向。它不是设计草稿合集；已经完成或废弃的探索只保留结论。
 
-当前项目已经完成从 Qt-style driver API 到纯 Python 运行时的主线重构（SDK、Core、Bridge、Server）。基础采集、录制、保存链路已经具备稳定基线，后续路线重点转向实验工作流、回放能力与更高层的数据组织模型。本文档用于定义当前基线，以及后续版本的演进方向。
+## 当前位置
 
----
+当前主开发线是 `0.3.0rc1`。这一版建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
 
-## 一、当前基线
+- recording replay
+- analysis-first export
+- widgets 主宿主里的 Replay 页面
+- live experiment sidebar 与 AI assistant 原型
+- 外部 driver plugin author skill
 
-当前仓库以后续设计为前提，先确认以下基线已经成立：
+分支约定：
 
-- 安装、搜索设备、连接、实时预览、录制、保存链路已经可用
-- 当前 recording 产物已经具备稳定的最小写盘结构：`recording.json` / `annotations/` / `streams/<stream_id>/stream.json` / `frames.csv` / `frames/*.npz`
-- 单主包 `modlink-studio` 的公开分发策略至少继续沿用到 `0.3.x`
-- 后续结构设计优先服务 `recording / session / experiment` 分层，不再把一次录制默认视为实验的一部分
-- 历史数据兼容通过薄读取层、导入器或 catalog 适配完成，而不是让旧路径约定持续塑造新主流程
+- `legacy/0.2.x`：维护 `0.2.x` 稳定线
+- `wip/0.3.0`：当前 `0.3.0` / `0.3.0rc1` 开发线
+- `main`：是否切到 `0.3.0rc1`，在 rc 发布验证后再决定
 
-## 二、0.3.0 — 实验工作流与回放
+## 产品原则
 
-**核心目标：从“能采集”升级为“能组织实验、管理会话、回看录制结果”，同时保留“非实验、即开即录”的轻量工作流。**
+- `modlink-studio` 继续作为公开安装入口，外部 driver plugin 依赖主包并通过 `modlink.drivers` entry point 被宿主发现。
+- 主仓库只维护宿主、SDK、core、UI 和插件管理入口；官方驱动源码和发布资产由独立插件仓库维护。
+- `recording` 是最小数据资产，`session` 和 `experiment` 是上层组织关系，不反向塑造 recording 的内部结构。
+- Core 保持纯 Python runtime；Qt 相关行为只留在 UI / bridge 层。
+- 不再维护 npm scaffold 或自研 Python plugin AI agent；外部插件开发转向 `tools/modlink-plugin-author/SKILL.md`。
+- 不为了未来 Web/QML 路线提前保留当前用不到的宿主包、适配层或扩展点。
 
-**发布策略保持不变：0.3.0 继续沿用单主包 `modlink-studio` 的公开分发方式，不在此版本重新拆分 UI 实现层或官方驱动公开包；插件安装仍优先通过主包 CLI + GitHub 发布物完成。**
+## 0.3.0rc1
 
-### 2.1 数据模型扩展
+目标：发布一个可验证的 `0.3.0` 候选版本，用来检查 replay/export、外部插件 author skill、Windows 文件写入稳定性和文档口径。
 
-0.3.0 的主结构不再把“实验”强加给每一次录制。数据模型分成三层：
+已完成：
 
-- `recording`：一次开始到停止之间产生的原子采集资产，可以独立存在、独立回放
-- `session`：一次实际执行过程的组织单元，可关联多个 recordings、protocol、操作者、备注等
-- `experiment`：更高层的项目/研究/批次组织单元，可关联多个 sessions
+- 版本号统一到 `0.3.0rc1`
+- widgets Replay 页面接入 recordings 列表、player 和 export 页面
+- `modlink_core.replay` 提供 `RecordingReader`、`ReplayBackend` 和 `ExportService`
+- 首批导出格式覆盖 `signal_csv`、`signal_npz`、`raster_npz`、`field_npz`、`video_frames_zip`、`recording_bundle_zip`
+- live experiment sidebar 支持 experiment/session/steps 管理
+- AI assistant 原型使用 OpenAI-compatible Chat Completions 和本地工具调用
+- `tools/modlink-plugin-author` 成为外部 driver plugin 的推荐起点
+- 删除 npm plugin scaffold 和实验性 Python plugin AI agent
+- 删除已不再维护的 QML / Web 宿主路线包
+- 测试默认忽略外部插件目录、构建产物和 `node_modules`
+- Windows settings 保存路径增加原子替换重试，降低并发保存时的 transient `PermissionError`
 
-这三层关系是：
+发布前仍需确认：
 
-```text
-Experiment（可选）
-└── Sessions[]
-    └── Recordings[]
+- PyPI / TestPyPI 发布流程按 `0.3.0rc1` 产物完整跑通
+- 从干净环境安装 `modlink-studio==0.3.0rc1` 后可启动 `modlink-studio`
+- `modlink-plugin` 能列出和安装兼容官方驱动
+- docs site 使用当前 `0.3.0rc1` 口径发布
 
-Recording（原子资产）
-├── metadata
-├── annotations
-└── streams[]
-```
+## 0.3.0
 
-第一版不强制把 `participant` 提升为单独顶层目录；优先将 participant 信息放入 `session.json`，等跨 session 复用需求明确后再拆分。
+目标：把 rc 期间暴露的问题修完，形成稳定的 `0.3.0`。重点不是继续扩功能，而是收口已经进入 rc 的能力。
 
-### 2.1.1 存储结构
+优先级：
 
-0.3.0 当前已经落地的 recording 主目录结构为：
+1. 稳定 replay/export
+2. 收口 session / experiment 最小持久化和 UI 使用方式
+3. 明确外部插件 author skill 的分发和使用说明
+4. 完成发布链路、安装链路、插件安装链路的端到端验证
 
-```text
-data/
-├─ recordings/
-│  └─ rec_<id>/
-│     ├─ recording.json
-│     ├─ annotations/
-│     │  ├─ markers.csv
-│     │  └─ segments.csv
-│     └─ streams/
-│        └─ <stream_id>/
-│           ├─ stream.json
-│           ├─ frames.csv
-│           └─ frames/
-├─ sessions/
-│  └─ ses_<id>/
-│     └─ session.json
-└─ experiments/
-   └─ exp_<id>/
-      └─ experiment.json
-```
+不把以下内容作为 `0.3.0` 前置条件：
 
-当前设计原则：
+- 完整 protocol editor
+- 任意时间轴 seek
+- 多 recording 拼接
+- live/replay 混播
+- Web UI
+- 新 QML 宿主
+- 独立插件注册中心
 
-- `recording` 是第一公民，可以不属于任何 session 或 experiment
-- `session` 通过 `recording_id` 引用多个 recordings，而不是把 recording 的内部结构绑死到 session 目录语义上
-- `experiment` 通过 `session_id` 引用多个 sessions
-- 路径键使用稳定的 `experiment_id` / `session_id` / `recording_id`，而不是展示名
-- `display_name`、`label`、`notes` 等保持在 metadata 中，不承担路径标识职责
-- `modlink_core.storage` 当前先收敛为最小写盘工具层，不承担 finalize、catalog、replay reader 或旧格式兼容职责
+## 0.3.x
 
-### 2.1.2 多模态 Recording 设计
+目标：在 `0.3.0` 稳定后，把 live experiment sidebar 与 AI assistant 原型收口成可用的实验辅助工作流。`0.3.x` 不只是 replay/export 的补丁线，也承担原先规划给 `0.4.x` 的 AI 辅助能力。
 
-0.3.0 的 `recording` 需要天然支持多模态数据，因此它本身应被视为“一个多流 bundle”，而不是单流文件夹：
+可能进入 `0.3.x` 的内容：
 
-- 一个 recording 可同时包含 signal / raster / field / video 等多条流
-- 每条流以 `stream_id` 为唯一目录键，避免 `device/stream_key` 多级路径在回放和索引时制造额外耦合
-- replay 读取只依赖 `recording` 和其中的 `streams/*`，不依赖上层 experiment/session 是否存在
-- recording 级 metadata 只描述整次录制；单流的权威描述放在 `streams/<stream_id>/stream.json`
-
-当前 recording 级 manifest 只保留：
-
-- `recording_id`
-- `recording_label`
-- `stream_ids`
+- AI assistant 支持更清晰的状态上下文
+- AI 生成或调整 session steps、录制标签、marker 建议
+- AI 输出必须经过可审计的本地 action，不执行任意命令
+- 设置页继续保持 OpenAI-compatible provider 配置
+- 关键动作仍由用户确认：连接设备、开始采集、停止采集、删除数据
+- recording catalog 的查询和筛选体验
+- session / experiment 列表、详情和 recording 归档
+- 更完整的 marker / segment 展示和编辑
+- replay 时间轴 seek
+- 批量导出
+- export 参数配置
+- `modlink-plugin` 的状态、来源、升级提示和第三方插件可见性
+- 外部插件开发文档和 skill 使用示例
+- 面向 Claude Code / Codex 的独立插件项目示例
 
-当前单流 manifest 只保留：
+仍然保持克制：
 
-- `stream_id`
-- `descriptor`
+- AI 只辅助填写、建议和整理，不直接控制硬件关键动作
+- catalog 先服务当前 widgets UI，不抽象成通用数据库层
+- export 扩展先通过内建格式推进，不引入插件式 exporter 体系
+- session / experiment 先做最小持久化和 UI 流程，不提前设计复杂研究数据平台
+- 不恢复 npm scaffold
+- 不恢复自研 Python plugin AI agent
 
-### 2.1.3 落盘格式方向
-
-当前 recording 落盘先收敛到最小 per-frame 写盘模型：
-
-- signal / raster / field / video 统一写到 `frames/*.npz`
-- `frames.csv` 只记录 `frame_index,timestamp_ns,seq,file_name`
-- `.npz` 当前只保存 `data`
-- storage 首要目标先是稳定写盘与清晰边界；replay reader 再在后续版本单独设计
-
-**关键文件改动：**
-
-- `packages/modlink_core/modlink_core/storage/`
-  - 作为 shared storage 后端承载 `recording / session / experiment` 的文件持久化
-  - recording 写盘已收敛为 `create_recording / append_recording_frame / add_recording_marker / add_recording_segment`
-  - recording 不再默认绑定 experiment/session 目录层级
-  - 允许最小、无状态的 read/list/load 接口承载 replay 读侧输入，但不承担播放状态机、导出 job 或 UI 语义
-
-- `packages/modlink_core/modlink_core/` 新增 `experiment/` 模块
-  - `protocol.py` — 协议定义（阶段列表、每阶段参数、预期时长）
-  - `session.py` — 会话数据模型
-  - `experiment.py` — 实验数据模型
-
-- `packages/modlink_core/modlink_core/replay/` 承载 replay / export 能力
-  - 负责将 recording 重建为可播放的流数据源
-  - 负责在 replay 域内承载导出能力，而不是将导出逻辑分散到采集或 UI 层
-
-当前状态：
-
-- `modlink_core` 内部的 shared storage 已完成最小写盘收口：顶层 `modlink_core.storage` 现已重组为纯函数模块，recording 写入路径已切到 `recordings/`
-- `modlink_core.storage` 现同时承载最小 read/write public API：除写盘外，已补回无状态的 recording list/read/load 接口，供 replay 读取 recording / stream / annotations / frames / frame data
-- recording schema 当前明确收敛为最小 root `recording.json`、per-stream `stream.json`、`frames.csv` 与 `frames/*.npz`
-- Qt bridge 与 widgets 的 acquisition 录制调用面已切到 recording-only 语义：统一使用 `storage.root_dir`，UI 不再携带 `session_name`，录制完成提示直接基于 `RecordingStopSummary`
-- settings 收口已继续细化：`SettingsStore` 由 engine 内部持有并直接对上层暴露 raw tree，当前 widgets UI 与 server 已统一切到属性树读写 + 显式 `save()`；其中 `modlink_core` 自己只保留单一 `declare_core_settings(...)` 声明入口，storage 相关路径策略回到 `modlink_core.storage`，其他 UI/feature settings 仍在各组件初始化阶段声明
-- 顶层 `modlink_core.replay` 已落地第一版 `RecordingReader`、`ReplayBackend` 与 `ExportService`；当前 widgets 主应用已经接上 recordings 列表、回放控制、annotations 展示与 analysis-first export
-- 宿主与桌面 UI 路线已重新收敛：`modlink_studio_qml`、`modlink_studio_web` 与 `modlink_ui_qt_qml` 已删除，当前只保留 widgets 主宿主 `modlink_studio`
-- Qt UI 包结构迁移已完成：当前唯一桌面 UI 包仍为 `modlink_ui`，但其内部组织已切到 `shell + features + shared + bridge`；Qt bridge 语义继续内聚在该包内
-- `modlink_ui` 的 replay feature 已从单页平铺式 splitter 改为三段式页面流：`recordings` 列表页、单独的 `player` 回放页、单独的 `export` 导出页
-
-**架构原则：**
-
-- 0.3.0 的主结构优先服务新的 experiment/session/replay 语义，而不是被历史路径约定反向塑形
-- 历史 recording 的兼容通过薄读取层、导入器或 catalog 适配完成，而不是把旧格式分支散落到新主流程中
-- 旧 recording 仍可以被 replay 直接打开，也可以被 session 显式纳入
-
-### 2.2 协议（Protocol）系统
-
-协议定义一个实验的结构：
-
-```python
-@dataclass
-class ProtocolStage:
-    name: str                          # "resting_state", "p300_stimulus", ...
-    duration_seconds: float | None     # None = 手动控制
-    default_recording_label: str       # 预填的录制标签
-    required_streams: list[str]        # 需要哪些设备流
-    default_settings: dict             # 此阶段的默认参数
-    instructions: str                  # 给操作者的文字指引
-
-@dataclass
-class Protocol:
-    name: str                          # "P300_Oddball", "SSVEP_Check", ...
-    description: str
-    stages: list[ProtocolStage]
-    metadata: dict
-```
-
-### 2.3 回放与复盘
-
-回放放在 0.3.0，是因为它天然属于实验工作流的一部分：录制完成后需要与 marker、segment、session 元数据一起查看和复盘。
-
-- Core 层新增顶层 replay 模块，例如 `packages/modlink_core/modlink_core/replay/`
-- replay 的最小输入单元是 `recording`
-- 非实验录制与实验内录制都走同一条 replay 路径
-- replay backend 内部分为三层：
-  - `RecordingReader`：负责读取 recording、annotations、stream chunk 与时间索引
-  - `ReplayPlayer`：负责播放 / 暂停 / 停止 / 倍速等实时回放控制
-  - `ExportService`：负责非实时导出 job，和 player 共用 reader，但不走实时播放链路
-- 回放对外尽量复用实时流的 `StreamDescriptor + FrameEnvelope + StreamBus` 入口，降低 UI 重写成本
-- 第一版能力只做：
-  - 打开 recording
-  - 播放 / 暂停 / 停止 / 从头播放
-  - 1x / 2x / 4x 倍速
-  - marker / segment 联动展示
-  - 发起导出任务并查看导出状态
-- 第一版明确不做：
-  - 时间轴任意拖拽
-  - 多 recording 拼接
-  - live / replay 混播
-
-### 2.3.1 导出能力
-
-导出属于 replay backend 的一部分，因为它和回放共用同一套 recording 读取能力；但导出不是 player 的职责。
-
-设计原则：
-
-- 采集落盘格式优先服务稳定写入、统一回放与可增量读取
-- 导出格式优先服务分析、共享、可视化与对外交换
-- 导出通过后台 job 运行，不要求实时
-- 导出产物默认写入独立的 `exports/` 目录，而不是回写原始 recording 目录
-- 导出格式扩展通过内建 exporter 注册表完成，不预先引入插件式复杂抽象
-
-第一版导出分成两类：
-
-- Analysis export（已实现）
-  - `signal_csv`
-  - `signal_npz`
-  - `raster_npz`
-  - `field_npz`
-  - `video_frames_zip`
-- Presentation export（第一版仅完成 `recording_bundle_zip`，mp4 系列后置）
-  - `recording_bundle_zip`
-  - `video_mp4`
-  - `raster_mp4`
-  - `field_mp4`
-
-后续可继续扩展：
-
-- BIDS
-- NWB
-- 更完整的批量 session / experiment 导出
-
-### 2.4 UI 变更
-
-- 实验管理页面（新建实验 → 填写受试者 → 选择协议 → 进入 session）
-- Session 内的录制面板升级：显示当前阶段、进度、下一步指引
-- widgets 主应用已新增 Replay 页面：基于 recordings 列表打开 recording，并复用现有 preview cards 进行复盘
-- Replay 页面已提供 analysis-first 导出区域与 job 状态展示
-- 受试者信息表单
-
----
-
-## 三、0.4.0 — AI 辅助 Session 管理
-
-**核心目标：AI 不控制硬件，只承担编排、建议、预填写等辅助职责；开始、停止、下一步等关键控制权始终由用户保留。**
-
-### 3.0 AI 插件生成工具
-
-状态：已调整方向。当前不再维护自研 Python AI plugin agent，改为把“如何让 Claude Code、Codex 等 coding agent 写外部 ModLink driver plugin”沉淀成可分发 skill。外部插件项目的默认模式是依赖公开主包 `modlink-studio`，在独立项目中通过 `pip install -e .` 安装，并通过 `modlink.drivers` entry point 被宿主发现。
-
-- `tools/modlink-plugin-author`：面向 Claude Code / Codex 的可分发 skill，指导 coding agent 在外部插件项目中编写、测试和验证 driver
-- 已删除 `tools/modlink_plugin_agent`，避免维护一个能力弱于成熟 coding agent 的重复 LLM 编排层
-- 已删除 `tools/modlink_plugin_scaffold`，0.3.0rc1 不再维护独立 npm 脚手架入口
-- skill 默认依赖 `modlink-studio`，而不是要求外部插件作者依赖未独立公开的 `modlink-sdk`
-
-### 3.1 AI 的角色定义
-
-```
-用户视角的实验流程：
-
-  ┌─────────────────────────────────────────────────┐
-  │  AI 助手面板（侧边栏/对话式）                      │
-  │                                                   │
-  │  AI: 这是一个 P300 Oddball 实验。我帮你填好了       │
-  │      协议参数。下一步请连接 OpenBCI 设备。          │
-  │                                                   │
-  │  AI: 设备已连接，信号质量良好。                     │
-  │      第一阶段是"静息态"，持续 3 分钟。              │
-  │      我已经帮你填好了 recording_label = "rest_1"，  │
-  │      点击"开始采集"即可。                          │
-  │                                                   │
-  │  [用户点击开始] → 3分钟后点击停止                    │
-  │                                                   │
-  │  AI: "rest_1" 录制完成。                           │
-  │      下一阶段是"刺激态"，参数已填好。               │
-  │      点击"开始采集"继续。                          │
-  │                                                   │
-  │  [用户点击开始] → 用户点击停止                      │
-  │  ...                                              │
-  │                                                   │
-  │  AI: 实验全部完成。共 6 段录制，总时长 25 分钟。    │
-  │      录制文件已保存到 experiments/p300_001/        │
-  └─────────────────────────────────────────────────┘
-```
-
-### 3.2 架构设计
-
-**AI 层不侵入 Core 运行时。** 它是 Core 之上的一个独立服务，通过已有的 API（DriverPortal、RecordingBackend、SettingsService）操作，和用户手动操作走同一条路径。
-
-```
-┌──────────────────────────┐
-│  AI Assistant Service     │  ← 新模块
-│  (LLM + 状态机)          │
-├──────────────────────────┤
-│  Experiment Manager       │  ← 0.3.0 新增
-│  (Protocol, Session,      │
-│   Participant)           │
-├──────────────────────────┤
-│  ModLink Core (现有)      │
-│  Engine, DriverPortal,    │
-│  Recording, Settings      │
-└──────────────────────────┘
-```
-
-**新增模块：** `packages/modlink_ai/`（或作为独立包）
-
-```
-packages/modlink_ai/
-├── modlink_ai/
-│   ├── __init__.py
-│   ├── assistant.py        # AI 助手主类
-│   ├── protocol_llm.py     # LLM 与协议系统的交互
-│   ├── context.py          # 当前实验上下文（设备状态、录制进度等）
-│   └── prompts/            # 提示词模板
-│       ├── experiment.py
-│       └── session.py
-└── pyproject.toml
-```
-
-### 3.3 AI 调用链路
-
-```
-用户选择/描述实验 → LLM 理解意图
-  → LLM 返回 Protocol 结构（阶段列表 + 参数）
-  → 用户确认或修改
-  → AI 按阶段推进：
-      1. 填写当前阶段的 session 参数（recording_label、marker 预设等）
-      2. 建议用户检查设备状态
-      3. 等待用户操作（开始/停止）
-      4. 读取录制结果，更新进度
-      5. 填写下一阶段参数
-      6. 重复直到实验完成
-```
-
-### 3.4 LLM 集成方案
-
-- 状态：live sidebar chat prototype 已完成第一版，使用 OpenAI-compatible Chat Completions + 本地 tool calling；当前可由 AI 自主选择设置 `experiment_name`、`session_name`、录制/标注标签、步骤队列，以及上一步/下一步
-- 使用 Claude API（anthropic SDK）
-- 用户在设置中配置 API key
-- 预留 provider 抽象层，后续可接 OpenAI 等其他 LLM
-- 每次调用传入当前实验上下文（设备列表、流描述、已完成阶段、当前参数），LLM 返回结构化 JSON
-- UI 侧以对话面板呈现 AI 的建议，同时直接修改表单字段
-
-### 3.5 UI 集成
-
-- 状态：live 实验侧栏已在 Prev / Next 下方新增 AI 多轮对话框原型，设置页已新增 AI 助手配置项
-- 在主窗口右侧或底部增加 AI 助手面板（类似聊天窗口）
-- AI 的建议同时以两种形式呈现：
-  1. 对话消息（"我已经帮你填好了参数"）
-  2. 直接修改 UI 表单（recording_label 输入框高亮表示被 AI 填写）
-- 用户随时可以覆盖 AI 填写的任何字段
-- 关键操作（开始录制、停止录制）必须由用户手动触发
-
----
-
-## 四、版本时间线
-
-```
-当前基线
-  ├── 基础采集链路稳定可用
-  ├── 当前 recording 格式可作为 replay 输入基线
-  ├── 单主包公开分发策略延续
-  └── 重点转向 experiment / session / replay
-      │
-      ▼
-0.3.x  实验工作流与回放
-  ├── Recording / Session / Experiment 分层模型
-  ├── Protocol 定义和存储
-  ├── 录制回放
-  ├── Replay backend 内建导出能力
-  ├── UI：实验管理页面
-  ├── recording 原子资产化
-  ├── 多模态 recording 格式标准化
-  └── 保持单主包公开分发
-      │
-      ▼
-0.4.x  AI 辅助
-  ├── live sidebar chat prototype（已完成第一版：OpenAI-compatible、非 streaming、本地工具调用）
-  ├── plugin author skill（已作为外部插件开发入口沉淀）
-  ├── AI Assistant Service
-  ├── LLM 集成（Claude API）
-  ├── 协议自动编排
-  ├── AI 助手 UI 面板
-  ├── 上下文感知的建议系统
-  └── 将 `modlink-plugin` 扩展为更完整的插件管理工具
-      │
-      ▼
-0.5.x  生态扩展
-  ├── 插件注册中心
-  ├── 数据导出工具（HDF5/BIDS）
-  ├── 回放 API 服务化 / Web Replay 化
-  └── 更完整的 Web UI / PWA 分发能力
-```
-
----
-
-## 五、当前优先级（按顺序）
-
-1. **敲定多层数据模型（进行中）** — 落定 `recording / session / experiment` 的边界、ID 规则与引用关系
-2. **完成 recording schema 设计（进行中）** — `modlink_core` 内部最小 schema 已落地：`recording.json`、单流 `stream.json`、`frames.csv`、`frames/*.npz`、annotations；后续只在 replay 真实需求推动下再扩字段
-3. **实现 recording catalog（进行中）** — storage 已补回最小 `list/read/load` recording 接口，当前 widgets replay 页面已能扫描 recordings 列表；更高层的 session / experiment catalog 仍待继续设计
-4. **实现 replay 核心链路（进行中）** — `modlink_core.replay` 已能基于 recording 重建 `StreamDescriptor + FrameEnvelope + StreamBus`，完成打开 / 播放 / 暂停 / 停止 / 1x/2x/4x；widgets player 当前已将暂停/停止合并为单一“暂停/复位”按钮，后续补 seek 与更多 UI 宿主
-5. **设计并实现 export service（进行中）** — replay backend 已支持导出 job、进度与结果路径，首批完成 `signal_csv`、`signal_npz`、`raster_npz`、`field_npz`、`video_frames_zip`、`recording_bundle_zip`
-6. **推进多模态落盘格式统一（进行中）** — `modlink_core` 内部已收敛到 storage 纯函数驱动的最小 `frames.csv` / `frames/*.npz` 写盘格式，后续只围绕 replay/export 补 reader 侧契约
-7. **补齐 session / protocol 工作流（待开始）** — 支持会话创建、recording 归档、阶段信息与操作者备注
-8. **保留历史数据导入路径（待开始）** — 当前主流程不兼容旧 recording；后续通过薄读取层或导入器兼容旧格式，而不是让旧结构继续塑造新主流程
-9. **收敛宿主路线（已完成）** — 已删除 `modlink_studio_qml`、`modlink_studio_web` 与 `modlink_ui_qt_qml`，当前只保留 widgets 主宿主 `modlink_studio`
-
----
-
-## 六、技术债务（可穿插在任意版本中处理）
-
-- QML / Web 宿主与 QML UI 包已移除；若后续重启对应方向，应重新单独评估
-- mypy/pyright 类型检查（从 SDK 开始）
-- UI 测试覆盖提升
-- 旧插件清理
+## 0.4.x
+
+目标：生态和数据交换能力扩展。
+
+候选方向：
+
+- 更完整的插件索引和第三方插件安装体验
+- BIDS / NWB / HDF5 等更正式的数据导出
+- replay API 服务化
+- Web replay 或轻量 Web viewer
+- 更完整的发布自动化和兼容性矩阵
+
+这些方向需要在 `0.3.x` 的实验辅助、数据模型和插件开发路径稳定后再推进。
+
+## 长期技术债务
+
+- 从 SDK 开始引入类型检查
+- 提升 UI 测试覆盖，尤其是 replay/export 和 settings 页面
+- 梳理 Windows 文件系统相关测试的稳定性
+- 减少重复的临时测试目录和构建产物污染
+- 为正式发布补齐更清晰的 release checklist
