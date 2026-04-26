@@ -16,7 +16,7 @@
 ## 快速定位
 
 - [先选哪一个基类](#先选哪一个基类)
-- [用脚手架起步](#用脚手架起步)
+- [用 coding agent 起步](#用-coding-agent-起步)
 - [最小接入流程](#最小接入流程)
 - [三个核心数据模型](#三个核心数据模型)
 - [driver 生命周期](#driver-生命周期)
@@ -95,24 +95,11 @@
 
 如果判断不清楚，回到 `Driver`。`LoopDriver` 的目的在于减少轮询样板代码，而不是让所有 driver 都采用轮询模型。
 
-## 用脚手架起步
-
-`modlink-plugin-scaffold` 现在作为独立 npm 开发工具维护，位于仓库的 `tools/` 目录中；它不再作为 `modlink-studio` 的运行时依赖自动安装。
-
-```bash
-npx @modlink-studio/plugin-scaffold --zh
-```
+## 用 coding agent 起步
 
 如果你希望在外部插件项目里直接让 Claude Code、Codex 等 coding agent 编写 driver，可以使用仓库里的 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。这个 skill 面向独立插件项目，而不是 ModLink-Studio 主仓库开发。
 
-如果你正在仓库里联调脚手架本身：
-
-```bash
-npm install
-npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
-```
-
-这个脚手架适合“新建一个独立 driver 项目”的场景。它会交互式生成：
+推荐让 coding agent 在一个新建的独立 driver 项目里生成：
 
 - 基础包结构
 - `pyproject.toml`
@@ -124,7 +111,7 @@ npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
 - `modlink.drivers` entry point
 - `tests/test_smoke.py`
 
-脚手架只负责把项目骨架和 SDK 契约接好，不会替代真实设备协议实现。生成项目后，通常还需要你继续补完：
+skill 只负责告诉 coding agent 如何把项目骨架和 SDK 契约接好，不会替代真实设备协议确认。生成项目后，通常还需要你继续补完：
 
 - `search()`
 - `connect_device()` / `disconnect_device()`

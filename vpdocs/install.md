@@ -107,20 +107,9 @@ uv run modlink-studio
 uv run modlink-studio-debug
 ```
 
-## 独立脚手架工具
+## 外部插件开发
 
-driver 脚手架现在作为独立 npm 工具提供，而不是 `modlink-studio` 的运行时依赖：
-
-```bash
-npx @modlink-studio/plugin-scaffold --zh
-```
-
-仓库内联调脚手架：
-
-```bash
-npm install
-npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
-```
+0.3.0rc1 不再提供独立 npm driver 脚手架。外部插件项目建议使用 `tools/modlink-plugin-author/SKILL.md` 作为 Claude Code / Codex 的可分发 skill，在插件自己的仓库里生成和维护 driver 代码。
 
 更完整的 driver 开发说明见 [SDK 开发者指南](/sdk)。
 

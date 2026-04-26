@@ -102,22 +102,9 @@ python -m pip install -e .
 
 安装到与宿主相同的环境后，`modlink.drivers` entry point 会被宿主发现。
 
-如果是新建 driver 项目，可以使用独立脚手架工具：
-
-```bash
-npx @modlink-studio/plugin-scaffold --zh
-```
-
 如果你希望让 Claude Code、Codex 等 coding agent 在外部插件项目里直接写 driver，可以使用 `tools/modlink-plugin-author/SKILL.md` 作为可分发 skill。它描述的是外部插件项目的真实工作流：依赖 `modlink-studio`、暴露 `modlink.drivers` entry point、`pip install -e .` 验证。
 
-在仓库内联调脚手架时：
-
-```bash
-npm install
-npm --workspace @modlink-studio/plugin-scaffold run dev -- --zh
-```
-
-这个工具会交互式生成一个可启动的 driver 项目骨架，通常包括：
+推荐的外部插件项目通常包括：
 
 - `pyproject.toml`
 - `README.md`
@@ -140,7 +127,6 @@ modlink-studio/
 │  ├─ modlink_core/
 │  └─ modlink_ui/
 ├─ tools/
-│  ├─ modlink_plugin_scaffold/
 │  └─ modlink-plugin-author/
 └─ vpdocs/
 ```
@@ -151,7 +137,6 @@ modlink-studio/
 - `packages/modlink_sdk/`: 当前仓库内的最小 SDK 契约
 - `packages/modlink_core/`: 纯 Python runtime、流总线和采集基础设施
 - `packages/modlink_ui/`: 当前唯一的 Qt Widgets UI 包，内部同时承载 Qt bridge
-- `tools/modlink_plugin_scaffold/`: 独立 npm driver 脚手架工具
 - `tools/modlink-plugin-author/`: 给 Claude Code / Codex 使用的外部插件开发 skill
 - `vpdocs/`: VitePress 文档站源码
 
@@ -176,13 +161,12 @@ uv run modlink-studio-debug
 
 ### Code Style And Pre-Commit
 
-当前仓库把 Python 和 `tools/modlink_plugin_scaffold` 的 TypeScript 工具链分开治理：
+当前仓库主要使用 Python 工具链治理代码质量：
 
 - Python 代码统一使用 `ruff` 负责 lint、import sorting 和 format，配置位于根 [pyproject.toml](pyproject.toml)
 - 提交前检查使用根 [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
 - 编辑器基础约束写在根 [`.editorconfig`](.editorconfig)
 - Git 行尾策略写在根 [`.gitattributes`](.gitattributes)
-- `tools/modlink_plugin_scaffold/` 这条 React + Ink + TypeScript 工具链使用 `Biome`
 
 首次使用建议安装 pre-commit：
 
@@ -201,14 +185,6 @@ uv run pre-commit run --all-files
 ```bash
 uv run ruff check . --fix
 uv run ruff format .
-```
-
-只跑 `plugin_scaffold` 这条 TypeScript 工具链：
-
-```bash
-npm run scaffold:lint
-npm run scaffold:lint:fix
-npm run scaffold:format
 ```
 
 ## Docs And License

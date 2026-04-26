@@ -51,7 +51,7 @@
     - `modlink_studio_qml`
     - `modlink_server`
   - 开发工具：
-    - `tools/modlink_plugin_scaffold`
+    - `tools/modlink-plugin-author`
 
 ---
 
@@ -84,12 +84,11 @@
 
 #### Plugin / Ecosystem
 
-- `modlink_plugin_scaffold` 从主运行时链路中拆出，转为独立开发工具
-- 新的脚手架工具改写为 React + Ink 的 npm 工具
+- 新增 `tools/modlink-plugin-author` skill，作为 Claude Code / Codex 编写外部 driver plugin 的推荐入口
 - 官方驱动从主仓库拆出，迁移到独立仓库 `ModLink-Studio-Plugins`，并改为通过主包插件管理命令 + GitHub 发布物安装
 - 外部 driver 开发路径明确为：
-  - 主要依赖仓库内的 `modlink-sdk` 契约
-  - 按需依赖仓库内的 `modlink-core`
+  - 外部插件项目依赖公开主包 `modlink-studio`
+  - driver 代码从随主包分发的 `modlink_sdk` 导入 SDK 契约
   - 使用 `modlink.drivers` entry points 暴露 driver
 
 #### Testing / Tooling
@@ -101,7 +100,6 @@
   - QML smoke tests
   - preview 相关 UI 行为
 - 根仓库加入 `ruff`、`pre-commit`、`.editorconfig`、`.gitattributes`
-- `tools/modlink_plugin_scaffold` 增加 `Biome`，负责 TypeScript lint / format
 - 根工作区开发环境现在默认可以覆盖 `modlink_server` 的测试与入口
 
 ---
@@ -155,7 +153,8 @@
 ### Removed
 
 - 删除历史 `deprecated/` 目录，不再保留旧实现入口
-- 移除旧的 in-app Python 版 plugin scaffold 路线，改为显式独立工具
+- 移除独立 npm 版 plugin scaffold，不再维护第二套插件生成入口
+- 移除实验性 Python plugin AI agent，改用可分发 skill 指导成熟 coding agent
 - 不再把录制回放视作 `0.2.0` 的发布前置能力
 
 ---
@@ -183,12 +182,10 @@
 从 `0.1.x` 升级到 `0.2.0` 时，需要注意：
 
 1. 旧 driver 需要迁移到新的 runtime-oriented driver API
-2. 外部 driver 应优先依赖仓库内的 SDK 契约：
-   - `modlink-sdk`
-   - 设备自身的传输层依赖
-3. 只有在确实需要 runtime 服务时，才额外依赖仓库内的 `modlink-core`
+2. 外部 driver 插件项目应依赖公开主包 `modlink-studio`
+3. driver 代码继续从 `modlink_sdk` 导入 SDK 契约，设备自身的传输层依赖按需添加
 4. 插件发现基于 `modlink.drivers` entry points
-5. 新 driver 项目建议从 `modlink_plugin_scaffold` 开始
+5. 新 driver 项目建议使用 `tools/modlink-plugin-author/SKILL.md` 指导 Claude Code / Codex 生成
 6. `0.2.0` 的公开安装入口以单主包 `modlink-studio` 为准；`TestPyPI` 只用于发布前 rehearsal
 
 ---

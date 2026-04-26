@@ -238,9 +238,9 @@ class Protocol:
 
 状态：已调整方向。当前不再维护自研 Python AI plugin agent，改为把“如何让 Claude Code、Codex 等 coding agent 写外部 ModLink driver plugin”沉淀成可分发 skill。外部插件项目的默认模式是依赖公开主包 `modlink-studio`，在独立项目中通过 `pip install -e .` 安装，并通过 `modlink.drivers` entry point 被宿主发现。
 
-- `tools/modlink_plugin_scaffold`：官方交互式 npm 脚手架，继续面向开发者手动创建 driver 项目骨架
 - `tools/modlink-plugin-author`：面向 Claude Code / Codex 的可分发 skill，指导 coding agent 在外部插件项目中编写、测试和验证 driver
 - 已删除 `tools/modlink_plugin_agent`，避免维护一个能力弱于成熟 coding agent 的重复 LLM 编排层
+- 已删除 `tools/modlink_plugin_scaffold`，0.3.0rc1 不再维护独立 npm 脚手架入口
 - skill 默认依赖 `modlink-studio`，而不是要求外部插件作者依赖未独立公开的 `modlink-sdk`
 
 ### 3.1 AI 的角色定义
@@ -366,7 +366,7 @@ packages/modlink_ai/
       ▼
 0.4.x  AI 辅助
   ├── live sidebar chat prototype（已完成第一版：OpenAI-compatible、非 streaming、本地工具调用）
-  ├── plugin AI agent（进行中：scaffold → full code，独立 Python CLI）
+  ├── plugin author skill（已作为外部插件开发入口沉淀）
   ├── AI Assistant Service
   ├── LLM 集成（Claude API）
   ├── 协议自动编排
