@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 📦
     title: PyPI 安装
-    details: 0.3.0rc3 作为预发布版本走 PyPI；TestPyPI rehearsal 待完成。
+    details: 0.3.0rc3 作为预发布版本走 PyPI；TestPyPI rehearsal 已完成。
   - icon: 🔌
     title: Driver 接入
     details: 外部 driver 优先依赖仓库内的 SDK 契约，通过 modlink.drivers entry point 被宿主发现。
@@ -43,7 +43,7 @@ features:
 - FastAPI host 已建立服务化边界，用于后续 HTML / Web UI
 - recording replay 与 analysis export 已接入当前 widgets 宿主
 
-`0.3.0rc3` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 待完成，但 `TestPyPI` 不作为日常安装源。
+`0.3.0rc3` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 已完成，但 `TestPyPI` 不作为日常安装源。
 
 ## 从哪里开始
 

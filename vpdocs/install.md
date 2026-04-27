@@ -8,7 +8,7 @@
 
 - `0.3.0rc3` 是 `0.3.0` 的第三个 release candidate
 - 正式公开发布渠道为 **PyPI**
-- **TestPyPI rehearsal** 待完成
+- **TestPyPI rehearsal** 已完成
 - `TestPyPI` 只用于发布链路演练，不作为日常安装源
 - 当前仓库版本已切到 `0.3.0rc3`
 
@@ -121,7 +121,7 @@ uv run modlink-studio-debug
 
 ## 发布前验证
 
-`0.3.0rc3` 的 **TestPyPI rehearsal** 待完成。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
+`0.3.0rc3` 的 **TestPyPI rehearsal** 已完成。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
 
 正式发布前的检查重点包括：
 
