@@ -36,11 +36,11 @@
 - 版本号统一到 `0.3.0rc2`
 - 修复 Windows 下 QFluentWidgets ComboBox popup 外层透明边框问题
 - 官方插件仓库已发布兼容 `0.3.0rc1+` 的 rc 版本，并验证插件安装链路
-
-发布前仍需确认：
-
 - TestPyPI 发布流程按 `0.3.0rc2` 产物完整跑通
-- 从干净环境安装 `modlink-studio==0.3.0rc2` 后可启动 `modlink-studio`
+- 从干净 `.venv-testpypi` 安装 `modlink-studio==0.3.0rc2` 后，可加载 4 个官方插件并启动 runtime
+
+后续仍需确认：
+
 - docs site 使用当前 `0.3.0rc2` 口径发布
 
 ## 0.3.0rc1
