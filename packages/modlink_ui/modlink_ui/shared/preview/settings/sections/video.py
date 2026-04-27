@@ -11,7 +11,6 @@ from qfluentwidgets import (
 )
 
 from modlink_sdk import StreamDescriptor
-from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 
 from ..models import VideoPreviewSettings
 
@@ -43,7 +42,6 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
 
         self.color_format_label = BodyLabel("颜色格式", self)
         self.color_format_combo = ComboBox(self)
-        remove_combo_popup_outer_margin(self.color_format_combo)
         self.color_format_combo.setFixedWidth(180)
         self.color_format_combo.addItem("RGB", userData="rgb")
         self.color_format_combo.addItem("BGR", userData="bgr")
@@ -54,7 +52,6 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
 
         self.scale_mode_label = BodyLabel("缩放模式", self)
         self.scale_mode_combo = ComboBox(self)
-        remove_combo_popup_outer_margin(self.scale_mode_combo)
         self.scale_mode_combo.setFixedWidth(180)
         self.scale_mode_combo.addItem("适应窗口", userData="fit")
         self.scale_mode_combo.addItem("填满窗口", userData="fill")
@@ -63,7 +60,6 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
 
         self.aspect_ratio_label = BodyLabel("宽高比", self)
         self.aspect_ratio_combo = ComboBox(self)
-        remove_combo_popup_outer_margin(self.aspect_ratio_combo)
         self.aspect_ratio_combo.setFixedWidth(180)
         self.aspect_ratio_combo.addItem("保持比例", userData="keep")
         self.aspect_ratio_combo.addItem("允许拉伸", userData="stretch")
@@ -72,7 +68,6 @@ class VideoPayloadSettingsPanel(SimpleCardWidget):
 
         self.transform_label = BodyLabel("几何变换", self)
         self.transform_combo = ComboBox(self)
-        remove_combo_popup_outer_margin(self.transform_combo)
         self.transform_combo.setFixedWidth(180)
         self.transform_combo.addItem("无", userData="none")
         self.transform_combo.addItem("水平翻转", userData="flip_horizontal")

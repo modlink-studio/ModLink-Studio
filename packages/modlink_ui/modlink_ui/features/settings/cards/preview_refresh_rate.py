@@ -6,7 +6,6 @@ from qfluentwidgets import ComboBox, SettingCard
 from qfluentwidgets import FluentIcon as FIF
 
 from modlink_ui.bridge import QtSettingsBridge
-from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 from modlink_ui.shared.ui_settings.preview_refresh_rate import (
     PREVIEW_REFRESH_RATE_OPTIONS,
     UI_PREVIEW_REFRESH_RATE_HZ_KEY,
@@ -35,7 +34,6 @@ class PreviewRefreshRateCard(SettingCard):
         )
 
         self.combo_box = ComboBox(self)
-        remove_combo_popup_outer_margin(self.combo_box)
         self.combo_box.setFixedWidth(120)
         for rate_hz in PREVIEW_REFRESH_RATE_OPTIONS:
             self.combo_box.addItem(f"{rate_hz} Hz", userData=rate_hz)

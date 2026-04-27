@@ -1,6 +1,6 @@
 [project]
 name = "modlink-studio-internal"
-version = "0.3.0rc2"
+version = "0.3.0rc3"
 description = "Internal packaging stub for the Qt Widgets ModLink Studio host"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
@@ -8,7 +8,8 @@ requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
     "modlink_ui",
-    "pyqt6>=6.10.2",
+    "pyqt6>=6.10.2,<6.11",
+    "pyqt6-qt6>=6.10.2,<6.11",
     "pyqt6-fluent-widgets>=1.11.1",
 ]
 

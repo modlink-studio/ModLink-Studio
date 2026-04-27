@@ -4,7 +4,7 @@ layout: home
 hero:
   name: ModLink Studio
   text: 设备接入、多模态采集与展示的文档站
-  tagline: 了解 0.3.0rc2 的 PyPI 预发布口径、driver 契约、回放能力和当前 widgets 宿主路线
+  tagline: 了解 0.3.0rc3 的 PyPI 预发布口径、driver 契约、回放能力和当前 widgets 宿主路线
   actions:
     - theme: brand
       text: 开始安装
@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 📦
     title: PyPI 安装
-    details: 0.3.0rc2 作为预发布版本走 PyPI；TestPyPI rehearsal 已完成。
+    details: 0.3.0rc3 作为预发布版本走 PyPI；TestPyPI rehearsal 待完成。
   - icon: 🔌
     title: Driver 接入
     details: 外部 driver 优先依赖仓库内的 SDK 契约，通过 modlink.drivers entry point 被宿主发现。
@@ -27,15 +27,15 @@ features:
     title: Widgets 宿主
     details: 当前桌面宿主路线收敛到 Qt Widgets，FastAPI host 继续保留为服务化边界。
   - icon: ⚠️
-    title: 0.3.0rc2 预发布
-    details: 0.3.0rc2 继续沿用纯 Python runtime，并新增 recording replay 与 analysis export。
+    title: 0.3.0rc3 预发布
+    details: 0.3.0rc3 继续沿用纯 Python runtime，并新增 recording replay 与 analysis export。
 ---
 
 <div style="height: 1rem;"></div>
 
 # ModLink Studio 文档总览
 
-当前文档以 `0.3.0rc2` 主线为准。这里描述的是 `0.3.0` release candidate 的当前边界，而不是 `0.1.x` 的旧行为：
+当前文档以 `0.3.0rc3` 主线为准。这里描述的是 `0.3.0` release candidate 的当前边界，而不是 `0.1.x` 的旧行为：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
@@ -43,7 +43,7 @@ features:
 - FastAPI host 已建立服务化边界，用于后续 HTML / Web UI
 - recording replay 与 analysis export 已接入当前 widgets 宿主
 
-`0.3.0rc2` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 已完成，但 `TestPyPI` 不作为日常安装源。
+`0.3.0rc3` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 待完成，但 `TestPyPI` 不作为日常安装源。
 
 ## 从哪里开始
 

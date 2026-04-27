@@ -18,7 +18,6 @@ from modlink_core.models import ReplayMarker, ReplaySegment, ReplaySnapshot
 from modlink_sdk import FrameEnvelope
 from modlink_ui.bridge import QtReplayBridge, QtSettingsBridge
 from modlink_ui.shared import BasePage, EmptyStateMessage
-from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 from modlink_ui.shared.preview.cards import DetachableStreamPreviewCard
 
 from .timeline import ReplayAnnotationTimeline, format_time_ns
@@ -134,7 +133,6 @@ class ReplayPlaybackPanel(QWidget):
         self.speed_label = BodyLabel("倍速", self)
 
         self.speed_combo = ComboBox(self)
-        remove_combo_popup_outer_margin(self.speed_combo)
         self.speed_combo.addItem("1x", userData=1.0)
         self.speed_combo.addItem("2x", userData=2.0)
         self.speed_combo.addItem("4x", userData=4.0)

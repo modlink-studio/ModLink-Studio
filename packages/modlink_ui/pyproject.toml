@@ -1,13 +1,14 @@
 [project]
 name = "modlink_ui"
-version = "0.3.0rc2"
+version = "0.3.0rc3"
 description = "Feature-oriented Qt Widgets UI components for ModLink"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "modlink-core",
-    "pyqt6>=6.10.2",
+    "pyqt6>=6.10.2,<6.11",
+    "pyqt6-qt6>=6.10.2,<6.11",
     "pyqt6-fluent-widgets>=1.11.1",
     "pyqtgraph>=0.13.7",
     "scipy>=1.14.1",

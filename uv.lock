@@ -295,7 +295,7 @@ wheels = [
 
 [[package]]
 name = "modlink-studio"
-version = "0.3.0rc2"
+version = "0.3.0rc3"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -306,6 +306,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyqt6" },
     { name = "pyqt6-fluent-widgets" },
+    { name = "pyqt6-qt6" },
     { name = "pyqtgraph" },
     { name = "scipy" },
     { name = "typer" },
@@ -330,8 +331,9 @@ requires-dist = [
     { name = "packaging", specifier = ">=25.0" },
     { name = "platformdirs", specifier = ">=4.9.4" },
     { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "pyqt6", specifier = ">=6.10.2,<6.11" },
     { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
+    { name = "pyqt6-qt6", specifier = ">=6.10.2,<6.11" },
     { name = "pyqtgraph", specifier = ">=0.13.7" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "typer", specifier = ">=0.15.0" },

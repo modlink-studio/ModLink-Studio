@@ -2,15 +2,28 @@
 
 本文件记录 ModLink Studio 的重要变更。
 
+## [0.3.0rc3] - 2026-04-28
+
+### Summary
+
+`0.3.0rc3` 是 `0.3.0` 工作线上的第三个 release candidate，主要修正 rc2 对 Windows 下拉菜单透明外框问题的处理方式：不再在 UI 层 patch QFluentWidgets popup，而是约束 PyQt6 / Qt6 到 6.11 之前的版本。
+
+### Changed
+
+- 将 PyQt6 / PyQt6-Qt6 约束为 `>=6.10.2,<6.11`，避免 Qt 6.11.0 在 Windows 上暴露 ComboBox popup 透明边界
+- 移除 rc2 中针对 ComboBox popup margin 的 UI workaround
+
+---
+
 ## [0.3.0rc2] - 2026-04-27
 
 ### Summary
 
-`0.3.0rc2` 是 `0.3.0` 工作线上的第二个 release candidate，主要修复 Windows 下 QFluentWidgets 下拉菜单外层透明边框的问题，并继续保持 `0.3.0rc1` 的发布边界。
+`0.3.0rc2` 是 `0.3.0` 工作线上的第二个 release candidate，主要尝试缓解 Windows 下 QFluentWidgets 下拉菜单外层透明边框的问题，并继续保持 `0.3.0rc1` 的发布边界。
 
 ### Fixed
 
-- 修复 ComboBox popup 在 Windows 桌面合成 / OpenGL 预览场景下出现额外透明外框的问题
+- 初步收窄 ComboBox popup 在 Windows 桌面合成 / OpenGL 预览场景下出现额外透明外框的问题；后续在 `0.3.0rc3` 改为通过 Qt 版本约束处理
 
 ---
 

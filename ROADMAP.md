@@ -4,7 +4,7 @@
 
 ## 当前位置
 
-当前主开发线是 `0.3.0rc2`。这一版建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
+当前主开发线是 `0.3.0rc3`。这一版建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
 
 - recording replay
 - analysis-first export
@@ -15,8 +15,8 @@
 分支约定：
 
 - `legacy/0.2.x`：维护 `0.2.x` 稳定线
-- `wip/0.3.0`：当前 `0.3.0` / `0.3.0rc2` 开发线
-- `main`：是否切到 `0.3.0rc2`，在 rc 发布验证后再决定
+- `wip/0.3.0`：当前 `0.3.0` / `0.3.0rc3` 开发线
+- `main`：是否切到 `0.3.0rc3`，在 rc 发布验证后再决定
 
 ## 产品原则
 
@@ -27,14 +27,30 @@
 - 不再维护 npm scaffold 或自研 Python plugin AI agent；外部插件开发转向 `tools/modlink-plugin-author/SKILL.md`。
 - 不为了未来 Web/QML 路线提前保留当前用不到的宿主包、适配层或扩展点。
 
+## 0.3.0rc3
+
+目标：发布第三个 `0.3.0` 候选版本，修正 rc2 对 Windows 下拉菜单透明外框问题的处理方式。
+
+已完成：
+
+- 版本号统一到 `0.3.0rc3`
+- 撤掉 ComboBox popup margin / shadow 的 UI workaround
+- 将 PyQt6 / PyQt6-Qt6 约束到 `>=6.10.2,<6.11`，避开 Qt 6.11.0 在 Windows 上暴露透明 popup 边界的问题
+
+后续仍需确认：
+
+- TestPyPI 发布流程按 `0.3.0rc3` 产物完整跑通
+- 从干净环境安装 `modlink-studio==0.3.0rc3` 后，可加载官方插件并启动 runtime
+- docs site 使用当前 `0.3.0rc3` 口径发布
+
 ## 0.3.0rc2
 
-目标：发布第二个 `0.3.0` 候选版本，修复 rc1 验证时发现的 UI 细节问题。
+目标：发布第二个 `0.3.0` 候选版本，尝试缓解 rc1 验证时发现的 UI 细节问题。
 
 已完成：
 
 - 版本号统一到 `0.3.0rc2`
-- 修复 Windows 下 QFluentWidgets ComboBox popup 外层透明边框问题
+- 初步收窄 Windows 下 QFluentWidgets ComboBox popup 外层透明边框问题；验证后发现仍不足以覆盖 Qt 6.11.0
 - 官方插件仓库已发布兼容 `0.3.0rc1+` 的 rc 版本，并验证插件安装链路
 - TestPyPI 发布流程按 `0.3.0rc2` 产物完整跑通
 - 从干净 `.venv-testpypi` 安装 `modlink-studio==0.3.0rc2` 后，可加载 4 个官方插件并启动 runtime
