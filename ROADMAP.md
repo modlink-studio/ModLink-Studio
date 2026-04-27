@@ -41,10 +41,10 @@
 
 - TestPyPI 发布流程按 `0.3.0rc3` 产物完整跑通
 - 从干净环境安装本地 `0.3.0rc3` wheel 后，PyQt6 / PyQt6-Qt6 解析到 6.10.2
+- 从 TestPyPI 安装 `modlink-studio==0.3.0rc3` 产物后，可安装 4 个官方插件并启动 4 个 driver portal
 
 后续仍需确认：
 
-- 从 TestPyPI 安装 `modlink-studio==0.3.0rc3` 后，可加载官方插件并启动 runtime
 - docs site 使用当前 `0.3.0rc3` 口径发布
 
 ## 0.3.0rc2
