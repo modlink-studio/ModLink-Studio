@@ -27,6 +27,7 @@ from qfluentwidgets import (
 
 from modlink_sdk import SearchResult
 from modlink_ui.bridge import QtDriverPortal, QtDriverTask
+from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 
 
 class WheelPassthroughExpandGroupSettingCard(ExpandGroupSettingCard):
@@ -255,6 +256,7 @@ class DeviceControlPanel(WheelPassthroughExpandGroupSettingCard):
         row = DeviceRow()
 
         self.provider_combo = ComboBox(row)
+        remove_combo_popup_outer_margin(self.provider_combo)
         if self._providers:
             self.provider_combo.addItems(list(self._providers))
             self.provider_combo.setCurrentText(self._selected_provider)

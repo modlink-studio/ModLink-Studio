@@ -12,6 +12,7 @@ from qfluentwidgets import (
 )
 
 from modlink_sdk import StreamDescriptor
+from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 
 from ..models import RasterPreviewSettings
 
@@ -46,6 +47,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
 
         self.duration_label = BodyLabel("时间长度", self)
         self.duration_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.duration_combo)
         self.duration_combo.setFixedWidth(180)
         for seconds in RASTER_WINDOW_SECONDS_OPTIONS:
             self.duration_combo.addItem(f"{seconds} 秒", userData=seconds)
@@ -59,6 +61,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
 
         self.colormap_label = BodyLabel("染色方式", self)
         self.colormap_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.colormap_combo)
         self.colormap_combo.setFixedWidth(180)
         self.colormap_combo.addItem("灰度", userData="gray")
         self.colormap_combo.addItem("Viridis", userData="viridis")
@@ -76,6 +79,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
 
         self.value_range_label = BodyLabel("数值范围", self)
         self.value_range_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.value_range_combo)
         self.value_range_combo.setFixedWidth(180)
         self.value_range_combo.addItem("自动", userData="auto")
         self.value_range_combo.addItem("0 到 1", userData="zero_to_one")
@@ -116,6 +120,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
 
         self.interpolation_label = BodyLabel("插值方式", self)
         self.interpolation_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.interpolation_combo)
         self.interpolation_combo.setFixedWidth(180)
         self.interpolation_combo.addItem("最近邻", userData="nearest")
         self.interpolation_combo.addItem("双线性", userData="bilinear")
@@ -130,6 +135,7 @@ class RasterPayloadSettingsPanel(SimpleCardWidget):
 
         self.transform_label = BodyLabel("几何方向", self)
         self.transform_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.transform_combo)
         self.transform_combo.setFixedWidth(180)
         self.transform_combo.addItem("无", userData="none")
         self.transform_combo.addItem("水平翻转", userData="flip_horizontal")

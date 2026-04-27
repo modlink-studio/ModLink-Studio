@@ -14,7 +14,7 @@ from qfluentwidgets import (
 )
 
 from modlink_sdk import StreamDescriptor
-from modlink_ui.shared.inputs import TokenLineEdit
+from modlink_ui.shared.inputs import TokenLineEdit, remove_combo_popup_outer_margin
 
 from ..models import SignalFilterSettings, SignalPreviewSettings
 
@@ -58,6 +58,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
         self.duration_label = BodyLabel("时间长度", self)
         self.duration_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.duration_combo)
         self.duration_combo.setFixedWidth(180)
         for seconds in SIGNAL_WINDOW_SECONDS_OPTIONS:
             self.duration_combo.addItem(f"{seconds} 秒", userData=seconds)
@@ -71,6 +72,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
         self.filter_mode_label = BodyLabel("滤波模式", self)
         self.filter_mode_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.filter_mode_combo)
         self.filter_mode_combo.setFixedWidth(180)
         self.filter_mode_combo.addItem("无", userData="none")
         self.filter_mode_combo.addItem("低通", userData="low_pass")
@@ -87,6 +89,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
         self.filter_family_label = BodyLabel("滤波器家族", self)
         self.filter_family_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.filter_family_combo)
         self.filter_family_combo.setFixedWidth(180)
         self.filter_family_combo.addItem("Butterworth", userData="butterworth")
         self.filter_family_combo.addItem("Chebyshev I", userData="chebyshev1")
@@ -180,6 +183,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
         self.y_range_label = BodyLabel("Y 轴范围", self)
         self.y_range_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.y_range_combo)
         self.y_range_combo.setFixedWidth(180)
         self.y_range_combo.addItem("自动", userData="auto")
         self.y_range_combo.addItem("手动", userData="manual")
@@ -240,6 +244,7 @@ class SignalPayloadSettingsPanel(SimpleCardWidget):
 
         self.layout_mode_label = BodyLabel("布局模式", self.channel_section_widget)
         self.layout_mode_combo = ComboBox(self.channel_section_widget)
+        remove_combo_popup_outer_margin(self.layout_mode_combo)
         self.layout_mode_combo.setFixedWidth(180)
         self.layout_mode_combo.addItem("叠加", userData="stacked")
         self.layout_mode_combo.addItem("分图", userData="expanded")

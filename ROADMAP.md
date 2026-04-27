@@ -4,7 +4,7 @@
 
 ## 当前位置
 
-当前主开发线是 `0.3.0rc1`。这一版建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
+当前主开发线是 `0.3.0rc2`。这一版建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
 
 - recording replay
 - analysis-first export
@@ -15,8 +15,8 @@
 分支约定：
 
 - `legacy/0.2.x`：维护 `0.2.x` 稳定线
-- `wip/0.3.0`：当前 `0.3.0` / `0.3.0rc1` 开发线
-- `main`：是否切到 `0.3.0rc1`，在 rc 发布验证后再决定
+- `wip/0.3.0`：当前 `0.3.0` / `0.3.0rc2` 开发线
+- `main`：是否切到 `0.3.0rc2`，在 rc 发布验证后再决定
 
 ## 产品原则
 
@@ -26,6 +26,22 @@
 - Core 保持纯 Python runtime；Qt 相关行为只留在 UI / bridge 层。
 - 不再维护 npm scaffold 或自研 Python plugin AI agent；外部插件开发转向 `tools/modlink-plugin-author/SKILL.md`。
 - 不为了未来 Web/QML 路线提前保留当前用不到的宿主包、适配层或扩展点。
+
+## 0.3.0rc2
+
+目标：发布第二个 `0.3.0` 候选版本，修复 rc1 验证时发现的 UI 细节问题。
+
+已完成：
+
+- 版本号统一到 `0.3.0rc2`
+- 修复 Windows 下 QFluentWidgets ComboBox popup 外层透明边框问题
+- 官方插件仓库已发布兼容 `0.3.0rc1+` 的 rc 版本，并验证插件安装链路
+
+发布前仍需确认：
+
+- TestPyPI 发布流程按 `0.3.0rc2` 产物完整跑通
+- 从干净环境安装 `modlink-studio==0.3.0rc2` 后可启动 `modlink-studio`
+- docs site 使用当前 `0.3.0rc2` 口径发布
 
 ## 0.3.0rc1
 
@@ -45,7 +61,7 @@
 - 测试默认忽略外部插件目录、构建产物和 `node_modules`
 - Windows settings 保存路径增加原子替换重试，降低并发保存时的 transient `PermissionError`
 
-发布前仍需确认：
+已验证：
 
 - PyPI / TestPyPI 发布流程按 `0.3.0rc1` 产物完整跑通
 - 从干净环境安装 `modlink-studio==0.3.0rc1` 后可启动 `modlink-studio`

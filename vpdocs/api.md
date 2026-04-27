@@ -6,7 +6,7 @@
 
 如果目标是安装和运行宿主应用，先看 [安装与发布](/install)；如果目标是开发 driver，先看 [SDK 开发者指南](/sdk)。
 
-当前 API 说明以 `0.3.0rc1` 主线为准：
+当前 API 说明以 `0.3.0rc2` 主线为准：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
 - `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API

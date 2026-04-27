@@ -26,6 +26,7 @@ from qfluentwidgets import (
 
 from modlink_core.models import ExportJobSnapshot, ReplaySnapshot
 from modlink_ui.shared import BasePage, EmptyStateMessage
+from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 
 EXPORT_LABELS = {
     "signal_csv": "Signal CSV",
@@ -42,6 +43,7 @@ class ReplayExportCard(SimpleCardWidget):
         super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.export_format_combo = ComboBox(self)
+        remove_combo_popup_outer_margin(self.export_format_combo)
         for format_id, label in EXPORT_LABELS.items():
             self.export_format_combo.addItem(label, userData=format_id)
 

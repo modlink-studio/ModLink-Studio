@@ -21,6 +21,7 @@ from qfluentwidgets import (
 )
 
 from modlink_ui.bridge import QtModLinkBridge
+from modlink_ui.shared.inputs import remove_combo_popup_outer_margin
 
 from .acquisition_view_model import AcquisitionViewModel
 
@@ -29,6 +30,7 @@ class LazyRefreshComboBox(ComboBox):
     def __init__(self, on_refresh, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self._on_refresh = on_refresh
+        remove_combo_popup_outer_margin(self)
 
     def _showComboMenu(self) -> None:
         self._on_refresh()

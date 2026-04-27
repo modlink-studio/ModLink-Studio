@@ -2,7 +2,19 @@
 
 本文件记录 ModLink Studio 的重要变更。
 
-## [0.3.0rc1] - Unreleased
+## [0.3.0rc2] - 2026-04-27
+
+### Summary
+
+`0.3.0rc2` 是 `0.3.0` 工作线上的第二个 release candidate，主要修复 Windows 下 QFluentWidgets 下拉菜单外层透明边框的问题，并继续保持 `0.3.0rc1` 的发布边界。
+
+### Fixed
+
+- 修复 ComboBox popup 在 Windows 桌面合成 / OpenGL 预览场景下出现额外透明外框的问题
+
+---
+
+## [0.3.0rc1] - 2026-04-27
 
 ### Summary
 

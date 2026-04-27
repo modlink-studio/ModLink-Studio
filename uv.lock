@@ -295,7 +295,7 @@ wheels = [
 
 [[package]]
 name = "modlink-studio"
-version = "0.3.0rc1"
+version = "0.3.0rc2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

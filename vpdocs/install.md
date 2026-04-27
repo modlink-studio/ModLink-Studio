@@ -1,34 +1,34 @@
 # 安装与发布
 
-本页汇总 `0.3.0rc1` 的安装目标、官方驱动安装方式和源码运行方式。
+本页汇总 `0.3.0rc2` 的安装目标、官方驱动安装方式和源码运行方式。
 
-## 0.3.0rc1 发布状态
+## 0.3.0rc2 发布状态
 
-`0.3.0rc1` 当前处于预发布收口阶段：
+`0.3.0rc2` 当前处于预发布收口阶段：
 
-- `0.3.0rc1` 是 `0.3.0` 的首个 release candidate
+- `0.3.0rc2` 是 `0.3.0` 的第二个 release candidate
 - 正式公开发布渠道为 **PyPI**
 - **TestPyPI rehearsal** 已完成
 - `TestPyPI` 只用于发布链路演练，不作为日常安装源
-- 当前仓库版本已切到 `0.3.0rc1`
+- 当前仓库版本已切到 `0.3.0rc2`
 
-## 0.3.0rc1 升级说明
+## 0.3.0rc2 升级说明
 
-`0.3.0rc1` 继续沿用 `0.2.0` 建立的纯 Python runtime 基线：
+`0.3.0rc2` 继续沿用 `0.2.0` 建立的纯 Python runtime 基线：
 
 - `modlink_sdk` / `modlink_core` 已不再依赖 Qt 运行时
 - 外部 driver 不再以 `sig_frame` / `sig_connection_lost` 作为正式宿主契约
 - `LoopDriver` 不再基于 `QTimer`
 - 如果你手头还有 `0.1.x` 的 Qt-style driver，需要按新的 SDK 契约迁移
 
-当前 UI 仍在适配期，但 backend 已经完成去 Qt 化；`0.3.0rc1` 重点增加 recording replay、analysis export 和外部插件 author skill。
+当前 UI 仍在适配期，但 backend 已经完成去 Qt 化；`0.3.0rc2` 重点增加 recording replay、analysis export 和外部插件 author skill，并修复 rc1 验证中发现的下拉菜单透明外框问题。
 
 ## 预发布安装命令
 
-`0.3.0rc1` 是预发布版本，安装时建议明确指定版本：
+`0.3.0rc2` 是预发布版本，安装时建议明确指定版本：
 
 ```bash
-python -m pip install --pre modlink-studio==0.3.0rc1
+python -m pip install --pre modlink-studio==0.3.0rc2
 ```
 
 安装完成后，正式入口是：
@@ -63,6 +63,10 @@ modlink-plugin install host-microphone
 
 ```bash
 modlink-plugin install openbci-ganglion
+```
+
+```bash
+modlink-plugin install palm-sensor
 ```
 
 如果不再需要某个插件：
@@ -109,7 +113,7 @@ uv run modlink-studio-debug
 
 ## 外部插件开发
 
-0.3.0rc1 不再提供独立 npm driver 脚手架。外部插件项目建议使用 `tools/modlink-plugin-author/SKILL.md` 作为 Claude Code / Codex 的可分发 skill，在插件自己的仓库里生成和维护 driver 代码。
+0.3.0rc2 不再提供独立 npm driver 脚手架。外部插件项目建议使用 `tools/modlink-plugin-author/SKILL.md` 作为 Claude Code / Codex 的可分发 skill，在插件自己的仓库里生成和维护 driver 代码。
 
 推荐使用方式是在外部插件项目目录启动 coding agent，把这个 `SKILL.md` 作为 skill 或上下文加载，然后直接描述设备、连接方式、数据流类型和采样率。生成后仍应在插件项目内运行 `python -m pip install -e .` 和测试命令验证。
 
@@ -117,7 +121,7 @@ uv run modlink-studio-debug
 
 ## 发布前验证
 
-`0.3.0rc1` 的 **TestPyPI rehearsal** 已完成。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
+`0.3.0rc2` 的 **TestPyPI rehearsal** 已完成。这一步只用于验证发布链路和安装命令，不作为普通用户安装入口。
 
 正式发布前的检查重点包括：
 
