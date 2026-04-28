@@ -308,7 +308,7 @@ python -m pip install -e .
 安装到与宿主相同的环境后，启动宿主：
 
 ```bash
-python -m modlink_studio
+modlink-studio-debug
 ```
 
 ## 零参数工厂

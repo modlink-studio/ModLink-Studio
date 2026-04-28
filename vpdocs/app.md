@@ -25,7 +25,7 @@ modlink-studio
 调试入口保留为：
 
 ```bash
-python -m modlink_studio
+modlink-studio-debug
 ```
 
 `modlink_server` 当前主要面向前端联调和宿主边界验证，而不是普通终端用户的默认入口。
@@ -76,7 +76,7 @@ python -m modlink_studio
 
 ```bash
 python -m pip install -e ../my_driver
-python -m modlink_studio
+modlink-studio-debug
 ```
 
 这意味着：

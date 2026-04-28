@@ -39,7 +39,7 @@ modlink-studio
 调试入口保留为：
 
 ```bash
-python -m modlink_studio
+modlink-studio-debug
 ```
 
 ## 安装插件
@@ -145,4 +145,4 @@ PyPI 项目页、镜像或本地索引有时会有短暂同步延迟。遇到这
 
 ### 系统里找不到 `modlink-studio` 命令
 
-先确认安装发生在当前 Python 环境中；如果只是临时验证，也可以直接使用 `python -m modlink_studio`。
+先确认安装发生在当前 Python 环境中；如果需要带控制台和调试日志启动，使用 `modlink-studio-debug`。
