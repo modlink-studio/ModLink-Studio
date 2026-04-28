@@ -2,6 +2,20 @@
 
 本文件记录 ModLink Studio 的重要变更。
 
+## [0.3.0] - 2026-04-28
+
+### Summary
+
+`0.3.0` 是 `0.2.0` 之后的正式版本，收口 recording replay、analysis export、widgets 主宿主回放页面、live experiment sidebar / AI assistant 原型，以及外部插件 author skill。正式版本沿用 `0.3.0rc3` 的 Qt 版本约束，避开 Qt 6.11.0 在 Windows 上暴露 ComboBox popup 透明边界的问题。
+
+### Changed
+
+- 将版本号从 `0.3.0rc3` 提升到 `0.3.0`
+- 正式发布口径切到 PyPI；TestPyPI 仅保留为发布前 rehearsal
+- 保持 PyQt6 / PyQt6-Qt6 `>=6.10.2,<6.11` 约束
+
+---
+
 ## [0.3.0rc3] - 2026-04-28
 
 ### Summary
