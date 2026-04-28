@@ -4,7 +4,7 @@
 
 ## 当前位置
 
-当前主线正在准备 `0.3.0` 正式发布。`0.3.0` 建立在 `0.2.0` 的纯 Python runtime 基线上，重点补齐：
+当前主线正在准备 `0.3.0` 正式发布。`0.3.0` 仍属于 SDK / driver API 的早期阶段，不承诺兼容 `0.2.x` driver 实现；`0.4.0` 预计会继续收紧 SDK 与插件管理边界。当前重点补齐：
 
 - recording replay
 - analysis-first export

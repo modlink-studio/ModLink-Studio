@@ -7,7 +7,7 @@
 - 外部 driver 项目依赖公开主包 `modlink-studio`，代码从随主包分发的 `modlink_sdk` 导入 SDK 契约
 - 安装后通过 `modlink.drivers` entry point 被宿主发现
 
-当前文档以 `0.3.0` 主线为准。`0.2.0` 起不兼容 `0.1.x` 的 Qt-style driver API：`modlink_sdk` 已不再要求 `QObject`、Qt signal 或 `QTimer`。
+当前文档以 `0.3.0` 主线为准。SDK / driver API 仍处于早期阶段，`0.3.0` 不保证兼容 `0.2.x` driver 实现；外部插件建议明确依赖兼容的 `modlink-studio` 版本。`0.4.0` 预计会继续收紧 SDK 与插件管理边界。
 
 需要特别说明的是：公开 PyPI 发布面当前收口为 `modlink-studio` 一个主包；`modlink_sdk` 这一层契约由主包携带，不要求外部插件项目单独依赖一个公开的 `modlink-sdk` 包。
 
@@ -50,7 +50,7 @@
 
 ### `DriverContext`
 
-`DriverContext` 是宿主在 `bind(context)` 阶段注入给 driver 的运行时出口。`0.2.0` 起，driver 与宿主的正式交互通道就是这组 callback，而不是 Qt signal。
+`DriverContext` 是宿主在 `bind(context)` 阶段注入给 driver 的运行时出口。driver 与宿主的正式交互通道是这组 callback，而不是 Qt signal。
 
 最常用的方法有：
 

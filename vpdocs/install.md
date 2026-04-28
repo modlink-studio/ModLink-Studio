@@ -13,12 +13,12 @@
 
 ## 0.3.0 升级说明
 
-`0.3.0` 继续沿用 `0.2.0` 建立的纯 Python runtime 基线：
+`0.3.0` 继续推进纯 Python runtime 基线：
 
 - `modlink_sdk` / `modlink_core` 已不再依赖 Qt 运行时
 - 外部 driver 不再以 `sig_frame` / `sig_connection_lost` 作为正式宿主契约
 - `LoopDriver` 不再基于 `QTimer`
-- 如果你手头还有 `0.1.x` 的 Qt-style driver，需要按新的 SDK 契约迁移
+- SDK / driver API 仍处于早期阶段，`0.3.0` 不保证兼容 `0.2.x` driver 实现；外部插件建议明确依赖兼容的 `modlink-studio` 版本
 
 当前 UI 仍在适配期，但 backend 已经完成去 Qt 化；`0.3.0` 重点增加 recording replay、analysis export 和外部插件 author skill，并通过 Qt 版本约束处理 rc 验证中发现的下拉菜单透明外框问题。
 

@@ -35,13 +35,14 @@ features:
 
 # ModLink Studio 文档总览
 
-当前文档以 `0.3.0` 主线为准。这里描述的是 `0.3.0` 的当前边界，而不是 `0.1.x` 的旧行为：
+当前文档以 `0.3.0` 主线为准。这里描述的是 `0.3.0` 的当前边界：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
-- `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
+- SDK / driver API 仍处于早期阶段，`0.3.0` 不保证兼容 `0.2.x` driver 实现
 - 当前桌面宿主以 Qt Widgets 为准
 - FastAPI host 已建立服务化边界，用于后续 HTML / Web UI
 - recording replay 与 analysis export 已接入当前 widgets 宿主
+- `0.4.0` 预计会继续收紧 SDK 与插件管理边界
 
 `0.3.0` 的公开安装入口以 **PyPI** 为准；`TestPyPI rehearsal` 已完成，但 `TestPyPI` 不作为日常安装源。
 

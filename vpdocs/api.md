@@ -9,7 +9,7 @@
 当前 API 说明以 `0.3.0` 主线为准：
 
 - `modlink_sdk` / `modlink_core` 已经是纯 Python runtime
-- `0.2.0` 不兼容 `0.1.x` 的 Qt-style driver API
+- SDK / driver API 仍处于早期阶段，`0.3.0` 不保证兼容 `0.2.x` driver 实现
 - 当前桌面 UI 包以 `modlink_ui` 为准
 - 插件管理 CLI 当前随 `modlink_studio` 一起分发
 
