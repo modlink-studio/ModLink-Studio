@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import ModuleType
 from typing import Literal
 
 import numpy as np
@@ -9,6 +8,7 @@ import pyqtgraph as pg
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QVBoxLayout
 from qfluentwidgets import isDarkTheme, qconfig
+from scipy import signal as sp_signal
 
 from modlink_sdk import FrameEnvelope, StreamDescriptor
 from modlink_ui.bridge import QtSettingsBridge
@@ -23,25 +23,6 @@ from .signal_layout import (
 )
 
 DEFAULT_SIGNAL_WINDOW_SECONDS = 8
-
-_scipy_signal_module: ModuleType | None = None
-
-
-def _scipy_signal() -> ModuleType:
-    """Lazy accessor for scipy.signal.
-
-    scipy.signal pulls in scipy.stats, scipy.interpolate, scipy.optimize and
-    related subpackages; importing it at module load adds roughly 850 ms to
-    cold startup. Filters are only built and applied once a signal stream is
-    actually previewed with filtering enabled, so the import is deferred until
-    that path is exercised.
-    """
-    global _scipy_signal_module
-    if _scipy_signal_module is None:
-        from scipy import signal as _module
-
-        _scipy_signal_module = _module
-    return _scipy_signal_module
 
 
 SIGNAL_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
@@ -114,7 +95,6 @@ class _SignalFilterPipeline:
             return data
         self._ensure_channel_states(channel_count)
 
-        sp_signal = _scipy_signal()
         output = np.empty_like(data, dtype=np.float32)
         for channel_index in range(channel_count):
             values = np.asarray(data[channel_index], dtype=np.float64)
@@ -181,7 +161,6 @@ class _SignalFilterPipeline:
             wn = low
 
         try:
-            sp_signal = _scipy_signal()
             if spec.family == "butterworth":
                 return sp_signal.butter(
                     N=int(spec.order),
@@ -220,7 +199,6 @@ class _SignalFilterPipeline:
             return []
 
         result: list[np.ndarray] = []
-        sp_signal = _scipy_signal()
         for frequency in spec.notch_frequencies_hz:
             hz = float(frequency)
             if hz <= 0.0 or hz >= nyquist:

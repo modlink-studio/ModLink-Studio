@@ -35,6 +35,14 @@ class _FakeWindow:
         self.was_shown = True
 
 
+class _FakePyqtgraph:
+    def __init__(self, captured: dict[str, object]) -> None:
+        self._captured = captured
+
+    def setConfigOptions(self, **kwargs: object) -> None:
+        self._captured["pg"] = kwargs
+
+
 def test_parse_launch_options_keeps_unknown_qt_args() -> None:
     options = app._parse_launch_options(
         ["--log-path", "C:/logs/modlink.log", "-style", "fusion"],
@@ -74,17 +82,29 @@ def test_debug_main_passes_debug_logging_and_qt_args(monkeypatch, tmp_path: Path
     def _fake_install_debug_bootstrap() -> None:
         captured["bootstrap"] = 1
 
+    def _fake_set_theme(theme: object) -> None:
+        captured["theme"] = theme
+
+    def _fake_load_runtime_deps() -> app._RuntimeDeps:
+        return app._RuntimeDeps(
+            pg=_FakePyqtgraph(captured),
+            set_theme=_fake_set_theme,
+            theme_auto="auto",
+            ModLinkEngine=_fake_engine,
+            QtModLinkBridge=_fake_bridge,
+            MainWindow=_fake_window,
+        )
+
+    def _fake_show_splash(_icon: object) -> None:
+        captured["splash_shown"] = True
+        return None
+
     monkeypatch.setattr(app, "configure_host_logging", _fake_configure_host_logging)
     monkeypatch.setattr(app, "_create_application", _fake_create_application)
     monkeypatch.setattr(app, "install_debug_bootstrap", _fake_install_debug_bootstrap)
-    monkeypatch.setattr(app, "ModLinkEngine", _fake_engine)
-    monkeypatch.setattr(app, "QtModLinkBridge", _fake_bridge)
-    monkeypatch.setattr(app, "MainWindow", _fake_window)
+    monkeypatch.setattr(app, "_load_runtime_deps", _fake_load_runtime_deps)
+    monkeypatch.setattr(app, "_show_startup_splash", _fake_show_splash)
     monkeypatch.setattr(app, "_load_app_icon", lambda: "icon")
-    monkeypatch.setattr(
-        app.pg, "setConfigOptions", lambda **kwargs: captured.setdefault("pg", kwargs)
-    )
-    monkeypatch.setattr(app, "setTheme", lambda theme: captured.setdefault("theme", theme))
 
     with pytest.raises(SystemExit) as exc_info:
         app.debug_main(["--log-path", str(tmp_path / "custom.log"), "-style", "fusion"])
@@ -96,11 +116,13 @@ def test_debug_main_passes_debug_logging_and_qt_args(monkeypatch, tmp_path: Path
         "debug": True,
     }
     assert captured["qt_argv"] == ["modlink-studio-debug", "-style", "fusion"]
+    assert captured["splash_shown"] is True
     assert captured["engine_parent"] is fake_app
     assert captured["bridge_runtime"] == "runtime"
     assert captured["bridge_parent"] is fake_app
     assert captured["bootstrap"] == 1
     assert captured["pg"] == {"useOpenGL": True}
+    assert captured["theme"] == "auto"
     assert captured["window"].engine == "bridge"
     assert captured["window"].window_icon == "icon"
     assert captured["window"].was_shown is True
