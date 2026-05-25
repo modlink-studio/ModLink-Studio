@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Protocol
 
-import httpx
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeSnapshot
@@ -20,6 +20,24 @@ from .config import (
 from .tools import ExperimentAiAction, ExperimentToolSession
 
 type ChatMessage = dict[str, Any]
+
+_httpx_module: ModuleType | None = None
+
+
+def _httpx() -> ModuleType:
+    """Lazy accessor for httpx.
+
+    httpx pulls in anyio, sniffio, h11, certifi, and similar networking
+    helpers that add roughly 145 ms to startup. The AI assistant only
+    contacts a backend when the user actively sends a message, so the
+    import is deferred until the first request is dispatched.
+    """
+    global _httpx_module
+    if _httpx_module is None:
+        import httpx as _module
+
+        _httpx_module = _module
+    return _httpx_module
 
 
 class ChatCompletionResponse(Protocol):
@@ -96,9 +114,14 @@ class OpenAICompatibleExperimentClient:
         if not connection_config.is_configured:
             raise ValueError("AI assistant requires base_url, api_key, and model")
         self._connection_config = connection_config
-        self._post = httpx.post if post is None else post
+        self._post = post
         self._timeout_s = timeout_s
         self._ai_config = ai_config
+
+    def _resolve_post(self) -> ChatCompletionPost:
+        if self._post is not None:
+            return self._post
+        return _httpx().post
 
     def complete(self, request: ExperimentAiRequest) -> ExperimentAiReply:
         url = f"{self._connection_config.base_url.rstrip('/')}/chat/completions"
@@ -161,8 +184,10 @@ class OpenAICompatibleExperimentClient:
         headers: dict[str, str],
         payload: dict[str, object],
     ) -> object:
+        post = self._resolve_post()
+        httpx = _httpx()
         try:
-            response = self._post(
+            response = post(
                 url,
                 headers=headers,
                 json=payload,
