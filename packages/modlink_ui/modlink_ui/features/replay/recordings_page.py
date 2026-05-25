@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QListWidgetItem,
@@ -9,14 +9,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
-    FluentIcon as FIF,
-)
-from qfluentwidgets import (
+    Action,
     ListWidget,
+    MessageBox,
     PrimaryPushButton,
     PushButton,
+    RoundMenu,
     SimpleCardWidget,
     StrongBodyLabel,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
 )
 
 from modlink_core.models import ReplayRecordingSummary
@@ -24,11 +27,15 @@ from modlink_ui.shared import BasePage, EmptyStateMessage
 
 
 class ReplayRecordingsPanel(SimpleCardWidget):
+    sig_delete_recording_requested = pyqtSignal(str)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.recording_list = ListWidget(self)
         self.recording_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.recording_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.recording_list.customContextMenuRequested.connect(self._show_context_menu)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
@@ -71,16 +78,36 @@ class ReplayRecordingsPanel(SimpleCardWidget):
             if summary.recording_id == selected_recording_id:
                 self.recording_list.setCurrentItem(item)
 
+    def _show_context_menu(self, position: QPoint) -> None:
+        item = self.recording_list.itemAt(position)
+        if item is None:
+            return
+        recording_id = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(recording_id, str) or not recording_id:
+            return
+        # Selecting the right-clicked row matches OS-native list behaviour
+        # and makes the confirm dialog refer to the row the user just acted on.
+        self.recording_list.setCurrentItem(item)
+
+        menu = RoundMenu(parent=self.recording_list)
+        delete_action = Action(FIF.DELETE, "删除", menu)
+        delete_action.triggered.connect(
+            lambda: self.sig_delete_recording_requested.emit(recording_id)
+        )
+        menu.addAction(delete_action)
+        menu.exec(self.recording_list.viewport().mapToGlobal(position))
+
 
 class ReplayRecordingsPage(BasePage):
     sig_open_recording_requested = pyqtSignal(str)
     sig_refresh_requested = pyqtSignal()
+    sig_delete_recording_requested = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
             page_key="replay-recordings-page",
             title="回放",
-            description="浏览已有 recordings，打开其中一条进入回放或导出工作台。",
+            description="浏览已有 recordings，打开其中一条进入回放或导出工作台。右键单条可删除。",
             parent=parent,
         )
         self._open_button = PrimaryPushButton("打开", self)
@@ -103,6 +130,7 @@ class ReplayRecordingsPage(BasePage):
         self.recording_list.itemDoubleClicked.connect(lambda _item: self._emit_open_requested())
         self.open_button.clicked.connect(self._emit_open_requested)
         self.refresh_button.clicked.connect(self.sig_refresh_requested.emit)
+        self.recordings_panel.sig_delete_recording_requested.connect(self._confirm_and_emit_delete)
 
     @property
     def recording_list(self) -> ListWidget:
@@ -130,6 +158,16 @@ class ReplayRecordingsPage(BasePage):
         recording_path = self.selected_recording_path()
         if recording_path is not None:
             self.sig_open_recording_requested.emit(recording_path)
+
+    def _confirm_and_emit_delete(self, recording_id: str) -> None:
+        parent = self.window() if isinstance(self.window(), QWidget) else self
+        prompt = MessageBox(
+            "删除 recording",
+            f"确定要删除 recording {recording_id} 吗？此操作无法撤销，导出文件不会被一同删除。",
+            parent,
+        )
+        if prompt.exec():
+            self.sig_delete_recording_requested.emit(recording_id)
 
 
 __all__ = ["ReplayRecordingsPage"]

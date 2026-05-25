@@ -11,6 +11,8 @@ from modlink_core.storage import (
     add_recording_segment,
     append_recording_frame,
     create_recording,
+    delete_recording,
+    list_recordings,
 )
 
 
@@ -162,3 +164,40 @@ def test_recording_storage_writes_annotations_without_readback_api(
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def test_delete_recording_removes_directory_and_drops_from_listing(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    keep_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="keep",
+    )
+    drop_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="drop",
+    )
+    append_recording_frame(
+        tmp_path,
+        drop_id,
+        frame_factory(descriptor, timestamp_ns=1, seq=1),
+        frame_index=1,
+    )
+
+    delete_recording(tmp_path, drop_id)
+
+    assert not (tmp_path / "recordings" / drop_id).exists()
+    assert (tmp_path / "recordings" / keep_id).exists()
+    assert [m["recording_id"] for m in list_recordings(tmp_path)] == [keep_id]
+
+
+def test_delete_recording_raises_when_id_does_not_exist(tmp_path) -> None:
+    import pytest
+
+    with pytest.raises(FileNotFoundError):
+        delete_recording(tmp_path, "rec_nonexistent")

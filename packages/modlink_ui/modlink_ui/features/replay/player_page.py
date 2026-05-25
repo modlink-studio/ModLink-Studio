@@ -6,6 +6,7 @@ from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     ComboBox,
+    MessageBox,
     PrimaryPushButton,
     PushButton,
     SimpleCardWidget,
@@ -237,6 +238,7 @@ class ReplayPlayerPage(BasePage):
     sig_pause_requested = pyqtSignal()
     sig_reset_requested = pyqtSignal()
     sig_speed_changed = pyqtSignal(float)
+    sig_delete_recording_requested = pyqtSignal(str)
 
     def __init__(
         self,
@@ -265,7 +267,9 @@ class ReplayPlayerPage(BasePage):
         self.recordings_route_button.setIcon(FIF.LIBRARY)
         self.export_route_button = PushButton("导出", self)
         self.export_route_button.setIcon(FIF.SAVE)
-        for button in (self.recordings_route_button, self.export_route_button):
+        self.delete_button = PushButton("删除", self)
+        self.delete_button.setIcon(FIF.DELETE)
+        for button in (self.recordings_route_button, self.export_route_button, self.delete_button):
             button.setMinimumWidth(88)
             self.header_action_layout.addWidget(button)
 
@@ -285,6 +289,7 @@ class ReplayPlayerPage(BasePage):
         self.speed_combo.currentIndexChanged.connect(self._emit_speed_changed)
         self.recordings_route_button.clicked.connect(self.sig_show_recordings_requested.emit)
         self.export_route_button.clicked.connect(self.sig_show_export_requested.emit)
+        self.delete_button.clicked.connect(self._confirm_and_emit_delete)
 
     @property
     def play_button(self) -> PrimaryPushButton:
@@ -317,6 +322,7 @@ class ReplayPlayerPage(BasePage):
         self._snapshot = snapshot
         self.playback_panel.apply_snapshot(snapshot)
         self.export_route_button.setEnabled(snapshot.recording_id is not None)
+        self.delete_button.setEnabled(snapshot.recording_id is not None)
         self._sync_header(snapshot)
         self._sync_floating_transport_bar()
 
@@ -336,6 +342,19 @@ class ReplayPlayerPage(BasePage):
             return
         if can_reset_replay(self._snapshot):
             self.sig_reset_requested.emit()
+
+    def _confirm_and_emit_delete(self) -> None:
+        recording_id = self._snapshot.recording_id
+        if not recording_id:
+            return
+        parent = self.window() if isinstance(self.window(), QWidget) else self
+        prompt = MessageBox(
+            "删除 recording",
+            f"确定要删除 recording {recording_id} 吗？此操作无法撤销，导出文件不会被一同删除。",
+            parent,
+        )
+        if prompt.exec():
+            self.sig_delete_recording_requested.emit(recording_id)
 
     def _emit_speed_changed(self) -> None:
         value = self.selected_speed()

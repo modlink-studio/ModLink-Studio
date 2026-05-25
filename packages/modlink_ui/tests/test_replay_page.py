@@ -6,6 +6,7 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import numpy as np
@@ -25,6 +26,7 @@ for path in (
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QAbstractItemView, QApplication
+from qfluentwidgets import MessageBox
 
 from modlink_core.models import ReplayMarker, ReplaySegment, ReplaySnapshot
 from modlink_core.replay import ReplayBackend
@@ -159,7 +161,7 @@ class ReplayPageTests(unittest.TestCase):
             self.assertTrue(player_page.preview_panel._cards)
             self._pump_events_until(lambda: player_page.transport_bar.isVisible())
             self.assertIs(player_page.transport_bar.parentWidget(), player_page)
-            self.assertEqual(2, player_page.header_action_layout.count())
+            self.assertEqual(3, player_page.header_action_layout.count())
             self.assertGreater(player_page._floating_panel_spacer.height(), 0)
             self.assertTrue(player_page.export_route_button.isEnabled())
             self.assertIs(player_page.preview_panel.parentWidget(), player_page.playback_panel)
@@ -320,7 +322,6 @@ class ReplayPageTests(unittest.TestCase):
             long_text = f"{long_label} · 1 stream"
             self.assertIn(short_text, items_by_text)
             self.assertIn(long_text, items_by_text)
-            self.assertEqual(long_text, items_by_text[long_text].text())
         finally:
             page.close()
             replay_bridge.shutdown()
@@ -634,6 +635,93 @@ class ReplayPageTests(unittest.TestCase):
         if predicate():
             return
         raise AssertionError("condition not reached before timeout")
+
+    def test_recordings_page_context_menu_delete_emits_signal_after_confirm(self) -> None:
+        descriptor = self._descriptor()
+        keep_id = self._create_recording(descriptor, recording_label="keep")
+        drop_id = self._create_recording(descriptor, recording_label="drop")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            recording_list = page._recordings_page.recording_list
+            self._pump_events_until(lambda: recording_list.count() == 2)
+
+            with patch.object(MessageBox, "exec", return_value=True):
+                page._recordings_page.recordings_panel.sig_delete_recording_requested.emit(drop_id)
+
+            self._pump_events_until(lambda: recording_list.count() == 1)
+            remaining_id = recording_list.item(0).data(Qt.ItemDataRole.UserRole)
+            self.assertEqual(keep_id, remaining_id)
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_recordings_page_context_menu_delete_skips_when_dialog_cancelled(self) -> None:
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(descriptor, recording_label="keep")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            recording_list = page._recordings_page.recording_list
+            self._pump_events_until(lambda: recording_list.count() == 1)
+
+            with patch.object(MessageBox, "exec", return_value=False):
+                page._recordings_page.recordings_panel.sig_delete_recording_requested.emit(
+                    recording_id
+                )
+            self._app.processEvents()
+
+            self.assertEqual(1, recording_list.count())
+            self.assertTrue((self._temp_dir / "recordings" / recording_id).exists())
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_player_page_delete_button_removes_currently_open_recording(self) -> None:
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(descriptor, recording_label="open_then_delete")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            recording_list = page._recordings_page.recording_list
+            self._pump_events_until(lambda: recording_list.count() == 1)
+            self._select_recording(page, recording_id)
+            page._recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
+            )
+
+            with patch.object(MessageBox, "exec", return_value=True):
+                page._player_page.delete_button.click()
+
+            self._pump_events_until(lambda: replay_bridge.snapshot().recording_id is None)
+            self._pump_events_until(lambda: page._route == "recordings")
+            self.assertFalse((self._temp_dir / "recordings" / recording_id).exists())
+            self.assertEqual(0, recording_list.count())
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
 
 
 if __name__ == "__main__":

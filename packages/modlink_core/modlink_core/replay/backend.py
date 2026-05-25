@@ -18,7 +18,12 @@ from ..models import (
     ReplaySnapshot,
 )
 from ..settings import SettingsStore
-from ..storage import list_recordings, resolved_export_root_dir, resolved_storage_root_dir
+from ..storage import (
+    delete_recording,
+    list_recordings,
+    resolved_export_root_dir,
+    resolved_storage_root_dir,
+)
 from .export import ExportService
 from .reader import RecordingReader
 
@@ -151,6 +156,9 @@ class ReplayBackend:
     def start_export(self, format_id: str) -> Future[ExportJobSnapshot]:
         return self._submit_command(self._start_export_worker, format_id)
 
+    def delete_recording(self, recording_id: str) -> Future[tuple[ReplayRecordingSummary, ...]]:
+        return self._submit_command(self._delete_recording_worker, recording_id)
+
     def _run(self) -> None:
         exit_error: Exception | None = None
         while True:
@@ -282,6 +290,33 @@ class ReplayBackend:
             raise RuntimeError("REPLAY_EXPORT_FORMAT_UNSUPPORTED")
         export_root_dir = resolved_export_root_dir(self._settings)
         return self._export_service.enqueue(reader, format_id, export_root_dir)
+
+    def _delete_recording_worker(self, recording_id: object) -> tuple[ReplayRecordingSummary, ...]:
+        if not isinstance(recording_id, str) or not recording_id.strip():
+            raise RuntimeError("REPLAY_DELETE_INVALID_ID")
+
+        # If the recording is currently open for replay, drop the reader and
+        # clear the bus so the deletion can't race with playback frame loads.
+        reader = self._reader
+        if reader is not None and reader.recording_id == recording_id:
+            self._reader = None
+            self._markers = ()
+            self._segments = ()
+            self._position_ns = 0
+            self._timeline_index = 0
+            self._play_started_wall_ns = 0
+            self._play_started_position_ns = 0
+            for stream_id in tuple(self.bus.descriptors()):
+                self.bus.remove_descriptor(stream_id)
+            self._set_state("idle")
+
+        root_dir = resolved_storage_root_dir(self._settings)
+        try:
+            delete_recording(root_dir, recording_id)
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"REPLAY_DELETE_NOT_FOUND: {recording_id}") from exc
+        logger.info("Deleted replay recording %s", recording_id)
+        return self._refresh_recordings_worker()
 
     def _tick_playback(self) -> None:
         current_time_ns = time.monotonic_ns()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from time import time_ns
 from typing import Any
@@ -137,6 +138,17 @@ def add_recording_segment(
         root_dir / "recordings" / recording_id / "annotations" / "segments.csv",
         [int(start_ns), int(end_ns), "" if label is None else label],
     )
+
+
+def delete_recording(root_dir: Path, recording_id: str) -> None:
+    """Delete the on-disk directory for one recording.
+
+    Raises ``FileNotFoundError`` when the recording does not exist; tests and
+    callers can rely on that to fail fast on stale ids rather than silently
+    succeeding.
+    """
+    recording_dir = _recording_dir(root_dir, recording_id)
+    shutil.rmtree(recording_dir)
 
 
 def list_recordings(root_dir: Path) -> list[dict[str, Any]]:

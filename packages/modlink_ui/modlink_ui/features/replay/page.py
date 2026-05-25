@@ -61,12 +61,14 @@ class ReplayPage(QWidget):
 
         self._recordings_page.sig_open_recording_requested.connect(self._open_recording)
         self._recordings_page.sig_refresh_requested.connect(self._replay.refresh_recordings)
+        self._recordings_page.sig_delete_recording_requested.connect(self._replay.delete_recording)
         self._player_page.sig_show_recordings_requested.connect(self._show_recordings_page)
         self._player_page.sig_show_export_requested.connect(self._show_export_page)
         self._player_page.sig_play_requested.connect(self._replay.play)
         self._player_page.sig_pause_requested.connect(self._replay.pause)
         self._player_page.sig_reset_requested.connect(self._replay.stop)
         self._player_page.sig_speed_changed.connect(self._replay.set_speed)
+        self._player_page.sig_delete_recording_requested.connect(self._replay.delete_recording)
         self._export_page.sig_show_recordings_requested.connect(self._show_recordings_page)
         self._export_page.sig_show_player_requested.connect(self._show_player_page)
         self._export_page.sig_export_requested.connect(self._replay.start_export)
@@ -173,6 +175,10 @@ class ReplayPage(QWidget):
             export_root_dir=self._replay.export_root_dir,
         )
         self._finish_pending_open_if_ready(snapshot)
+        if snapshot.recording_id is None and self._route in {"player", "export"}:
+            # The currently-open recording disappeared (deleted, or never
+            # successfully opened); fall back to the listing.
+            self._set_route("recordings")
 
     def _finish_pending_open_if_ready(self, snapshot: ReplaySnapshot) -> None:
         if self._pending_open_recording_path is None:

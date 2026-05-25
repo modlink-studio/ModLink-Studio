@@ -363,3 +363,97 @@ def _wait_for_job(backend: ReplayBackend, job_id: str, *, timeout: float) -> Exp
                 return job
         time.sleep(0.01)
     raise AssertionError("export job did not finish before timeout")
+
+
+def test_replay_backend_delete_recording_removes_files_and_clears_open_reader(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        backend.refresh_recordings().result(1.0)
+        backend.open_recording(tmp_path / "recordings" / recording_id).result(1.0)
+        assert backend.snapshot().recording_id == recording_id
+
+        remaining = backend.delete_recording(recording_id).result(1.0)
+
+        assert remaining == ()
+        assert not (tmp_path / "recordings" / recording_id).exists()
+        assert backend.snapshot().recording_id is None
+        assert backend.snapshot().state == "idle"
+        assert backend.bus.descriptors() == {}
+    finally:
+        backend.shutdown()
+
+
+def test_replay_backend_delete_recording_keeps_other_open_recording(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
+    keep_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="keep",
+    )
+    append_recording_frame(
+        tmp_path,
+        keep_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    drop_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="drop",
+    )
+    append_recording_frame(
+        tmp_path,
+        drop_id,
+        frame_factory(descriptor, timestamp_ns=2_000_000_000, seq=1),
+        frame_index=1,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        backend.refresh_recordings().result(1.0)
+        backend.open_recording(tmp_path / "recordings" / keep_id).result(1.0)
+
+        remaining = backend.delete_recording(drop_id).result(1.0)
+
+        assert {summary.recording_id for summary in remaining} == {keep_id}
+        assert backend.snapshot().recording_id == keep_id
+        assert backend.bus.descriptor(descriptor.stream_id) is not None
+    finally:
+        backend.shutdown()
+
+
+def test_replay_backend_delete_recording_raises_for_unknown_id(tmp_path) -> None:
+    import pytest
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        with pytest.raises(RuntimeError, match="REPLAY_DELETE_NOT_FOUND"):
+            backend.delete_recording("rec_nonexistent").result(1.0)
+    finally:
+        backend.shutdown()
