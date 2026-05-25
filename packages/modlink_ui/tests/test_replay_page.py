@@ -350,6 +350,103 @@ class ReplayPageTests(unittest.TestCase):
             replay_bridge.shutdown()
             backend.shutdown()
 
+    def test_player_preview_keeps_stream_card_heights_inside_scroll_area(self) -> None:
+        descriptors = [
+            StreamDescriptor(
+                device_id="audio.01",
+                stream_key="audio",
+                payload_type="signal",
+                nominal_sample_rate_hz=16_000.0,
+                chunk_size=8,
+                channel_names=("mic",),
+                display_name="Host Microphone Waveform",
+            ),
+            StreamDescriptor(
+                device_id="sensor.01",
+                stream_key="adc_uv",
+                payload_type="signal",
+                nominal_sample_rate_hz=50.0,
+                chunk_size=8,
+                channel_names=("adc1_ch3",),
+                display_name="柔性力学传感器 (ESP32-S3) Microvolts",
+                metadata={"unit": "uV"},
+            ),
+            StreamDescriptor(
+                device_id="smg.01",
+                stream_key="smg",
+                payload_type="signal",
+                nominal_sample_rate_hz=300.0,
+                chunk_size=8,
+                channel_names=("a0", "a1"),
+                display_name="肌电数据",
+            ),
+        ]
+        recording_id = create_recording(
+            self._temp_dir,
+            {descriptor.stream_id: descriptor for descriptor in descriptors},
+            recording_label="multi_stream",
+        )
+        for descriptor in descriptors:
+            channel_count = len(descriptor.channel_names)
+            append_recording_frame(
+                self._temp_dir,
+                recording_id,
+                FrameEnvelope(
+                    device_id=descriptor.device_id,
+                    stream_key=descriptor.stream_key,
+                    timestamp_ns=1_000_000_000,
+                    data=np.zeros((channel_count, 8), dtype=np.float32),
+                    seq=1,
+                ),
+                frame_index=1,
+            )
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.resize(900, 720)
+        page.show()
+
+        try:
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 1)
+            page._recordings_page.recording_list.setCurrentRow(0)
+            page._recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                    and len(page._player_page.preview_panel._cards) == 3
+                )
+            )
+            self._pump_events_until(
+                lambda: (
+                    page._player_page.scroll_widget.height()
+                    > page._player_page.scroll_area.viewport().height()
+                )
+            )
+
+            player_page = page._player_page
+            preview_panel = player_page.preview_panel
+            required_content_height = max(
+                preview_panel.cards_container.minimumSizeHint().height(),
+                preview_panel.cards_container.sizeHint().height(),
+            )
+
+            self.assertGreater(required_content_height, player_page.scroll_area.viewport().height())
+            self.assertGreaterEqual(preview_panel.minimumHeight(), required_content_height)
+            self.assertGreaterEqual(preview_panel.cards_container.height(), required_content_height)
+            for wrapper in preview_panel._cards.values():
+                self.assertGreaterEqual(wrapper.height(), wrapper.minimumSizeHint().height())
+                self.assertGreaterEqual(
+                    wrapper.card.stream_view.height(),
+                    wrapper.card.stream_view.minimumHeight(),
+                )
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
     def test_snapshot_highlights_latest_marker_and_active_segment(self) -> None:
         descriptor = self._descriptor()
         recording_id = self._create_recording(

@@ -11,7 +11,7 @@ from modlink_ui.shared.preview import StreamPreviewPanel
 
 from .acquisition_panel import AcquisitionControlPanel
 from .experiment_panel import LiveExperimentSidebar
-from .experiment_runtime import ExperimentRuntimeViewModel
+from .experiment_runtime import ExperimentRuntimeSnapshot, ExperimentRuntimeViewModel
 
 
 class LivePage(BasePage):
@@ -54,6 +54,10 @@ class LivePage(BasePage):
         self.experiment_sidebar.installEventFilter(self)
         self.experiment_sidebar_toggle_button.clicked.connect(self._toggle_experiment_sidebar)
         self.experiment_sidebar.sig_close_requested.connect(self._hide_experiment_sidebar)
+        self.experiment_runtime.sig_snapshot_changed.connect(
+            self._sync_recording_label_from_current_step
+        )
+        self._sync_recording_label_from_current_step()
         QTimer.singleShot(0, self._sync_floating_widgets)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -169,3 +173,17 @@ class LivePage(BasePage):
             panel_height,
         )
         self.experiment_sidebar.raise_()
+
+    def _sync_recording_label_from_current_step(
+        self,
+        snapshot: object | None = None,
+    ) -> None:
+        if not isinstance(snapshot, ExperimentRuntimeSnapshot):
+            snapshot = self.experiment_runtime.snapshot()
+
+        current_step = snapshot.current_step
+        recording_label = "" if current_step is None else current_step.label
+        self.acquisition_panel.view_model.set_field_value(
+            "recording_label",
+            recording_label,
+        )

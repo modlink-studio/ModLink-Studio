@@ -24,6 +24,8 @@ from .timeline import ReplayAnnotationTimeline, format_time_ns
 
 
 class ReplayPreviewPanel(QWidget):
+    _empty_minimum_height = 360
+
     def __init__(
         self,
         replay: QtReplayBridge,
@@ -35,7 +37,7 @@ class ReplayPreviewPanel(QWidget):
         self._settings = settings
         self._cards: dict[str, DetachableStreamPreviewCard] = {}
         self.setObjectName("replay-preview-panel")
-        self.setMinimumHeight(320)
+        self.setMinimumHeight(self._empty_minimum_height)
         self.empty_state = EmptyStateMessage(
             "当前还没有打开 recording",
             "先从 recordings 页打开一条 recording，再进入这里查看流预览。",
@@ -100,6 +102,29 @@ class ReplayPreviewPanel(QWidget):
         self.empty_state.setVisible(not has_cards)
         self.empty_state_container.setVisible(not has_cards)
         self.cards_container.setVisible(has_cards)
+        self._sync_minimum_height()
+
+    def _sync_minimum_height(self) -> None:
+        if self._cards:
+            content_height = max(
+                self.cards_container.minimumSizeHint().height(),
+                self.cards_container.sizeHint().height(),
+            )
+            minimum_height = max(self._empty_minimum_height, content_height)
+        else:
+            minimum_height = self._empty_minimum_height
+
+        if self.minimumHeight() != minimum_height:
+            self.setMinimumHeight(minimum_height)
+        self.updateGeometry()
+
+        parent = self.parentWidget()
+        while parent is not None:
+            layout = parent.layout()
+            if layout is not None:
+                layout.invalidate()
+            parent.updateGeometry()
+            parent = parent.parentWidget()
 
 
 def can_reset_replay(snapshot: ReplaySnapshot) -> bool:
@@ -138,7 +163,6 @@ class ReplayPlaybackPanel(QWidget):
         self.speed_combo.addItem("4x", userData=4.0)
 
         self.preview_panel = ReplayPreviewPanel(replay, settings, self)
-        self.preview_panel.setMinimumHeight(360)
 
         self.transport_bar = SimpleCardWidget(self)
         self.transport_bar.setObjectName("replay-transport-bar")

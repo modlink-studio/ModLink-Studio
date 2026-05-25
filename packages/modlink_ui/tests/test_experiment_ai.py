@@ -20,11 +20,11 @@ for path in (
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from modlink_ui.features.live.experiment_ai import (
-    ExperimentAiToolRunner,
-    ExperimentAiToolState,
+from modlink_ui.assistant import (
+    ExperimentAiRequest,
     OpenAICompatibleExperimentClient,
 )
+from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeViewModel
 from modlink_ui.shared.ui_settings.ai import AiAssistantConfig
 
 
@@ -95,20 +95,11 @@ class ExperimentAiClientTests(unittest.TestCase):
             ),
             post=post,
         )
-        runner = ExperimentAiToolRunner(
-            ExperimentAiToolState(
-                experiment_name="",
-                session_name="",
-                recording_label="",
-                annotation_label="",
-                steps=[],
-                current_step_index=-1,
-            )
+        request = ExperimentAiRequest(
+            snapshot=ExperimentRuntimeViewModel().snapshot(),
+            conversation=({"role": "user", "content": "生成吞咽实验"},),
         )
-        reply = client.complete(
-            [{"role": "user", "content": "生成吞咽实验"}],
-            tool_runner=runner,
-        )
+        reply = client.complete(request)
 
         self.assertEqual("https://api.example.com/v1/chat/completions", calls[0]["url"])
         self.assertEqual("Bearer secret-key", calls[0]["headers"]["Authorization"])
@@ -119,13 +110,15 @@ class ExperimentAiClientTests(unittest.TestCase):
         second_messages = calls[1]["json"]["messages"]
         self.assertEqual("tool", second_messages[-2]["role"])
         self.assertEqual("tool", second_messages[-1]["role"])
+        first_tool_result = json.loads(second_messages[-2]["content"])
+        second_tool_result = json.loads(second_messages[-1]["content"])
+        self.assertEqual("swallow_study", first_tool_result["draft"]["experiment_name"])
+        self.assertEqual(["0ml", "5ml"], second_tool_result["draft"]["steps"])
         self.assertEqual("已设置实验名称和步骤。", reply.message)
         self.assertEqual(
             ["set_experiment_name", "set_steps"],
             [action.name for action in reply.actions],
         )
-        self.assertEqual("swallow_study", runner.state.experiment_name)
-        self.assertEqual(["0ml", "5ml"], runner.state.steps)
 
     def test_request_error_is_reported_as_runtime_error(self) -> None:
         def post(url: str, **_kwargs: object) -> object:
@@ -140,19 +133,13 @@ class ExperimentAiClientTests(unittest.TestCase):
             ),
             post=post,
         )
-        runner = ExperimentAiToolRunner(
-            ExperimentAiToolState(
-                experiment_name="",
-                session_name="",
-                recording_label="",
-                annotation_label="",
-                steps=[],
-                current_step_index=-1,
-            )
+        request = ExperimentAiRequest(
+            snapshot=ExperimentRuntimeViewModel().snapshot(),
+            conversation=({"role": "user", "content": "test"},),
         )
 
         with self.assertRaisesRegex(RuntimeError, "无法连接 AI 服务"):
-            client.complete([{"role": "user", "content": "test"}], tool_runner=runner)
+            client.complete(request)
 
 
 if __name__ == "__main__":

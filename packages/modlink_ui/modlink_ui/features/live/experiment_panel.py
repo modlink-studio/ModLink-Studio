@@ -27,6 +27,14 @@ from qfluentwidgets import (
 )
 from qfluentwidgets import FluentIcon as FIF
 
+from modlink_ui.assistant import (
+    ChatMessage,
+    ExperimentAiAction,
+    ExperimentAiReply,
+    ExperimentAiRequest,
+    ExperimentAiRequestWorker,
+    OpenAICompatibleExperimentClient,
+)
 from modlink_ui.bridge import QtSettingsBridge
 from modlink_ui.shared.ui_settings.ai import (
     UI_AI_API_KEY_KEY,
@@ -38,16 +46,6 @@ from modlink_ui.shared.ui_settings.ai import (
 )
 
 from .acquisition_view_model import AcquisitionViewModel
-from .experiment_ai import (
-    ChatMessage,
-    ExperimentAiAction,
-    ExperimentAiReply,
-    ExperimentAiRequestWorker,
-    ExperimentAiToolRunner,
-    ExperimentAiToolState,
-    OpenAICompatibleExperimentClient,
-    build_experiment_ai_messages,
-)
 from .experiment_runtime import ExperimentRuntimeSnapshot, ExperimentRuntimeViewModel
 
 type ExperimentAiClientFactory = Callable[
@@ -287,20 +285,13 @@ class ExperimentAiChatPanel(QWidget):
         snapshot = self.view_model.snapshot()
         recording_label = self._acquisition_field_value("recording_label")
         annotation_label = self._acquisition_field_value("annotation_label")
-        messages = build_experiment_ai_messages(
-            snapshot,
-            self._conversation,
+        request = ExperimentAiRequest(
+            snapshot=snapshot,
+            conversation=tuple(self._conversation),
             recording_label=recording_label,
             annotation_label=annotation_label,
         )
-        tool_runner = ExperimentAiToolRunner(
-            ExperimentAiToolState.from_snapshot(
-                snapshot,
-                recording_label=recording_label,
-                annotation_label=annotation_label,
-            )
-        )
-        worker = ExperimentAiRequestWorker(client, messages, tool_runner)
+        worker = ExperimentAiRequestWorker(client, request)
         thread = QThread(self)
         worker.moveToThread(thread)
 
@@ -561,6 +552,3 @@ class LiveExperimentSidebar(SimpleCardWidget):
 
         self.prev_button.setEnabled(snapshot.can_go_previous)
         self.next_button.setEnabled(snapshot.can_go_next)
-
-
-__all__ = ["ExperimentAiChatPanel", "LiveExperimentSidebar"]

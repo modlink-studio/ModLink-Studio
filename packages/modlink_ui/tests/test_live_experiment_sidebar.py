@@ -27,9 +27,9 @@ from qfluentwidgets import TextBrowser
 
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_sdk import StreamDescriptor
+from modlink_ui.assistant import ExperimentAiAction, ExperimentAiReply
 from modlink_ui.bridge import QtSettingsBridge
 from modlink_ui.features.live import LivePage
-from modlink_ui.features.live.experiment_ai import ExperimentAiAction, ExperimentAiReply
 from modlink_ui.features.live.experiment_panel import ExperimentAiChatPanel
 from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeViewModel
 from modlink_ui.shared.ui_settings.ai import declare_ai_assistant_settings
@@ -174,12 +174,29 @@ class LiveExperimentSidebarTests(unittest.TestCase):
 
         self.assertEqual("0ml", page.experiment_sidebar.current_step_label.text())
         self.assertEqual("1/2", page.experiment_sidebar.current_step_position_label.text())
+        self.assertEqual(
+            "0ml",
+            page.acquisition_panel.view_model.get_field_value("recording_label"),
+        )
 
         page.experiment_sidebar.next_button.click()
         self._pump_events()
 
         self.assertEqual("5ml", page.experiment_sidebar.current_step_label.text())
         self.assertEqual("2/2", page.experiment_sidebar.current_step_position_label.text())
+        self.assertEqual(
+            "5ml",
+            page.acquisition_panel.view_model.get_field_value("recording_label"),
+        )
+
+        page.experiment_sidebar.prev_button.click()
+        self._pump_events()
+
+        self.assertEqual("0ml", page.experiment_sidebar.current_step_label.text())
+        self.assertEqual(
+            "0ml",
+            page.acquisition_panel.view_model.get_field_value("recording_label"),
+        )
         page.close()
 
     def test_settings_button_opens_dialog_and_saves_inputs(self) -> None:
@@ -265,8 +282,7 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._settings_bridge.ui.ai.model = "gpt-test"
 
         class _FakeClient:
-            def complete(self, _messages, *, tool_runner):
-                _ = tool_runner
+            def complete(self, _request):
                 return ExperimentAiReply(
                     "已更新实验设置。",
                     actions=(
@@ -327,8 +343,7 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._settings_bridge.ui.ai.model = "gpt-test"
 
         class _FakeClient:
-            def complete(self, _messages, *, tool_runner):
-                _ = tool_runner
+            def complete(self, _request):
                 return ExperimentAiReply("**建议**\n\n- step_a\n- step_b")
 
         panel = ExperimentAiChatPanel(
@@ -361,8 +376,7 @@ class LiveExperimentSidebarTests(unittest.TestCase):
         self._settings_bridge.ui.ai.model = "gpt-test"
 
         class _FailingClient:
-            def complete(self, _messages, *, tool_runner):
-                _ = tool_runner
+            def complete(self, _request):
                 raise RuntimeError("network down")
 
         view_model = ExperimentRuntimeViewModel()
