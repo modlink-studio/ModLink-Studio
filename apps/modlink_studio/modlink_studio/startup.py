@@ -9,16 +9,17 @@ the deferred heavy import chain that lives behind the splash.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+import time
 from importlib.resources import files
 from pathlib import Path
+from threading import Thread
 
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QVBoxLayout
 
 WINDOWS_APP_USER_MODEL_ID = "ModLink.Studio.Desktop"
-SPLASH_WINDOW_SIZE = QSize(420, 280)
+SPLASH_WINDOW_SIZE = QSize(420, 320)
 SPLASH_ICON_SIZE = QSize(112, 112)
 
 
@@ -51,28 +52,14 @@ def set_windows_app_user_model_id() -> None:
     instead of the cached ``python.exe`` default."""
     if sys.platform != "win32":
         return
-    try:
-        import ctypes
+    import ctypes
 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            WINDOWS_APP_USER_MODEL_ID,
-        )
-    except (AttributeError, OSError):
-        return
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_USER_MODEL_ID)
 
 
 def show_splash_screen(icon: QIcon):
-    """Display a borderless splash with our icon and return the widget.
-
-    Returns ``None`` when no ``QApplication`` exists yet or qfluentwidgets
-    is unavailable; callers must tolerate that to keep smoke tests cheap.
-    """
-    if QApplication.instance() is None:
-        return None
-    try:
-        from qfluentwidgets import SplashScreen
-    except ImportError:
-        return None
+    """Display a borderless splash with our icon and a loading bar."""
+    from qfluentwidgets import IndeterminateProgressBar, SplashScreen
 
     splash = SplashScreen(icon, parent=None)
     splash.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
@@ -80,46 +67,65 @@ def show_splash_screen(icon: QIcon):
     splash.setIconSize(SPLASH_ICON_SIZE)
     splash.resize(SPLASH_WINDOW_SIZE)
 
-    primary_screen = QApplication.primaryScreen()
-    if primary_screen is not None:
-        center = primary_screen.availableGeometry().center()
-        splash.move(center.x() - splash.width() // 2, center.y() - splash.height() // 2)
+    # Add an indeterminate progress bar at the bottom of the splash.
+    progress_bar = IndeterminateProgressBar(splash)
+    progress_bar.setFixedHeight(4)
+    progress_bar.start()
+
+    # Position the bar at the bottom edge.
+    layout = QVBoxLayout()
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addStretch(1)
+    layout.addWidget(progress_bar)
+    # SplashScreen already has a layout for its icon; we overlay ours.
+    container = splash
+    if container.layout() is None:
+        container.setLayout(layout)
+    else:
+        # Wrap in a child widget that sits at the bottom.
+        from PyQt6.QtWidgets import QWidget
+
+        overlay = QWidget(splash)
+        overlay.setLayout(layout)
+        overlay.setGeometry(0, 0, splash.width(), splash.height())
+        overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        overlay.show()
+        splash._progress_overlay = overlay  # prevent GC
+
+    center = QApplication.primaryScreen().availableGeometry().center()
+    splash.move(center.x() - splash.width() // 2, center.y() - splash.height() // 2)
     splash.show()
     QApplication.processEvents()
     return splash
 
 
-@dataclass(frozen=True)
-class RuntimeDeps:
-    """Heavy modules pulled in once the splash is on screen."""
+def load_runtime_deps() -> tuple[type, type, type]:
+    """Pull in engine, Qt bridge, main window, plus Qt-wide config knobs.
 
-    pg: object
-    set_theme: object
-    theme_auto: object
-    ModLinkEngine: object
-    QtModLinkBridge: object
-    MainWindow: object
-
-
-def load_runtime_deps() -> RuntimeDeps:
-    """Import the engine, Qt bridge, main window, and supporting libraries.
-
-    Done as a function call (rather than module-level imports) so the
-    splash screen can be drawn first; the smoke test monkey-patches this
-    seam instead of pulling the real chain in.
+    Imports happen in a background thread so the splash screen animation
+    stays alive. The main thread pumps Qt events at ~60 fps while waiting.
     """
-    import pyqtgraph as pg
-    from qfluentwidgets import Theme, setTheme
+    result: list[object] = []
 
-    from modlink_core import ModLinkEngine
-    from modlink_ui import MainWindow
-    from modlink_ui.bridge import QtModLinkBridge
+    def _import_worker() -> None:
+        import pyqtgraph as pg
+        from qfluentwidgets import Theme, setTheme
 
-    return RuntimeDeps(
-        pg=pg,
-        set_theme=setTheme,
-        theme_auto=Theme.AUTO,
-        ModLinkEngine=ModLinkEngine,
-        QtModLinkBridge=QtModLinkBridge,
-        MainWindow=MainWindow,
-    )
+        from modlink_core import ModLinkEngine
+        from modlink_ui import MainWindow
+        from modlink_ui.bridge import QtModLinkBridge
+
+        pg.setConfigOptions(useOpenGL=True)
+        setTheme(Theme.AUTO)
+        result.extend([ModLinkEngine, QtModLinkBridge, MainWindow])
+
+    thread = Thread(target=_import_worker, name="modlink.startup_import", daemon=True)
+    thread.start()
+    while thread.is_alive():
+        QApplication.processEvents()
+        time.sleep(0.016)
+    thread.join()
+
+    if len(result) != 3:
+        raise RuntimeError("startup import failed")
+    return result[0], result[1], result[2]
