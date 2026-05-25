@@ -56,6 +56,32 @@ def _load_packaged_app_icon() -> QIcon:
     return icon
 
 
+_WINDOWS_APP_USER_MODEL_ID = "ModLink.Studio.Desktop"
+
+
+def _set_windows_app_user_model_id() -> None:
+    """Tag the process with our own Windows AppUserModelID.
+
+    Without this call Windows groups the process under the generic
+    ``python.exe`` AUMID, and the taskbar / Alt-Tab can pick up a stale
+    cached icon (often the default Python snake) on cold start. Setting
+    the AUMID before the first ``QApplication`` instance is created lets
+    the taskbar bind our packaged icon stably across launches.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            _WINDOWS_APP_USER_MODEL_ID,
+        )
+    except (AttributeError, OSError):
+        # Older Windows shells without the API, or sandboxed contexts that
+        # block the call, simply fall back to the default behaviour.
+        return
+
+
 def _create_application(argv: Sequence[str] | None = None) -> QApplication:
     """Create or reuse the process-level Qt application."""
 
@@ -63,6 +89,7 @@ def _create_application(argv: Sequence[str] | None = None) -> QApplication:
     if existing is not None:
         return existing
 
+    _set_windows_app_user_model_id()
     app = QApplication(list(argv) if argv is not None else sys.argv)
     app.setApplicationName("ModLink Studio")
     app.setOrganizationName("ModLink")
