@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from modlink_studio import app
+from modlink_studio.startup import RuntimeDeps
 
 
 class _FakeSignal:
@@ -85,8 +86,8 @@ def test_debug_main_passes_debug_logging_and_qt_args(monkeypatch, tmp_path: Path
     def _fake_set_theme(theme: object) -> None:
         captured["theme"] = theme
 
-    def _fake_load_runtime_deps() -> app._RuntimeDeps:
-        return app._RuntimeDeps(
+    def _fake_load_runtime_deps() -> RuntimeDeps:
+        return RuntimeDeps(
             pg=_FakePyqtgraph(captured),
             set_theme=_fake_set_theme,
             theme_auto="auto",
@@ -102,9 +103,9 @@ def test_debug_main_passes_debug_logging_and_qt_args(monkeypatch, tmp_path: Path
     monkeypatch.setattr(app, "configure_host_logging", _fake_configure_host_logging)
     monkeypatch.setattr(app, "_create_application", _fake_create_application)
     monkeypatch.setattr(app, "install_debug_bootstrap", _fake_install_debug_bootstrap)
-    monkeypatch.setattr(app, "_load_runtime_deps", _fake_load_runtime_deps)
-    monkeypatch.setattr(app, "_show_startup_splash", _fake_show_splash)
-    monkeypatch.setattr(app, "_load_app_icon", lambda: "icon")
+    monkeypatch.setattr(app, "load_runtime_deps", _fake_load_runtime_deps)
+    monkeypatch.setattr(app, "show_splash_screen", _fake_show_splash)
+    monkeypatch.setattr(app, "load_app_icon", lambda: "icon")
 
     with pytest.raises(SystemExit) as exc_info:
         app.debug_main(["--log-path", str(tmp_path / "custom.log"), "-style", "fusion"])
