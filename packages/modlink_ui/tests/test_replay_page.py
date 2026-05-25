@@ -100,6 +100,7 @@ class ReplayPageTests(unittest.TestCase):
                 data=np.zeros((2, 2), dtype=np.float32),
                 seq=1,
             ),
+            frame_index=1,
         )
         if with_two_frames:
             append_recording_frame(
@@ -112,6 +113,7 @@ class ReplayPageTests(unittest.TestCase):
                     data=np.ones((2, 2), dtype=np.float32),
                     seq=2,
                 ),
+                frame_index=2,
             )
         return recording_id
 

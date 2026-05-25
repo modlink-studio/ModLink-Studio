@@ -41,7 +41,7 @@ def test_recording_storage_read_api_lists_and_reads_valid_recordings(
         {descriptor.stream_id: descriptor},
         recording_label="baseline",
     )
-    append_recording_frame(tmp_path, recording_id, frame)
+    append_recording_frame(tmp_path, recording_id, frame, frame_index=1)
     add_recording_marker(tmp_path, recording_id, 1_700_000_000_123_456_999, "start")
     add_recording_segment(
         tmp_path,
@@ -118,16 +118,19 @@ def test_recording_reader_merges_frames_and_normalizes_annotations(
         tmp_path,
         recording_id,
         frame_factory(signal_descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
     )
     append_recording_frame(
         tmp_path,
         recording_id,
         frame_factory(raster_descriptor, timestamp_ns=1_050_000_000, seq=2, line_length=4),
+        frame_index=1,
     )
     append_recording_frame(
         tmp_path,
         recording_id,
         frame_factory(signal_descriptor, timestamp_ns=1_100_000_000, seq=3),
+        frame_index=2,
     )
     add_recording_marker(tmp_path, recording_id, 1_025_000_000, "marker_a")
     add_recording_segment(tmp_path, recording_id, 1_020_000_000, 1_080_000_000, "segment_a")
@@ -161,13 +164,22 @@ def test_replay_backend_replays_on_its_own_bus(
     descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
     recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
     )
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2),
+        frame_index=2,
     )
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3),
+        frame_index=3,
     )
 
     settings = _build_settings(tmp_path)
@@ -232,16 +244,19 @@ def test_replay_export_formats_write_expected_outputs(
         tmp_path,
         recording_id,
         frame_factory(descriptors["signal"], timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
     )
     append_recording_frame(
         tmp_path,
         recording_id,
         frame_factory(descriptors["raster"], timestamp_ns=1_000_000_100, seq=2, line_length=4),
+        frame_index=1,
     )
     append_recording_frame(
         tmp_path,
         recording_id,
         frame_factory(descriptors["field"], timestamp_ns=1_000_000_200, seq=3, height=3, width=4),
+        frame_index=1,
     )
     append_recording_frame(
         tmp_path,
@@ -254,6 +269,7 @@ def test_replay_export_formats_write_expected_outputs(
             width=3,
             dtype=np.uint8,
         ),
+        frame_index=1,
     )
 
     settings = _build_settings(tmp_path)
@@ -285,7 +301,10 @@ def test_replay_export_job_fails_when_format_has_no_matching_streams(
     descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
     recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
     )
 
     settings = _build_settings(tmp_path)

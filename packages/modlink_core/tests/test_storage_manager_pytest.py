@@ -37,6 +37,7 @@ def test_recording_storage_writes_minimal_recording_layout(
         tmp_path,
         recording_id,
         frame_factory(descriptor, timestamp_ns=1_700_000_000_123_456_789, seq=1),
+        frame_index=1,
     )
 
     recording_root = tmp_path / "recordings" / recording_id
@@ -100,6 +101,7 @@ def test_recording_storage_writes_annotations_without_readback_api(
             height=3,
             width=4,
         ),
+        frame_index=1,
     )
     add_recording_marker(tmp_path, recording_id, 1_700_000_000_500_000_123, "start")
     add_recording_segment(

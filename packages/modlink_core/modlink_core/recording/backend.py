@@ -231,13 +231,16 @@ class RecordingBackend:
         if self._active_recording is None:
             return
 
+        stream_id = frame.stream_id
+        next_index = self._active_recording.frame_counts_by_stream[stream_id] + 1
         try:
             append_recording_frame(
                 Path(self._active_recording.root_dir),
                 self._active_recording.recording_id,
                 frame,
+                frame_index=next_index,
             )
-            self._active_recording.frame_counts_by_stream[frame.stream_id] += 1
+            self._active_recording.frame_counts_by_stream[stream_id] = next_index
         except Exception:
             logger.exception("Recording append failed; marking recording as failed")
             self._fail_recording_worker("write_failed")

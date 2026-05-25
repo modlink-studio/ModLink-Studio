@@ -73,10 +73,30 @@ def create_recording(
     return resolved_recording_id
 
 
-def append_recording_frame(root_dir: Path, recording_id: str, frame: FrameEnvelope) -> None:
+def append_recording_frame(
+    root_dir: Path,
+    recording_id: str,
+    frame: FrameEnvelope,
+    *,
+    frame_index: int,
+) -> None:
+    """Append one frame to a recording stream.
+
+    ``frame_index`` is supplied by the caller to keep the append path O(1).
+    The recording backend tracks per-stream counters in memory and passes the
+    next 1-based index for each frame; tests pass the index explicitly. Reading
+    ``frames.csv`` to derive the index would make long recordings collapse
+    under O(N^2) write cost.
+    """
     if not isinstance(frame, FrameEnvelope):
         raise ValueError("append_recording_frame expects a FrameEnvelope")
-    _append_stream_frame(_stream_dir(root_dir, recording_id, frame.stream_id), frame)
+    if frame_index < 1:
+        raise ValueError("frame_index must be >= 1")
+    _append_stream_frame(
+        _stream_dir(root_dir, recording_id, frame.stream_id),
+        frame,
+        frame_index,
+    )
 
 
 def add_recording_marker(
@@ -199,14 +219,12 @@ def _initialize_stream(stream_dir: Path, descriptor: StreamDescriptor) -> None:
     )
 
 
-def _append_stream_frame(stream_dir: Path, frame: FrameEnvelope) -> None:
+def _append_stream_frame(stream_dir: Path, frame: FrameEnvelope, frame_index: int) -> None:
     data = _normalize_data_array(frame)
-    frames_index_path = stream_dir / "frames.csv"
-    frame_index = len(read_csv_rows(frames_index_path)) + 1
     file_name = f"{frame_index:06d}.npz"
     write_npz(stream_dir / "frames" / file_name, data=data)
     append_csv_row(
-        frames_index_path,
+        stream_dir / "frames.csv",
         [
             frame_index,
             int(frame.timestamp_ns),

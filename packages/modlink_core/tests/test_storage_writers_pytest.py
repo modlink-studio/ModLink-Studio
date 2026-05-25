@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from modlink_core.storage import append_recording_frame, create_recording
+from modlink_core.storage import recordings as recordings_module
 from modlink_core.storage._internal.ids import safe_path_component
 
 
@@ -62,7 +63,7 @@ def test_recording_store_persists_minimal_stream_files(
         seq=11,
         **frame_kwargs,
     )
-    append_recording_frame(tmp_path, recording_id, frame)
+    append_recording_frame(tmp_path, recording_id, frame, frame_index=1)
 
     stream_payload = _read_json(stream_dir / "stream.json")
     frame_rows = _read_csv_rows(stream_dir / "frames.csv")
@@ -100,10 +101,16 @@ def test_recording_store_increments_frame_index_for_multiple_appends(
     )
 
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=100, seq=1)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=100, seq=1),
+        frame_index=1,
     )
     append_recording_frame(
-        tmp_path, recording_id, frame_factory(descriptor, timestamp_ns=200, seq=2)
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=200, seq=2),
+        frame_index=2,
     )
 
     assert _read_csv_rows(frames_index_path) == [
@@ -141,7 +148,7 @@ def test_recording_store_persists_arbitrary_array_shape(
         data=np.arange(4, dtype=np.float32),
     )
 
-    append_recording_frame(tmp_path, recording_id, frame)
+    append_recording_frame(tmp_path, recording_id, frame, frame_index=1)
 
     with np.load(stream_dir / "frames" / "000001.npz") as archive:
         np.testing.assert_array_equal(archive["data"], frame.data)
@@ -160,7 +167,7 @@ def test_recording_store_rejects_object_dtype_arrays(
     )
 
     with pytest.raises(ValueError, match="object dtype arrays are not supported"):
-        append_recording_frame(tmp_path, recording_id, frame)
+        append_recording_frame(tmp_path, recording_id, frame, frame_index=1)
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -170,3 +177,44 @@ def _read_json(path: Path) -> dict[str, object]:
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def test_recording_store_does_not_read_frames_index_during_append(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+    monkeypatch,
+) -> None:
+    """Long recordings broke (auto-stop after ~3h) when the append path
+    re-read frames.csv on every frame, making writes O(N^2). The hot path
+    must not read the index. The recording backend supplies frame_index from
+    its in-memory counter."""
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+
+    real_read_csv_rows = recordings_module.read_csv_rows
+
+    def _trip(*args: object, **kwargs: object):
+        raise AssertionError("append path must not read frames.csv")
+
+    monkeypatch.setattr(recordings_module, "read_csv_rows", _trip)
+
+    for index in range(1, 11):
+        append_recording_frame(
+            tmp_path,
+            recording_id,
+            frame_factory(descriptor, timestamp_ns=index, seq=index),
+            frame_index=index,
+        )
+
+    monkeypatch.setattr(recordings_module, "read_csv_rows", real_read_csv_rows)
+    frames_index_path = (
+        tmp_path
+        / "recordings"
+        / recording_id
+        / "streams"
+        / safe_path_component(descriptor.stream_id)
+        / "frames.csv"
+    )
+    rows = _read_csv_rows(frames_index_path)
+    assert [row["frame_index"] for row in rows] == [str(i) for i in range(1, 11)]

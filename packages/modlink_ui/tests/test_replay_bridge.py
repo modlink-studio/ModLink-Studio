@@ -76,6 +76,7 @@ class QtReplayBridgeTests(unittest.TestCase):
                 data=np.zeros((2, 2), dtype=np.float32),
                 seq=1,
             ),
+            frame_index=1,
         )
 
         backend = ReplayBackend(settings=self._settings)
