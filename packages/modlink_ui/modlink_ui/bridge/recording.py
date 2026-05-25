@@ -66,8 +66,20 @@ class QtRecordingBridge(QObject):
         self.resync_from_backend()
         self.sig_recording_failed.emit(event)
 
-    def start_recording(self, recording_label: str | None = None) -> None:
-        self._watch_command(self._backend.start_recording(recording_label))
+    def start_recording(
+        self,
+        recording_label: str | None = None,
+        *,
+        session_name: str | None = None,
+        experiment_name: str | None = None,
+    ) -> None:
+        self._watch_command(
+            self._backend.start_recording(
+                recording_label,
+                session_name=session_name,
+                experiment_name=experiment_name,
+            )
+        )
 
     def stop_recording(self) -> None:
         self._watch_command(self._backend.stop_recording())

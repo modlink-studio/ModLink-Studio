@@ -42,6 +42,8 @@ def _scipy_signal() -> ModuleType:
 
         _scipy_signal_module = _module
     return _scipy_signal_module
+
+
 SIGNAL_WINDOW_SECONDS_OPTIONS = (1, 2, 4, 8, 12, 20)
 LIGHT_SIGNAL_COLORS = (
     "#2D8CF0",

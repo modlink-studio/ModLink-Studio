@@ -58,6 +58,8 @@ def test_recording_storage_read_api_lists_and_reads_valid_recordings(
         {
             "recording_id": recording_id,
             "recording_label": "baseline",
+            "session_name": None,
+            "experiment_name": None,
             "stream_ids": [descriptor.stream_id],
         }
     ]

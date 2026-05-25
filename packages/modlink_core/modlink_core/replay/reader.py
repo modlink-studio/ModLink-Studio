@@ -123,6 +123,16 @@ class RecordingReader:
         return label if isinstance(label, str) or label is None else str(label)
 
     @property
+    def session_name(self) -> str | None:
+        value = self._manifest.get("session_name")
+        return value if isinstance(value, str) else None
+
+    @property
+    def experiment_name(self) -> str | None:
+        value = self._manifest.get("experiment_name")
+        return value if isinstance(value, str) else None
+
+    @property
     def manifest(self) -> dict[str, Any]:
         return dict(self._manifest)
 

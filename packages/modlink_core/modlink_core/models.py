@@ -55,6 +55,8 @@ class ReplayRecordingSummary:
     recording_label: str | None
     recording_path: str
     stream_ids: tuple[str, ...]
+    session_name: str | None = None
+    experiment_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

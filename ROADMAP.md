@@ -74,7 +74,7 @@
 
 - replay / export 的 bug fix 和小体验改进
 - recording catalog 的查询和筛选体验
-- session / experiment 列表、详情和 recording 归档
+- session / experiment 列表、详情和 recording 归档（标签字段已落盘到 recording.json，列表 UI 待补）
 - marker / segment 的展示和编辑
 - replay 时间轴 seek
 - 批量导出和 export 参数配置

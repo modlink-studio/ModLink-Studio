@@ -40,6 +40,8 @@ class _AcquisitionStub(QObject):
         self._root_dir = root_dir
         self._is_recording = False
         self.started_recording_label: str | None = None
+        self.started_session_name: str | None = None
+        self.started_experiment_name: str | None = None
         self.last_marker_label: str | None = None
         self.last_segment: tuple[int, int, str | None] | None = None
 
@@ -51,8 +53,16 @@ class _AcquisitionStub(QObject):
     def is_recording(self) -> bool:
         return self._is_recording
 
-    def start_recording(self, _recording_label: str | None = None) -> None:
+    def start_recording(
+        self,
+        _recording_label: str | None = None,
+        *,
+        session_name: str | None = None,
+        experiment_name: str | None = None,
+    ) -> None:
         self.started_recording_label = _recording_label
+        self.started_session_name = session_name
+        self.started_experiment_name = experiment_name
         self._is_recording = True
 
     def stop_recording(self) -> None:
@@ -133,6 +143,36 @@ class AcquisitionViewModelTests(unittest.TestCase):
         self._view_model.request_toggle_recording()
 
         self.assertEqual("resting_state", self._acquisition.started_recording_label)
+        self.assertIsNone(self._acquisition.started_session_name)
+        self.assertIsNone(self._acquisition.started_experiment_name)
+
+    def test_start_recording_forwards_session_and_experiment_from_runtime(self) -> None:
+        from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeViewModel
+
+        runtime = ExperimentRuntimeViewModel()
+        runtime.set_session_name("healthy_H03")
+        runtime.set_experiment_name("吞咽采集_2026Q2")
+        self._view_model.attach_experiment_runtime(runtime)
+
+        self._view_model.set_field_value("recording_label", "trial_03")
+        self._view_model.request_toggle_recording()
+
+        self.assertEqual("trial_03", self._acquisition.started_recording_label)
+        self.assertEqual("healthy_H03", self._acquisition.started_session_name)
+        self.assertEqual("吞咽采集_2026Q2", self._acquisition.started_experiment_name)
+
+    def test_start_recording_treats_blank_runtime_labels_as_none(self) -> None:
+        from modlink_ui.features.live.experiment_runtime import ExperimentRuntimeViewModel
+
+        runtime = ExperimentRuntimeViewModel()
+        runtime.set_session_name("   ")
+        runtime.set_experiment_name("")
+        self._view_model.attach_experiment_runtime(runtime)
+
+        self._view_model.request_toggle_recording()
+
+        self.assertIsNone(self._acquisition.started_session_name)
+        self.assertIsNone(self._acquisition.started_experiment_name)
 
     def test_insert_marker_uses_none_when_label_is_empty(self) -> None:
         self._view_model.request_insert_marker()

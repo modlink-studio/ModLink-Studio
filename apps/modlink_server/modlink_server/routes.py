@@ -51,6 +51,8 @@ class ConnectRequest(BaseModel):
 
 class StartRecordingRequest(BaseModel):
     recording_label: str | None = None
+    session_name: str | None = None
+    experiment_name: str | None = None
 
 
 class MarkerRequest(BaseModel):
@@ -157,7 +159,13 @@ def install_http_api(app: FastAPI) -> None:
         request: Request,
     ) -> dict[str, bool]:
         engine = _engine(request)
-        await _await_future(engine.recording.start_recording(recording_label=body.recording_label))
+        await _await_future(
+            engine.recording.start_recording(
+                recording_label=body.recording_label,
+                session_name=body.session_name,
+                experiment_name=body.experiment_name,
+            )
+        )
         return {"ok": True}
 
     @app.post("/acquisition/stop-recording")

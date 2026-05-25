@@ -9,16 +9,8 @@ import numpy as np
 from modlink_core.storage import (
     add_recording_marker,
     add_recording_segment,
-    add_recording_to_session,
-    add_session_to_experiment,
     append_recording_frame,
-    create_experiment,
     create_recording,
-    create_session,
-    list_experiments,
-    list_sessions,
-    read_experiment,
-    read_session,
 )
 
 
@@ -50,6 +42,8 @@ def test_recording_storage_writes_minimal_recording_layout(
     assert manifest == {
         "recording_id": recording_id,
         "recording_label": "baseline",
+        "session_name": None,
+        "experiment_name": None,
         "stream_ids": [descriptor.stream_id],
     }
     assert stream_manifest == {
@@ -76,6 +70,46 @@ def test_recording_storage_writes_minimal_recording_layout(
     ]
     with np.load(stream_root / "frames" / "000001.npz") as archive:
         assert set(archive.files) == {"data"}
+
+
+def test_recording_storage_persists_session_and_experiment_labels(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="trial_03",
+        session_name="healthy_H03",
+        experiment_name="吞咽采集_2026Q2",
+    )
+
+    manifest = json.loads(
+        (tmp_path / "recordings" / recording_id / "recording.json").read_text(encoding="utf-8")
+    )
+    assert manifest["session_name"] == "healthy_H03"
+    assert manifest["experiment_name"] == "吞咽采集_2026Q2"
+    assert manifest["recording_label"] == "trial_03"
+
+
+def test_recording_storage_normalizes_blank_label_strings(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        session_name="   ",
+        experiment_name="",
+    )
+
+    manifest = json.loads(
+        (tmp_path / "recordings" / recording_id / "recording.json").read_text(encoding="utf-8")
+    )
+    assert manifest["session_name"] is None
+    assert manifest["experiment_name"] is None
 
 
 def test_recording_storage_writes_annotations_without_readback_api(
@@ -123,64 +157,6 @@ def test_recording_storage_writes_annotations_without_readback_api(
             "label": "segment_a",
         }
     ]
-
-
-def test_session_store_creates_initial_manifest_and_adds_recordings(tmp_path) -> None:
-    session_id = create_session(
-        tmp_path,
-        session_id="ses_demo",
-        display_name="demo session",
-        metadata={"operator": "alice"},
-        created_at_ns=123,
-    )
-    add_recording_to_session(tmp_path, session_id, "rec_a", updated_at_ns=456)
-    add_recording_to_session(tmp_path, session_id, "rec_b", updated_at_ns=789)
-    add_recording_to_session(tmp_path, session_id, "rec_b", updated_at_ns=999)
-
-    assert session_id == "ses_demo"
-    payload = json.loads(
-        (tmp_path / "sessions" / session_id / "session.json").read_text(encoding="utf-8")
-    )
-    assert payload == {
-        "schema_version": 1,
-        "session_id": "ses_demo",
-        "display_name": "demo session",
-        "created_at_ns": 123,
-        "updated_at_ns": 999,
-        "recording_ids": ["rec_a", "rec_b"],
-        "metadata": {"operator": "alice"},
-    }
-    assert read_session(tmp_path, session_id) == payload
-    assert list_sessions(tmp_path) == [payload]
-
-
-def test_experiment_store_creates_initial_manifest_and_adds_sessions(tmp_path) -> None:
-    experiment_id = create_experiment(
-        tmp_path,
-        experiment_id="exp_demo",
-        display_name="demo experiment",
-        metadata={"study": "visual"},
-        created_at_ns=321,
-    )
-    add_session_to_experiment(tmp_path, experiment_id, "ses_a", updated_at_ns=654)
-    add_session_to_experiment(tmp_path, experiment_id, "ses_b", updated_at_ns=987)
-    add_session_to_experiment(tmp_path, experiment_id, "ses_b", updated_at_ns=1_111)
-
-    assert experiment_id == "exp_demo"
-    payload = json.loads(
-        (tmp_path / "experiments" / experiment_id / "experiment.json").read_text(encoding="utf-8")
-    )
-    assert payload == {
-        "schema_version": 1,
-        "experiment_id": "exp_demo",
-        "display_name": "demo experiment",
-        "created_at_ns": 321,
-        "updated_at_ns": 1_111,
-        "session_ids": ["ses_a", "ses_b"],
-        "metadata": {"study": "visual"},
-    }
-    assert read_experiment(tmp_path, experiment_id) == payload
-    assert list_experiments(tmp_path) == [payload]
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

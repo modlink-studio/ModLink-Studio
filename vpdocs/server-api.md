@@ -264,9 +264,13 @@
 
 ```json
 {
-  "recording_label": "baseline"
+  "recording_label": "baseline",
+  "session_name": "healthy_H03",
+  "experiment_name": "吞咽采集_2026Q2"
 }
 ```
+
+`session_name` 和 `experiment_name` 为可选标签字段，会写入 `recording.json`，用于按实验/会话维度聚合 recordings。空字符串或纯空白会被规范化为 `null`。
 
 成功响应：
 

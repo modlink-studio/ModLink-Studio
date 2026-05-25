@@ -68,7 +68,14 @@ class _RecordingStub(QObject):
     def is_recording(self) -> bool:
         return self._is_recording
 
-    def start_recording(self, _recording_label: str | None = None) -> None:
+    def start_recording(
+        self,
+        _recording_label: str | None = None,
+        *,
+        session_name: str | None = None,
+        experiment_name: str | None = None,
+    ) -> None:
+        _ = (session_name, experiment_name)
         self._is_recording = True
 
     def stop_recording(self) -> None:

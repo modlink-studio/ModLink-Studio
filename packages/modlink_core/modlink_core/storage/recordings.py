@@ -28,6 +28,8 @@ def create_recording(
     recording_descriptors: dict[str, StreamDescriptor],
     *,
     recording_label: str | None = None,
+    session_name: str | None = None,
+    experiment_name: str | None = None,
     recording_id: str | None = None,
 ) -> str:
     root_dir = Path(root_dir)
@@ -67,10 +69,21 @@ def create_recording(
         {
             "recording_id": resolved_recording_id,
             "recording_label": recording_label,
+            "session_name": _normalize_optional_text(session_name),
+            "experiment_name": _normalize_optional_text(experiment_name),
             "stream_ids": stream_ids,
         },
     )
     return resolved_recording_id
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    """Strip whitespace; treat empty / whitespace-only strings as ``None`` so
+    manifests never carry meaningless empty labels."""
+    if value is None:
+        return None
+    stripped = str(value).strip()
+    return stripped or None
 
 
 def append_recording_frame(

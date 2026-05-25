@@ -75,6 +75,19 @@ class AcquisitionViewModel(QObject):
         self.engine.recording.sig_error.connect(self._on_error)
         self.engine.recording.sig_recording_failed.connect(self._on_recording_failed)
 
+        self._experiment_runtime: object | None = None
+
+    def attach_experiment_runtime(self, experiment_runtime: object) -> None:
+        """Wire the experiment sidebar's runtime so session_name / experiment_name
+        labels follow the recording when the user starts acquisition. Plain
+        attribute setting on a viewmodel is enough; we just guard against
+        replacing an already-attached runtime to keep the binding explicit."""
+        if self._experiment_runtime is experiment_runtime:
+            return
+        if self._experiment_runtime is not None:
+            raise RuntimeError("experiment runtime is already attached")
+        self._experiment_runtime = experiment_runtime
+
     @property
     def state(self) -> AcquisitionPanelState:
         return self._state
@@ -181,7 +194,21 @@ class AcquisitionViewModel(QObject):
 
         self._pending_recording_stop_notice = False
         recording_label = self.get_field_value("recording_label").strip() or None
-        self.engine.recording.start_recording(recording_label)
+        session_name, experiment_name = self._current_experiment_labels()
+        self.engine.recording.start_recording(
+            recording_label,
+            session_name=session_name,
+            experiment_name=experiment_name,
+        )
+
+    def _current_experiment_labels(self) -> tuple[str | None, str | None]:
+        runtime = self._experiment_runtime
+        if runtime is None:
+            return None, None
+        snapshot = runtime.snapshot()
+        session_name = str(getattr(snapshot, "session_name", "") or "").strip() or None
+        experiment_name = str(getattr(snapshot, "experiment_name", "") or "").strip() or None
+        return session_name, experiment_name
 
     def request_insert_marker(self) -> None:
         annotation_label = self.get_field_value("annotation_label").strip() or None

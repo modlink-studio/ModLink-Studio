@@ -113,7 +113,13 @@ class RecordingBackend:
         thread.start()
         logger.info("Recording backend started")
 
-    def start_recording(self, recording_label: str | None = None) -> Future[RecordingStartSummary]:
+    def start_recording(
+        self,
+        recording_label: str | None = None,
+        *,
+        session_name: str | None = None,
+        experiment_name: str | None = None,
+    ) -> Future[RecordingStartSummary]:
         storage_root_dir = self.root_dir
         recordings_root_dir = storage_root_dir / "recordings"
         return self._submit_command(
@@ -121,6 +127,8 @@ class RecordingBackend:
             str(storage_root_dir),
             str(recordings_root_dir),
             recording_label,
+            session_name,
+            experiment_name,
             self._bus.descriptors(),
         )
 
@@ -250,6 +258,8 @@ class RecordingBackend:
         root_dir: str,
         recordings_dir: str,
         recording_label: object,
+        session_name: object,
+        experiment_name: object,
         recording_descriptors: object,
     ) -> RecordingStartSummary:
         if self._active_recording is not None:
@@ -266,6 +276,8 @@ class RecordingBackend:
                 Path(root_dir),
                 recording_descriptors,
                 recording_label=recording_label or None,
+                session_name=session_name if isinstance(session_name, str) else None,
+                experiment_name=experiment_name if isinstance(experiment_name, str) else None,
             )
         except Exception as exc:
             self._active_recording = None

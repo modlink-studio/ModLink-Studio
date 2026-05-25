@@ -196,6 +196,8 @@ class ReplayBackend:
                 stream_id for stream_id in stream_ids_payload if isinstance(stream_id, str)
             )
             label = manifest.get("recording_label")
+            session_name = manifest.get("session_name")
+            experiment_name = manifest.get("experiment_name")
             summaries.append(
                 ReplayRecordingSummary(
                     recording_id=recording_id,
@@ -204,6 +206,8 @@ class ReplayBackend:
                     else str(label),
                     recording_path=str(root_dir / "recordings" / recording_id),
                     stream_ids=stream_ids,
+                    session_name=session_name if isinstance(session_name, str) else None,
+                    experiment_name=experiment_name if isinstance(experiment_name, str) else None,
                 )
             )
         self._recordings = tuple(summaries)

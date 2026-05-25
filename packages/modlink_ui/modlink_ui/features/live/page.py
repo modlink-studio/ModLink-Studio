@@ -28,6 +28,7 @@ class LivePage(BasePage):
         self.acquisition_panel = AcquisitionControlPanel(engine, self)
         self.acquisition_panel.hide()
         self.experiment_runtime = ExperimentRuntimeViewModel(self)
+        self.acquisition_panel.view_model.attach_experiment_runtime(self.experiment_runtime)
         self.experiment_sidebar = LiveExperimentSidebar(
             self.experiment_runtime,
             engine.settings,
