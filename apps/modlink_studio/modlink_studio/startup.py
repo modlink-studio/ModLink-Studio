@@ -61,9 +61,15 @@ def set_windows_app_user_model_id() -> None:
 def show_splash_screen(icon: QIcon):
     """Display a borderless splash with our icon, a top-left version badge,
     a status line, and an indeterminate progress bar at the bottom edge."""
-    from qfluentwidgets import BodyLabel, IndeterminateProgressBar, SplashScreen
+    from qfluentwidgets import BodyLabel, IndeterminateProgressBar, SplashScreen, Theme, setTheme
 
     from . import __version__
+
+    # Apply theme on the main thread before any styled widget is created.
+    # qfluentwidgets installs an application-wide event filter that polishes
+    # styled widgets on the GUI thread; doing setTheme off-thread races with
+    # widget construction and can wipe inline stylesheets.
+    setTheme(Theme.AUTO)
 
     splash = SplashScreen(icon, parent=None)
     splash.setWindowFlags(Qt.WindowType.SplashScreen | Qt.WindowType.WindowStaysOnTopHint)
@@ -143,14 +149,12 @@ def load_runtime_deps() -> tuple[type, type, type]:
 
     def _import_worker() -> None:
         import pyqtgraph as pg
-        from qfluentwidgets import Theme, setTheme
 
         from modlink_core import ModLinkEngine
         from modlink_ui import MainWindow
         from modlink_ui.bridge import QtModLinkBridge
 
         pg.setConfigOptions(useOpenGL=True)
-        setTheme(Theme.AUTO)
         result.extend([ModLinkEngine, QtModLinkBridge, MainWindow])
 
     thread = Thread(target=_import_worker, name="modlink.startup_import", daemon=True)
