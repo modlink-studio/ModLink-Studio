@@ -4,20 +4,20 @@
 
 ## 当前位置
 
-当前主线正在准备 `0.3.0` 正式发布。`0.3.0` 仍属于 SDK / driver API 的早期阶段，不承诺兼容 `0.2.x` driver 实现；`0.4.0` 预计会继续收紧 SDK 与插件管理边界。当前重点补齐：
+`0.3.1` 已正式发布。当前主线进入 `0.3.x` 维护与小步演进阶段。`0.3.x` 仍属于 SDK / driver API 的早期阶段，不承诺兼容 `0.2.x` driver 实现；`0.4.0` 预计会继续收紧 SDK 与插件管理边界。
 
-- recording replay
-- analysis-first export
-- widgets 主宿主里的 Replay 页面
-- live experiment sidebar 与 AI assistant 原型
-- 外部 driver plugin author skill
-- 官方插件的 CLI 安装入口
+`0.3.1` 重点修复：
+
+- 长时间录制超过约三小时后自动停止的 bug
+- 启动期间 splash 版本徽章样式被主题刷新覆盖的问题
+- Windows 任务栏图标偶发回退为 `python.exe` 默认图标
+- 桌面启动主路径精简，加入 splash screen 承载冷启动等待
 
 分支约定：
 
 - `legacy/0.2.x`：维护 `0.2.x` 稳定线
-- `wip/0.3.0`：当前 `0.3.0` 发布准备线
-- `main`：`0.3.0` 正式发布前的合并目标
+- `wip/0.3.x`：当前 `0.3.x` 维护与小步演进线
+- `main`：发布合并目标
 
 ## 产品原则
 
@@ -31,29 +31,17 @@
 
 ## 0.3.0
 
-状态：准备正式发布。
+状态：已发布。
 
-目标：将 `0.3.0rc3` 验证过的发布边界提升为正式 `0.3.0`。这一版重点是收口已经进入 rc 的能力，不继续扩功能。
+`0.3.0` 在 `0.2.0` 的纯 Python runtime 基线上补齐：
 
-已完成：
+- replay / export / widgets Replay 页面
+- live experiment sidebar 与 AI assistant 原型
+- `tools/modlink-plugin-author` skill 作为外部 driver plugin 的推荐起点
+- `modlink-plugin` CLI 安装官方驱动
+- PyQt6 / PyQt6-Qt6 约束为 `>=6.10.2,<6.11`，避开 Qt 6.11.0 在 Windows 上的透明 popup 边界问题
 
-- 版本号统一到 `0.3.0`
-- replay / export / widgets Replay 页面已接入
-- live experiment sidebar 与 AI assistant 原型已进入当前 widgets 宿主
-- `tools/modlink-plugin-author` 成为外部 driver plugin 的推荐起点
-- `modlink-plugin` 可安装官方驱动插件
-- `0.3.0rc3` TestPyPI rehearsal 已完整跑通
-- 从 TestPyPI 安装 `modlink-studio==0.3.0rc3` 后，可安装 4 个官方插件并启动 4 个 driver portal
-- 保持 PyQt6 / PyQt6-Qt6 `>=6.10.2,<6.11` 约束，避开 Qt 6.11.0 在 Windows 上暴露透明 popup 边界的问题
-
-发布前仍需完成：
-
-- 将 `wip/0.3.0` 合并到 `main`
-- 在正式 release commit 上打 `v0.3.0`
-- 手动触发 PyPI 发布 workflow
-- 发布对应 docs site
-
-不作为 `0.3.0` 前置条件：
+不属于 `0.3.0` 范围、转入 `0.3.x` / `0.4.x` 继续推进：
 
 - 完整 protocol editor
 - 任意时间轴 seek
@@ -64,11 +52,33 @@
 - 插件显示 / 隐藏 UI
 - 独立插件注册中心
 
+## 0.3.1
+
+状态：已发布。
+
+`0.3.1` 是 `0.3.0` 之后的稳定性修订。
+
+已完成：
+
+- 修复长时间录制（约三小时后）自动停止的关键 bug；recording 写盘热路径改为不再读取 frames 索引
+- recording 持久化新增 `session_name` 与 `experiment_name` 扁平标签字段
+- 回放页面支持通过列表页右键菜单和 player 页按钮删除 recording
+- 启动期间显示 qfluentwidgets `SplashScreen`，并把 heavy import 放到后台线程
+- 修复启动期间 splash 版本徽章样式被主题刷新覆盖的问题
+- 修复 Windows 任务栏图标偶发回退的问题（绑定 AppUserModelID）
+- 桌面启动主路径精简到约 75 行直线脚本
+
+不属于 `0.3.1` 范围：
+
+- session / experiment 列表 UI 与按字段筛选
+- replay 时间轴 seek
+- 启动期间 MainWindow 构造的进一步异步化
+
 ## 0.3.x
 
-状态：计划中。
+状态：进行中。
 
-目标：稳定 `0.3.0` 已发布能力，修复发布后暴露的问题，并继续小步改善 replay/export、experiment/sidebar 和官方插件安装链路。
+目标：在 `0.3.1` 修复关键稳定性问题之后，继续小步改善 replay/export、experiment/sidebar 和官方插件安装链路。
 
 候选内容：
 
@@ -82,6 +92,7 @@
 - 外部插件开发文档和 skill 使用示例
 - 面向 Claude Code / Codex 的独立插件项目示例
 - Qt 6.11 popup 透明边界问题的后续验证，但不把迁移 PySide6 或重写 UI 作为默认方向
+- 启动期间 MainWindow 构造的进一步异步化或预热
 
 仍然保持克制：
 

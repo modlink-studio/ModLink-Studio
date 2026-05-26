@@ -2,6 +2,42 @@
 
 本文件记录 ModLink Studio 的重要变更。
 
+## [0.3.1] - 2026-05-26
+
+### Summary
+
+`0.3.1` 是 `0.3.0` 之后的稳定性修订版本，重点修复了一个长时间录制时会触发自动停止的关键 bug，并整体改善桌面宿主的启动体验。发布边界继续沿用 `0.3.0` 的 Qt 版本约束 `>=6.10.2,<6.11`，公开安装入口仍是单主包 `modlink-studio`。
+
+### Added
+
+- 启动期间显示 qfluentwidgets `SplashScreen`，承载左上角版本徽章、底部状态文案和全宽 indeterminate 进度条
+- recording 写盘时持久化 `session_name` 与 `experiment_name` 标签字段到 `recording.json`
+- 回放页面支持删除 recording：列表页右键菜单和 player 页头部按钮均可触发，附确认对话框
+
+### Fixed
+
+- **录制超过约三小时后自动停止**：`storage/recordings.py::_append_stream_frame` 之前每写入一帧都会读取一次 `frames.csv` 计算下一帧索引，写入成本随帧数增长为 O(N²)。约 100k 帧后单帧写入耗时超过帧队列间隔，触发 overflow 后录制静默停止。`append_recording_frame` 改为接受 keyword-only 参数 `frame_index`，由 `RecordingBackend` 用内存计数器派生，热路径不再读盘
+- 修复启动期间 splash 左上角 `ModLink Studio` 版本徽章的 inline 样式被 qfluentwidgets 主题刷新覆盖、退化为纯文字的问题
+- 修复 Windows 任务栏图标偶发回退为 `python.exe` 默认图标的问题，进程显式绑定到自定义 AppUserModelID
+
+### Changed
+
+- 桌面启动主路径瘦身为约 75 行直线脚本，移除 `_LaunchOptions`、`_RuntimeDeps` 等过度设计的中间结构
+- 启动期间 heavy import（`modlink_core` / `modlink_ui` / `pyqtgraph`）放到后台线程执行，主线程同时 pump Qt 事件保持 splash 动画
+- 实验侧栏的 AI assistant runtime 移到 `modlink_ui.assistant` 子包
+
+### Removed
+
+- 删除从未在生产代码中使用的 `storage/sessions.py` 和 `storage/experiments.py` 死代码
+- 删除桌面启动入口的 `debug_bootstrap.py` 死代码
+
+### Known Limitations
+
+- session / experiment 目前以扁平标签字段存储在 `recording.json`，列表与详情 UI、按字段筛选与归档仍待 `0.3.x` 后续版本补齐
+- 启动期间 `MainWindow` 构造与首帧 paint 仍在主线程同步执行，splash 关闭前会有约一秒的进度条停顿，后续在 `0.3.x` 继续打磨
+
+---
+
 ## [0.3.0] - 2026-04-28
 
 ### Summary
