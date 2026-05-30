@@ -10,7 +10,7 @@ import pytest
 
 from modlink_core.bus import StreamBus
 from modlink_core.event_stream import BackendEventBroker
-from modlink_core.models import ExportJobSnapshot, ReplayMarker, ReplaySegment
+from modlink_core.models import ExportJobSnapshot, ReplayMarker, ReplayRecordingSummary, ReplaySegment
 from modlink_core.replay import ReplayBackend
 from modlink_core.replay.reader import RecordingReader
 from modlink_core.settings import SettingsStore, declare_core_settings
@@ -19,6 +19,7 @@ from modlink_core.storage import (
     add_recording_segment,
     append_recording_frame,
     create_recording,
+    finalize_recording,
     list_recordings,
     load_recording_frame_data,
     read_recording,
@@ -569,3 +570,66 @@ def test_replay_backend_delete_recording_raises_for_unknown_id(tmp_path) -> None
             backend.delete_recording("rec_nonexistent").result(1.0)
     finally:
         backend.shutdown()
+
+
+def test_refresh_recordings_summary_includes_finalized_metadata(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", stream_key="s1", chunk_size=2)
+    recording_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="finalized_test",
+    )
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=61_000_000_000,
+        status="completed",
+        frame_counts_by_stream={descriptor.stream_id: 100},
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+    try:
+        recordings = backend.refresh_recordings().result(5.0)
+    finally:
+        backend.shutdown()
+
+    assert len(recordings) == 1
+    summary: ReplayRecordingSummary = recordings[0]
+    assert summary.started_at_ns == 1_000_000_000
+    assert summary.duration_ns == 60_000_000_000
+    assert summary.status == "completed"
+    assert summary.total_frames == 100
+
+
+def test_refresh_recordings_summary_old_recording_graceful_degradation(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", stream_key="s1", chunk_size=2)
+    create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="old_recording",
+    )
+    # No finalize_recording call — simulates a recording without finalized metadata
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+    try:
+        recordings = backend.refresh_recordings().result(5.0)
+    finally:
+        backend.shutdown()
+
+    assert len(recordings) == 1
+    summary: ReplayRecordingSummary = recordings[0]
+    assert summary.started_at_ns is None
+    assert summary.duration_ns is None
+    assert summary.status is None
+    assert summary.total_frames is None

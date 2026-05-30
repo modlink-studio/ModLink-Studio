@@ -210,6 +210,11 @@ class ReplayBackend:
             label = manifest.get("recording_label")
             session_name = manifest.get("session_name")
             experiment_name = manifest.get("experiment_name")
+            started_at_ns = manifest.get("started_at_ns")
+            duration_ns_raw = manifest.get("duration_ns")
+            status = manifest.get("status")
+            frame_counts = manifest.get("frame_counts_by_stream")
+            total_frames = sum(frame_counts.values()) if isinstance(frame_counts, dict) else None
             summaries.append(
                 ReplayRecordingSummary(
                     recording_id=recording_id,
@@ -220,6 +225,10 @@ class ReplayBackend:
                     stream_ids=stream_ids,
                     session_name=session_name if isinstance(session_name, str) else None,
                     experiment_name=experiment_name if isinstance(experiment_name, str) else None,
+                    started_at_ns=started_at_ns if isinstance(started_at_ns, int) else None,
+                    duration_ns=duration_ns_raw if isinstance(duration_ns_raw, int) else None,
+                    status=status if isinstance(status, str) else None,
+                    total_frames=total_frames,
                 )
             )
         self._recordings = tuple(summaries)
