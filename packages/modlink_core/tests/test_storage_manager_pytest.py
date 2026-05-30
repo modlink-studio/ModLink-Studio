@@ -291,3 +291,59 @@ def test_finalize_recording_failed_status(
     )
     assert manifest["status"] == "failed"
     assert manifest["duration_ns"] == 1000
+
+
+def test_recording_stop_finalize_manifest(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="stop_finalize_test",
+    )
+
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=61_000_000_000,
+        status="completed",
+        frame_counts_by_stream={"s1": 50},
+    )
+
+    manifest = json.loads(
+        (tmp_path / "recordings" / recording_id / "recording.json").read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "completed"
+    assert manifest["frame_counts_by_stream"] == {"s1": 50}
+    assert manifest["duration_ns"] == 60_000_000_000
+
+
+def test_recording_fail_finalize_manifest(
+    tmp_path,
+    descriptor_factory,
+) -> None:
+    descriptor = descriptor_factory(payload_type="signal", chunk_size=2)
+    recording_id = create_recording(
+        tmp_path,
+        {descriptor.stream_id: descriptor},
+        recording_label="fail_finalize_test",
+    )
+
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=31_000_000_000,
+        status="failed",
+        frame_counts_by_stream={"s1": 10},
+    )
+
+    manifest = json.loads(
+        (tmp_path / "recordings" / recording_id / "recording.json").read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "failed"
+    assert manifest["frame_counts_by_stream"] == {"s1": 10}
+    assert manifest["duration_ns"] == 30_000_000_000
