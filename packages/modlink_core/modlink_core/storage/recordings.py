@@ -182,9 +182,9 @@ def finalize_recording(
     frame_counts_by_stream: dict[str, int],
 ) -> None:
     """Finalize a recording by adding stop-time metadata to recording.json.
-    
+
     Reads the existing recording.json, merges in the 5 new fields, and writes back.
-    
+
     Args:
         root_dir: Root storage directory
         recording_id: Recording ID
@@ -192,27 +192,27 @@ def finalize_recording(
         stopped_at_ns: Stop timestamp in nanoseconds
         status: Recording status ("completed" or "failed")
         frame_counts_by_stream: Dict mapping stream_id to frame count
-        
+
     Raises:
         FileNotFoundError: If recording.json does not exist
         ValueError: If status is not "completed" or "failed"
     """
     if status not in ("completed", "failed"):
         raise ValueError(f"status must be 'completed' or 'failed', got {status!r}")
-    
+
     recording_dir = _recording_dir(root_dir, recording_id)
     recording_json_path = recording_dir / "recording.json"
-    
+
     # Read existing manifest (will raise FileNotFoundError if not found)
     manifest = read_json(recording_json_path)
-    
+
     # Merge in the 5 new fields
     manifest["started_at_ns"] = started_at_ns
     manifest["stopped_at_ns"] = stopped_at_ns
     manifest["duration_ns"] = stopped_at_ns - started_at_ns
     manifest["status"] = status
     manifest["frame_counts_by_stream"] = frame_counts_by_stream
-    
+
     # Write back
     write_json(recording_json_path, manifest)
 

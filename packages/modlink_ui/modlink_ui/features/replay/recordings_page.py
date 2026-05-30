@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -24,6 +26,40 @@ from qfluentwidgets import (
 
 from modlink_core.models import ReplayRecordingSummary
 from modlink_ui.shared import BasePage, EmptyStateMessage
+
+
+def _format_tooltip(summary: ReplayRecordingSummary) -> str:
+    """Format a multi-line tooltip for a recording list item."""
+    title = (summary.recording_label or "").strip() or summary.recording_id
+    lines = [title, "─" * min(len(title) + 4, 30)]
+
+    if summary.duration_ns is not None:
+        total_seconds = summary.duration_ns // 1_000_000_000
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        lines.append(f"时长: {hours:02d}:{minutes:02d}:{seconds:02d}")
+
+    if summary.total_frames is not None:
+        stream_count = len(summary.stream_ids)
+        stream_text = f"{stream_count} {'stream' if stream_count == 1 else 'streams'}"
+        lines.append(f"帧数: {summary.total_frames:,}（{stream_text}）")
+
+    if summary.started_at_ns is not None:
+        from datetime import datetime
+
+        dt = datetime.fromtimestamp(summary.started_at_ns / 1_000_000_000, tz=UTC)
+        local_dt = dt.astimezone()
+        lines.append(f"录制时间: {local_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    if summary.status == "failed":
+        lines.append("状态: 失败")
+
+    if summary.session_name:
+        lines.append(f"Session: {summary.session_name}")
+    if summary.experiment_name:
+        lines.append(f"Experiment: {summary.experiment_name}")
+
+    return "\n".join(lines)
 
 
 class ReplayRecordingsPanel(SimpleCardWidget):
@@ -73,7 +109,7 @@ class ReplayRecordingsPanel(SimpleCardWidget):
             item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, summary.recording_id)
             item.setData(Qt.ItemDataRole.UserRole + 1, summary.recording_path)
-            item.setToolTip(item_text)
+            item.setToolTip(_format_tooltip(summary))
             self.recording_list.addItem(item)
             if summary.recording_id == selected_recording_id:
                 self.recording_list.setCurrentItem(item)
