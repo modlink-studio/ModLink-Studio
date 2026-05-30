@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import logging
 import queue
 import threading
@@ -150,6 +151,9 @@ class ReplayBackend:
     def stop(self) -> Future[None]:
         return self._submit_command(self._stop_worker)
 
+    def seek(self, position_ns: int) -> Future[None]:
+        return self._submit_command(self._seek_worker, position_ns)
+
     def set_speed(self, multiplier: float) -> Future[float]:
         return self._submit_command(self._set_speed_worker, multiplier)
 
@@ -283,6 +287,27 @@ class ReplayBackend:
             self._play_started_position_ns = self._position_ns
         self._speed_multiplier = resolved
         return self._speed_multiplier
+
+    def _seek_worker(self, position_ns: object) -> None:
+        reader = self._require_reader()
+        try:
+            target_ns = int(position_ns)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("REPLAY_INVALID_SEEK_POSITION") from exc
+        target_ns = max(0, min(target_ns, reader.duration_ns))
+
+        # Use bisect to find the correct timeline index for the target position.
+        timeline = reader.frames()
+        timestamps = [ref.relative_timestamp_ns for ref in timeline]
+        self._timeline_index = bisect.bisect_right(timestamps, target_ns)
+        self._position_ns = target_ns
+
+        if self._state == "playing":
+            # Reset wall-clock anchor so playback continues from the new position.
+            self._play_started_wall_ns = time.monotonic_ns()
+            self._play_started_position_ns = target_ns
+        elif self._state == "finished":
+            self._set_state("paused")
 
     def _start_export_worker(self, format_id: object) -> ExportJobSnapshot:
         reader = self._require_reader()

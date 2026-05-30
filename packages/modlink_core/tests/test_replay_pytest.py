@@ -211,6 +211,118 @@ def test_replay_backend_replays_on_its_own_bus(
         backend.shutdown()
 
 
+def test_replay_backend_play_after_seek_starts_from_seeked_position(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    """After seeking to a position, play should emit only frames after that position."""
+    descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    # Frame 1 at t=0ms (relative)
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    # Frame 2 at t=50ms (relative)
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2),
+        frame_index=2,
+    )
+    # Frame 3 at t=100ms (relative)
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3),
+        frame_index=3,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        backend.refresh_recordings().result(1.0)
+        backend.open_recording(tmp_path / "recordings" / recording_id).result(1.0)
+        replay_stream = backend.bus.open_frame_stream(maxsize=8, consumer_name="replay-test")
+
+        # Seek to 60ms — past frame 1 (0ms) and frame 2 (50ms), before frame 3 (100ms)
+        backend.seek(60_000_000).result(1.0)
+        snapshot = backend.snapshot()
+        assert snapshot.position_ns == 60_000_000
+        assert snapshot.state == "ready"
+
+        # Now play — should only emit frame 3 (at 100ms), not frames 1 and 2
+        backend.play().result(1.0)
+        _wait_until(lambda: backend.snapshot().state == "finished", timeout=2.0)
+
+        received = _read_frames(replay_stream, expected_count=1, timeout=1.0)
+        assert [frame.seq for frame in received] == [3]
+    finally:
+        backend.shutdown()
+
+
+def test_replay_backend_play_after_seek_from_finished_starts_from_seeked_position(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    """After finishing playback, seeking, then playing again should start from seeked position."""
+    descriptor = descriptor_factory(payload_type="signal", stream_key="signal", chunk_size=2)
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_050_000_000, seq=2),
+        frame_index=2,
+    )
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_100_000_000, seq=3),
+        frame_index=3,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        backend.refresh_recordings().result(1.0)
+        backend.open_recording(tmp_path / "recordings" / recording_id).result(1.0)
+        replay_stream = backend.bus.open_frame_stream(maxsize=16, consumer_name="replay-test")
+
+        # Play to completion
+        backend.play().result(1.0)
+        _wait_until(lambda: backend.snapshot().state == "finished", timeout=2.0)
+        # Drain all frames from first playback
+        _read_frames(replay_stream, expected_count=3, timeout=1.0)
+
+        # Seek to 60ms (past frame 1 and 2, before frame 3)
+        backend.seek(60_000_000).result(1.0)
+        snapshot = backend.snapshot()
+        assert snapshot.state == "paused"
+        assert snapshot.position_ns == 60_000_000
+
+        # Play again — should only emit frame 3
+        backend.play().result(1.0)
+        _wait_until(lambda: backend.snapshot().state == "finished", timeout=2.0)
+        received = _read_frames(replay_stream, expected_count=1, timeout=1.0)
+        assert [frame.seq for frame in received] == [3]
+    finally:
+        backend.shutdown()
+
+
 @pytest.mark.parametrize(
     ("format_id", "expected_files"),
     [
