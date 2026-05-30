@@ -642,6 +642,179 @@ class ReplayPageTests(unittest.TestCase):
             replay_bridge.shutdown()
             backend.shutdown()
 
+    def test_slider_seek_signal_carries_qint64_for_long_recordings(self) -> None:
+        """Regression: PyQt's plain `pyqtSignal(int)` is C int32 (max ~2.147s in
+        ns). Recordings longer than that overflow into a negative number, the
+        backend clamps it to 0, and every seek silently plays from the start.
+        The signal MUST be declared with qint64."""
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(descriptor, recording_label="long_seek")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 1)
+            page._recordings_page.recording_list.setCurrentRow(0)
+            page._recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
+            )
+
+            player_page = page._player_page
+            # 6-second duration: 60% = 3.6s = 3,600,000,000 ns. This exceeds
+            # int32 max (2,147,483,647) and would wrap negative through a
+            # plain `pyqtSignal(int)`.
+            page._on_snapshot_changed(
+                ReplaySnapshot(
+                    state="ready",
+                    is_started=True,
+                    recording_id=recording_id,
+                    recording_path=str(self._temp_dir / "recordings" / recording_id),
+                    position_ns=0,
+                    duration_ns=6_000_000_000,
+                    speed_multiplier=1.0,
+                )
+            )
+
+            received: list[int] = []
+            player_page.sig_seek_requested.connect(received.append)
+
+            # Click at 60% (3.6s): would be -694,967,296 if int32 overflow.
+            player_page.slider.setValue(6000)
+            player_page.slider.clicked.emit(6000)
+            self._app.processEvents()
+
+            self.assertEqual(1, len(received))
+            self.assertEqual(
+                3_600_000_000,
+                received[0],
+                "Signal must carry full qint64 ns value, not int32-truncated",
+            )
+            self.assertGreater(received[0], 0, "Seek position must not wrap negative")
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
+    def test_slider_does_not_snap_back_on_stale_snapshot_after_seek(self) -> None:
+        """After a seek, a stale snapshot (still showing old position) must NOT
+        snap the slider back during the brief suppression window. Once the
+        window expires the slider must resume syncing from snapshots — even if
+        the backend overshoots the seek target during playback (no lock-forever).
+        The label must also update immediately on click so the user sees the
+        seek take effect, not stay frozen at the pre-seek time."""
+        descriptor = self._descriptor()
+        recording_id = self._create_recording(descriptor, recording_label="snap_back")
+
+        backend = ReplayBackend(settings=self._settings)
+        backend.start()
+        replay_bridge = QtReplayBridge(backend, self._settings_bridge)
+        page = ReplayPage(_EngineStub(self._settings_bridge, replay_bridge))
+        page.show()
+
+        try:
+            self._pump_events_until(lambda: page._recordings_page.recording_list.count() == 1)
+            page._recordings_page.recording_list.setCurrentRow(0)
+            page._recordings_page.open_button.click()
+            self._pump_events_until(
+                lambda: (
+                    replay_bridge.snapshot().recording_id == recording_id
+                    and page._route == "player"
+                )
+            )
+
+            player_page = page._player_page
+            # Establish a known starting state: ready, position 0, duration 1s.
+            initial_snapshot = ReplaySnapshot(
+                state="ready",
+                is_started=True,
+                recording_id=recording_id,
+                recording_path=str(self._temp_dir / "recordings" / recording_id),
+                position_ns=0,
+                duration_ns=1_000_000_000,
+                speed_multiplier=1.0,
+            )
+            page._on_snapshot_changed(initial_snapshot)
+            self.assertEqual(0, player_page.slider.value())
+            self.assertEqual("00:00.000 / 00:01.000", player_page.position_label.text())
+
+            # User clicks the track at 50%. In the real qfluentwidgets.Slider,
+            # mousePressEvent calls setValue() before emitting clicked.
+            player_page.slider.setValue(5000)
+            player_page.slider.clicked.emit(5000)
+            self._app.processEvents()
+            self.assertEqual(5000, player_page.slider.value())
+            # Label must update immediately on click — no waiting for backend.
+            self.assertEqual(
+                "00:00.500 / 00:01.000",
+                player_page.position_label.text(),
+                "Label must reflect the click target immediately",
+            )
+
+            # Stale snapshot arrives (poll timer fired before backend processed seek).
+            stale_snapshot = ReplaySnapshot(
+                state="ready",
+                is_started=True,
+                recording_id=recording_id,
+                recording_path=str(self._temp_dir / "recordings" / recording_id),
+                position_ns=0,  # Still old position.
+                duration_ns=1_000_000_000,
+                speed_multiplier=1.0,
+            )
+            page._on_snapshot_changed(stale_snapshot)
+            # Slider and label must stay at the user's target during the
+            # suppression window.
+            self.assertEqual(
+                5000,
+                player_page.slider.value(),
+                "Stale snapshot must not snap slider back to old position",
+            )
+            self.assertEqual(
+                "00:00.500 / 00:01.000",
+                player_page.position_label.text(),
+                "Stale snapshot must not reset label to old position",
+            )
+
+            # Force the suppression window to expire so we can verify the
+            # sync resumes. (300ms wall-clock is too slow for a unit test.)
+            player_page._seek_suppress_until_ns = 0
+
+            # Now a backend snapshot drives the slider normally — even one
+            # that has already overshot the original seek target. This is the
+            # critical "no lock-forever" property: the old guard logic would
+            # have permanently blocked sync once playback advanced past the
+            # pending seek position.
+            overshoot_snapshot = ReplaySnapshot(
+                state="playing",
+                is_started=True,
+                recording_id=recording_id,
+                recording_path=str(self._temp_dir / "recordings" / recording_id),
+                position_ns=700_000_000,  # Past the 500ms seek target.
+                duration_ns=1_000_000_000,
+                speed_multiplier=1.0,
+            )
+            page._on_snapshot_changed(overshoot_snapshot)
+            self.assertEqual(
+                7000,
+                player_page.slider.value(),
+                "Sync must resume after suppression window — no lock-forever",
+            )
+            self.assertEqual(
+                "00:00.700 / 00:01.000",
+                player_page.position_label.text(),
+            )
+        finally:
+            page.close()
+            replay_bridge.shutdown()
+            backend.shutdown()
+
     def _select_recording(self, page: ReplayPage, recording_id: str) -> None:
         recording_list = page._recordings_page.recording_list
         for index in range(recording_list.count()):

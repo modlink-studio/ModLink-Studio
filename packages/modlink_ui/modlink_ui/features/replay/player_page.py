@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from PyQt6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
@@ -179,7 +181,11 @@ class ReplayPlayerPage(BasePage):
     sig_pause_requested = pyqtSignal()
     sig_reset_requested = pyqtSignal()
     sig_speed_changed = pyqtSignal(float)
-    sig_seek_requested = pyqtSignal(int)
+    # qint64 is required: nanosecond positions exceed C int32 range (~2.147s)
+    # for any recording longer than ~2 seconds. Plain int truncates and wraps
+    # to negative, which the backend then clamps to 0 — every seek silently
+    # plays from the start. See https://doc.qt.io/qt-6/qmetatype.html
+    sig_seek_requested = pyqtSignal("qint64")
     sig_delete_recording_requested = pyqtSignal(str)
 
     def __init__(
@@ -204,10 +210,14 @@ class ReplayPlayerPage(BasePage):
             speed_multiplier=1.0,
         )
         self._user_dragging = False
-        # Pending seek target. While set, snapshot syncs that still report the
-        # old backend position must not snap the slider back. Cleared once the
-        # backend snapshot catches up to the requested position (within tolerance).
-        self._pending_seek_position_ns: int | None = None
+        # Time-based seek suppression. After the user commits a seek (release or
+        # track-click), we suppress snapshot-driven slider/label updates for a
+        # short window so a stale snapshot polled before the backend processed
+        # the seek does NOT snap the slider back. We use a deadline rather than
+        # a position-match because once playback resumes the backend position
+        # advances past the seek target, and any match-based guard would
+        # permanently lock the sync.
+        self._seek_suppress_until_ns: int = 0
 
         # --- Header buttons ---
         self.recordings_route_button = PushButton("列表", self)
@@ -365,9 +375,18 @@ class ReplayPlayerPage(BasePage):
         if duration_ns <= 0:
             return
         position_ns = int((value / 10000) * duration_ns)
-        # Mark the seek as pending so snapshot syncs arriving before the backend
-        # catches up don't snap the slider back to the stale position.
-        self._pending_seek_position_ns = position_ns
+        # Update the label immediately so the user sees the seek take effect,
+        # even before the backend confirms. Without this, the label stays at
+        # whatever the last snapshot showed (typically 00:00.000) until the
+        # next non-suppressed sync, which can feel like a frozen UI.
+        self.position_label.setText(
+            f"{format_time_ns(position_ns)} / {format_time_ns(duration_ns)}"
+        )
+        # Suppress snapshot-driven slider syncs for a short window. The poll
+        # timer fires every 100ms and the backend command queue + Qt signal
+        # round-trip can lag behind. 300ms is enough for the typical command
+        # path; any longer and the user notices a stuck slider.
+        self._seek_suppress_until_ns = time.monotonic_ns() + 300_000_000
         self.sig_seek_requested.emit(position_ns)
 
     # --- State sync ---
@@ -376,20 +395,11 @@ class ReplayPlayerPage(BasePage):
         # Don't fight an in-progress drag.
         if self._user_dragging:
             return False
-        # If we have a pending seek, only let the snapshot drive the slider once
-        # the backend has reached (within tolerance) the requested position.
-        # Tolerance is one slider step at a typical duration: 1 / 10000 of duration,
-        # or 5ms for very short recordings.
-        pending = self._pending_seek_position_ns
-        if pending is None:
-            return True
-        duration_ns = max(1, snapshot.duration_ns)
-        tolerance_ns = max(5_000_000, duration_ns // 10000)
-        if abs(snapshot.position_ns - pending) <= tolerance_ns:
-            self._pending_seek_position_ns = None
-            return True
-        # Backend hasn't caught up yet — keep showing the user's target position.
-        return False
+        # Suppress snapshot-driven slider snap-back briefly after a seek.
+        # Time-based so it auto-expires no matter what the backend reports.
+        if time.monotonic_ns() < self._seek_suppress_until_ns:
+            return False
+        return True
 
     def _sync_progress(self, snapshot: ReplaySnapshot) -> None:
         """Update slider position and time label from backend snapshot."""

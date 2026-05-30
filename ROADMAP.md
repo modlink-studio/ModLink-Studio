@@ -4,7 +4,7 @@
 
 ## 当前位置
 
-`0.3.1` 已正式发布。当前主线进入 `0.3.x` 维护与小步演进阶段。`0.3.x` 仍属于 SDK / driver API 的早期阶段，不承诺兼容 `0.2.x` driver 实现；`0.4.0` 预计会继续收紧 SDK 与插件管理边界。
+`0.3.1` 已正式发布。下一发布预计为 `0.3.2`，当前在 `wip/0.3.2` 推进。`0.3.x` 仍属于 SDK / driver API 的早期阶段，不承诺兼容 `0.2.x` driver 实现；`0.4.0` 预计会继续收紧 SDK 与插件管理边界。
 
 `0.3.1` 重点修复：
 
@@ -74,6 +74,26 @@
 - replay 时间轴 seek
 - 启动期间 MainWindow 构造的进一步异步化
 
+## 0.3.2
+
+状态：进行中。
+
+`0.3.2` 在 `wip/0.3.2` 分支推进，重点是把 replay 体验补齐到"可以正常用"的程度。
+
+已完成：
+
+- replay 时间轴任意位置 seek：core 后端新增 `seek` worker，使用 `bisect` 维护时间线索引；UI 用滑块控件触发拖动 / 点击两种 seek 提交方式
+- replay player 页结构整理：原 `timeline.py` 模块的展示函数内联到 player 页，`page.py` 主路径精简
+- preview view 体系新增 `clear()` 钩子，确保 seek 和复位时旧帧数据不会残留在 plot 上
+- 修复滑块 seek 在长录制（>2.147 秒）下静默失败的 bug：`pyqtSignal` 改用 `qint64`，避免 ns 值溢出成负数被后端 clamp 到 0
+- 修复滑块 seek 后 100 ms 轮询 stale snapshot 把滑块视觉拉回原位置的竞态：改用 300 ms 时间窗屏蔽 + 立即更新时间标签
+
+不属于 `0.3.2` 范围：
+
+- session / experiment 列表 UI 与按字段筛选
+- 键盘左右箭头 seek
+- marker / segment 编辑
+
 ## 0.3.x
 
 状态：进行中。
@@ -86,7 +106,6 @@
 - recording catalog 的查询和筛选体验
 - session / experiment 列表、详情和 recording 归档（标签字段已落盘到 recording.json，列表 UI 待补）
 - marker / segment 的展示和编辑
-- replay 时间轴 seek
 - 批量导出和 export 参数配置
 - `modlink-plugin` CLI 的状态、来源、升级提示和错误信息
 - 外部插件开发文档和 skill 使用示例
