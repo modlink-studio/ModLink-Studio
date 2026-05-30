@@ -127,6 +127,9 @@ class QtReplayBridge(QObject):
     def delete_recording(self, recording_id: str) -> None:
         self._watch_command(self._backend.delete_recording(recording_id), reset_bus=True)
 
+    def seek(self, position_ns: int) -> None:
+        self._watch_command(self._backend.seek(position_ns))
+
     def shutdown(self) -> None:
         if self._is_shutdown:
             return
