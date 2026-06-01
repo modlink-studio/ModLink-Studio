@@ -80,8 +80,8 @@ class ReplaySegment:
 class ExportJobSnapshot:
     job_id: str
     recording_id: str
-    format_id: str
     state: str
     progress: float
     output_path: str | None
     error: str | None
+    request_summary: str = ""

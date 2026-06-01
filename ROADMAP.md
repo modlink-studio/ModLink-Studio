@@ -94,6 +94,32 @@
 - 键盘左右箭头 seek
 - marker / segment 编辑
 
+
+### 导出系统重构
+`0.3.2` 重点是导出系统重构：把原先零散注册的导出器替换成以录制为中心、按需选择内容、自描述的统一导出体验。SDK / driver API 接口保持不变。
+
+已完成 / 计划中：
+
+- 统一 `ExportRequest` dataclass，模式驱动 4 种导出（A 单录制 / B 多录制合并 / C 时间切片 / D 跨录制单流）
+- 14 个 payload-aware formatter，按 signal / raster / field / video 与 annotations / metadata 分发
+- `ExportPackageWriter`：临时目录写入 + 原子 rename，崩溃安全
+- `ExportEngine` 串行调度，支持取消和 per-stream 进度
+- 自描述导出包：`README.md` + `manifest.json` + `streams/` + `annotations/` + `recording_metadata.json`
+- SDK 层 `StreamDescriptor.channel_names` fail-fast 校验，拒绝 CSV-unsafe 名字
+- `RecordingReader` 扩展 4 个范围方法 + 4 个 manifest 属性；新增 `RecordingStore` 用于跨录制扫描
+- 视频导出（MP4 / PNG ZIP）配套 `<stream>.frame_timestamps.csv` sidecar
+- viridis colormap 硬编码 LUT，不引入 matplotlib / colorcet
+- 全局 min-max 归一化采用 lazy + cache
+- UI 4 模式左导航 + 内容面板 + 历史导出列表 + 打开输出文件夹
+- 删除遗留导出注册表和导出格式下拉，UI 由模式驱动
+
+不属于 `0.3.2` 范围：
+
+- `manifest.json` 的 `schema_version` / `checksum` / `lineage` 字段
+- 多时间段切片
+- 并行导出
+- 导出任务历史持久化（重启即清空）
+
 ## 0.3.x
 
 状态：进行中。
@@ -106,7 +132,7 @@
 - recording catalog 的查询和筛选体验
 - session / experiment 列表、详情和 recording 归档（标签字段已落盘到 recording.json，列表 UI 待补）
 - marker / segment 的展示和编辑
-- 批量导出和 export 参数配置
+- ~~批量导出和 export 参数配置~~ — 已在 0.3.2 导出重构落地
 - `modlink-plugin` CLI 的状态、来源、升级提示和错误信息
 - 外部插件开发文档和 skill 使用示例
 - 面向 Claude Code / Codex 的独立插件项目示例

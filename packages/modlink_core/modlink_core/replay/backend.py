@@ -26,6 +26,7 @@ from ..storage import (
     resolved_storage_root_dir,
 )
 from .export import ExportService
+from .export_request import ExportRequest
 from .reader import RecordingReader
 
 ReplayCommand = tuple[Callable[[], None], Future[object]]
@@ -157,8 +158,8 @@ class ReplayBackend:
     def set_speed(self, multiplier: float) -> Future[float]:
         return self._submit_command(self._set_speed_worker, multiplier)
 
-    def start_export(self, format_id: str) -> Future[ExportJobSnapshot]:
-        return self._submit_command(self._start_export_worker, format_id)
+    def start_export(self, request: ExportRequest | str) -> Future[ExportJobSnapshot]:
+        return self._submit_command(self._start_export_worker, request)
 
     def delete_recording(self, recording_id: str) -> Future[tuple[ReplayRecordingSummary, ...]]:
         return self._submit_command(self._delete_recording_worker, recording_id)
@@ -318,12 +319,28 @@ class ReplayBackend:
         elif self._state == "finished":
             self._set_state("paused")
 
-    def _start_export_worker(self, format_id: object) -> ExportJobSnapshot:
+    def _start_export_worker(self, request: object) -> ExportJobSnapshot:
         reader = self._require_reader()
-        if not isinstance(format_id, str) or format_id.strip() == "":
+        if isinstance(request, ExportRequest):
+            summary = ", ".join(
+                f"{s.stream_id}:{s.format_id}" for s in request.streams
+            ) or request.mode.value
+            # Validate streams exist in the recording.
+            available_payload_types = {
+                d.payload_type for d in reader.descriptors().values()
+            }
+            for sel in request.streams:
+                required_payload = sel.format_id.split("_")[0]
+                if required_payload not in available_payload_types:
+                    raise RuntimeError(
+                        f"REPLAY_EXPORT_FORMAT_UNSUPPORTED: no {required_payload!r} streams in recording"
+                    )
+        elif isinstance(request, str) and request.strip():
+            summary = request.strip()
+        else:
             raise RuntimeError("REPLAY_EXPORT_FORMAT_UNSUPPORTED")
         export_root_dir = resolved_export_root_dir(self._settings)
-        return self._export_service.enqueue(reader, format_id, export_root_dir)
+        return self._export_service.enqueue(reader, summary, export_root_dir)
 
     def _delete_recording_worker(self, recording_id: object) -> tuple[ReplayRecordingSummary, ...]:
         if not isinstance(recording_id, str) or not recording_id.strip():

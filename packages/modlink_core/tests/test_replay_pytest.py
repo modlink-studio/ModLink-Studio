@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import queue
 import time
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,12 @@ import pytest
 
 from modlink_core.bus import StreamBus
 from modlink_core.event_stream import BackendEventBroker
-from modlink_core.models import ExportJobSnapshot, ReplayMarker, ReplayRecordingSummary, ReplaySegment
+from modlink_core.models import (
+    ExportJobSnapshot,
+    ReplayMarker,
+    ReplayRecordingSummary,
+    ReplaySegment,
+)
 from modlink_core.replay import ReplayBackend
 from modlink_core.replay.reader import RecordingReader
 from modlink_core.settings import SettingsStore, declare_core_settings
@@ -323,89 +327,6 @@ def test_replay_backend_play_after_seek_from_finished_starts_from_seeked_positio
     finally:
         backend.shutdown()
 
-
-@pytest.mark.parametrize(
-    ("format_id", "expected_files"),
-    [
-        ("signal_csv", ("signal.csv",)),
-        ("signal_npz", ("signal.npz", "signal.json")),
-        ("raster_npz", ("raster.npz", "raster.json")),
-        ("field_npz", ("field.npz", "field.json")),
-        ("video_frames_zip", ("video.zip",)),
-        ("recording_bundle_zip", ("rec_demo.zip",)),
-    ],
-)
-def test_replay_export_formats_write_expected_outputs(
-    tmp_path,
-    descriptor_factory,
-    frame_factory,
-    format_id: str,
-    expected_files: tuple[str, ...],
-) -> None:
-    descriptors = {
-        "signal": descriptor_factory(
-            payload_type="signal", stream_key="signal", chunk_size=2, channel_names=("c3", "c4")
-        ),
-        "raster": descriptor_factory(payload_type="raster", stream_key="raster", chunk_size=1),
-        "field": descriptor_factory(payload_type="field", stream_key="field", chunk_size=1),
-        "video": descriptor_factory(payload_type="video", stream_key="video", chunk_size=1),
-    }
-    recording_id = create_recording(
-        tmp_path,
-        {descriptor.stream_id: descriptor for descriptor in descriptors.values()},
-        recording_id="rec_demo",
-    )
-    append_recording_frame(
-        tmp_path,
-        recording_id,
-        frame_factory(descriptors["signal"], timestamp_ns=1_000_000_000, seq=1),
-        frame_index=1,
-    )
-    append_recording_frame(
-        tmp_path,
-        recording_id,
-        frame_factory(descriptors["raster"], timestamp_ns=1_000_000_100, seq=2, line_length=4),
-        frame_index=1,
-    )
-    append_recording_frame(
-        tmp_path,
-        recording_id,
-        frame_factory(descriptors["field"], timestamp_ns=1_000_000_200, seq=3, height=3, width=4),
-        frame_index=1,
-    )
-    append_recording_frame(
-        tmp_path,
-        recording_id,
-        frame_factory(
-            descriptors["video"],
-            timestamp_ns=1_000_000_300,
-            seq=4,
-            height=2,
-            width=3,
-            dtype=np.uint8,
-        ),
-        frame_index=1,
-    )
-
-    settings = _build_settings(tmp_path)
-    backend = ReplayBackend(settings=settings)
-    backend.start()
-
-    try:
-        backend.open_recording(tmp_path / "recordings" / recording_id).result(1.0)
-        job = backend.start_export(format_id).result(1.0)
-        completed = _wait_for_job(backend, job.job_id, timeout=2.0)
-        assert completed.state == "completed"
-        assert completed.output_path is not None
-        output_dir = Path(completed.output_path)
-        assert output_dir.is_dir()
-        for file_name in expected_files:
-            assert (output_dir / file_name).exists()
-        if format_id == "recording_bundle_zip":
-            with zipfile.ZipFile(output_dir / "rec_demo.zip") as archive:
-                assert "recordings/rec_demo/recording.json" in archive.namelist()
-    finally:
-        backend.shutdown()
 
 
 def test_replay_export_job_fails_when_format_has_no_matching_streams(

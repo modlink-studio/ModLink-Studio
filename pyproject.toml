@@ -1,6 +1,6 @@
 [project]
 name = "modlink-studio"
-version = "0.3.2.dev0"
+version = "0.3.2rc1"
 description = "Host application bundle for ModLink Studio"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -20,6 +20,7 @@ dependencies = [
     "uvicorn>=0.37.0",
     "typer>=0.15.0",
     "pydantic>=2.0.0",
+    "imageio-ffmpeg>=0.6.0",
 ]
 
 [project.urls]

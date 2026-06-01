@@ -14,6 +14,8 @@ for path in (
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
+from datetime import UTC
+
 from modlink_core.models import ReplayRecordingSummary
 from modlink_ui.features.replay.recordings_page import _format_tooltip
 
@@ -36,10 +38,10 @@ def test_format_tooltip_full_metadata() -> None:
     assert "01:01:01" in tooltip, "duration should be formatted as HH:MM:SS"
     assert "12,345" in tooltip, "frame count should be comma-formatted"
     assert "2 streams" in tooltip, "stream count should appear"
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     expected_date = (
-        datetime.fromtimestamp(1_700_000_000_000_000_000 / 1_000_000_000, tz=timezone.utc)
+        datetime.fromtimestamp(1_700_000_000_000_000_000 / 1_000_000_000, tz=UTC)
         .astimezone()
         .strftime("%Y-%m-%d")
     )
