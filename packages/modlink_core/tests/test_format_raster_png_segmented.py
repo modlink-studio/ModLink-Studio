@@ -23,8 +23,10 @@ def _make_reader(
     channel_names: tuple[str, ...] | None = None,
 ) -> tuple[MagicMock, tuple]:
     """Build a mock RecordingReader and matching frame_refs tuple."""
-    resolved_names = channel_names if channel_names is not None else tuple(
-        f"ch{i + 1}" for i in range(n_channels)
+    resolved_names = (
+        channel_names
+        if channel_names is not None
+        else tuple(f"ch{i + 1}" for i in range(n_channels))
     )
 
     descriptor = MagicMock()
@@ -38,9 +40,9 @@ def _make_reader(
     refs = []
     for chunk_idx in range(n_chunks):
         size = n_channels * chunk_t * line_length
-        data = np.arange(
-            chunk_idx * size, chunk_idx * size + size, dtype=np.float32
-        ).reshape(n_channels, chunk_t, line_length)
+        data = np.arange(chunk_idx * size, chunk_idx * size + size, dtype=np.float32).reshape(
+            n_channels, chunk_t, line_length
+        )
 
         envelope = MagicMock()
         envelope.data = data
@@ -61,6 +63,7 @@ def _make_reader(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_segment_count(tmp_path: Path) -> None:
     """25 chunks, segment_chunks=10 → 3 segments per channel (ceil(25/10)=3)."""
@@ -94,6 +97,7 @@ def test_last_segment_smaller(tmp_path: Path) -> None:
     import io
 
     from PIL import Image
+
     img = Image.open(io.BytesIO(last_png_bytes))
     width, height = img.size
     # Last segment: 5 chunks × 4 time steps = 20 rows

@@ -84,6 +84,5 @@ def test_golden_match() -> None:
     )
     expected = GOLDEN_PATH.read_text(encoding="utf-8")
     assert actual == expected, (
-        "README output drifted from golden. "
-        "If intentional, regenerate with UPDATE_GOLDEN=1."
+        "README output drifted from golden. If intentional, regenerate with UPDATE_GOLDEN=1."
     )

@@ -18,8 +18,14 @@ def generate_readme(
         else ""
     )
 
-    annotations_line = "├── annotations/          # Marker and segment CSV files" if has_annotations else ""
-    recording_metadata_line = "├── recording_metadata/   # Recording metadata JSON files" if has_recording_metadata else ""
+    annotations_line = (
+        "├── annotations/          # Marker and segment CSV files" if has_annotations else ""
+    )
+    recording_metadata_line = (
+        "├── recording_metadata/   # Recording metadata JSON files"
+        if has_recording_metadata
+        else ""
+    )
 
     stream_list = "\n".join(f"- `{key}`" for key in stream_keys) if stream_keys else "*(none)*"
 

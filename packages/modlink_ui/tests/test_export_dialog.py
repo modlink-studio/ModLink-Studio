@@ -51,9 +51,7 @@ class ExportDialogTests(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _make_recording(
-        self, stream_key: str = "signal", payload_type: str = "signal"
-    ) -> str:
+    def _make_recording(self, stream_key: str = "signal", payload_type: str = "signal") -> str:
         descriptor = StreamDescriptor(
             device_id="demo.01",
             stream_key=stream_key,

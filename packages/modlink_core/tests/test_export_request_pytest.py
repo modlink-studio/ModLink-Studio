@@ -10,11 +10,13 @@ from modlink_core.replay.export_request import (
 
 # --- helpers ---
 
+
 def make_stream(stream_id: str = "s1", format_id: str = "signal_csv") -> StreamSelection:
     return StreamSelection(stream_id=stream_id, format_id=format_id)
 
 
 # --- StreamSelection tests ---
+
 
 def test_invalid_format_id() -> None:
     with pytest.raises(ValueError, match="format_id"):
@@ -27,6 +29,7 @@ def test_empty_stream_id() -> None:
 
 
 # --- ExportRequest mode tests ---
+
 
 def test_single_mode_valid() -> None:
     req = ExportRequest(

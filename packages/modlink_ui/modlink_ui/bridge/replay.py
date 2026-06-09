@@ -122,8 +122,10 @@ class QtReplayBridge(QObject):
     def set_speed(self, multiplier: float) -> None:
         self._watch_command(self._backend.set_speed(multiplier))
 
-    def start_export(self, request: ExportRequest) -> None:
-        self._watch_command(self._backend.start_export(request))
+    def start_export(
+        self, request: ExportRequest, output_root_dir: str | Path | None = None
+    ) -> None:
+        self._watch_command(self._backend.start_export(request, output_root_dir))
 
     def delete_recording(self, recording_id: str) -> None:
         self._watch_command(self._backend.delete_recording(recording_id), reset_bus=True)

@@ -14,6 +14,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_descriptor(
     *,
     channel_names: tuple[str, ...] = ("ch1", "ch2"),
@@ -74,6 +75,7 @@ def _read_csv(path: Path) -> list[list[str]]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_sample_level_timestamps(tmp_path: Path) -> None:
     """1 chunk, 4 samples @ 250 Hz, chunk_ts=1_000_000_000 ns.

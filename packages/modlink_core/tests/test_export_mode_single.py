@@ -17,6 +17,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _signal_descriptor(stream_key: str = "demo") -> StreamDescriptor:
     return StreamDescriptor(
         device_id="demo.01",
@@ -92,6 +93,7 @@ def _make_request(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_bundle_structure(tmp_path: Path) -> None:
     reader = _make_reader()
     request = _make_request()
@@ -148,9 +150,7 @@ def test_progress_called_per_stream(tmp_path: Path) -> None:
     reader.recording_id = "rec_001"
     reader.descriptors.return_value = {stream_id_a: desc_a, stream_id_b: desc_b}
     reader.descriptor.side_effect = lambda sid: desc_a if sid == stream_id_a else desc_b
-    reader.frames_in_range.side_effect = (
-        lambda sid, s, e: (_frame_ref(sid),)
-    )
+    reader.frames_in_range.side_effect = lambda sid, s, e: (_frame_ref(sid),)
     reader.load_frame.side_effect = load_frame_side_effect
     reader.markers.return_value = ()
     reader.segments.return_value = ()

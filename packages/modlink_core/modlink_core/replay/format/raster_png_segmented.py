@@ -63,8 +63,7 @@ def write_raster_waterfall_segmented_zip(
 
     total_segments = math.ceil(len(envelopes) / segment_chunks)
     segments = [
-        envelopes[s * segment_chunks : (s + 1) * segment_chunks]
-        for s in range(total_segments)
+        envelopes[s * segment_chunks : (s + 1) * segment_chunks] for s in range(total_segments)
     ]
 
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:

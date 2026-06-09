@@ -39,7 +39,9 @@ def write_raster_npz(
         channel_names = []
 
     # Get line length (L) from descriptor metadata or first frame
-    line_length: int | None = descriptor.metadata.get("line_length") if descriptor.metadata else None
+    line_length: int | None = (
+        descriptor.metadata.get("line_length") if descriptor.metadata else None
+    )
 
     if line_length is None and frame_refs:
         first_data = reader.load_frame(frame_refs[0]).data
@@ -50,7 +52,9 @@ def write_raster_npz(
 
     if not frame_refs:
         # Determine dtype from descriptor metadata or default to float32
-        dtype_str: str = descriptor.metadata.get("dtype", "float32") if descriptor.metadata else "float32"
+        dtype_str: str = (
+            descriptor.metadata.get("dtype", "float32") if descriptor.metadata else "float32"
+        )
         data = np.empty((n_channels, 0, line_length), dtype=np.dtype(dtype_str))
         timestamps_ns = np.empty((0,), dtype=np.int64)
     else:

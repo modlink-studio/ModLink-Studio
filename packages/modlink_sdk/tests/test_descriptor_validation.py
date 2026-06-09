@@ -20,6 +20,7 @@ def make_descriptor(**kwargs) -> StreamDescriptor:
 
 # --- Happy path ---
 
+
 def test_valid_channel_names_accepted():
     d = make_descriptor(channel_names=("Fp1", "Fp2", "Cz"))
     assert d.channel_names == ("Fp1", "Fp2", "Cz")
@@ -36,6 +37,7 @@ def test_single_valid_name_accepted():
 
 
 # --- CSV-unsafe rejections ---
+
 
 def test_comma_rejected():
     with pytest.raises(ValueError, match="not CSV-safe"):

@@ -12,6 +12,7 @@ from modlink_core.replay.format.mp4_writer import Mp4Writer
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _rgb_frame(h: int = 64, w: int = 64) -> np.ndarray:
     return np.zeros((h, w, 3), dtype=np.uint8)
 
@@ -31,6 +32,7 @@ def _make_mock_writer() -> MagicMock:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_write_calls_imageio_ffmpeg(tmp_path: Path) -> None:
     """write_frames is called with correct size and fps."""

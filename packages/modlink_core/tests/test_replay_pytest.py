@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import queue
+import threading
 import time
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from modlink_core.models import (
     ReplaySegment,
 )
 from modlink_core.replay import ReplayBackend
+from modlink_core.replay.export_request import ExportMode, ExportRequest, StreamSelection
 from modlink_core.replay.reader import RecordingReader
 from modlink_core.settings import SettingsStore, declare_core_settings
 from modlink_core.storage import (
@@ -328,7 +330,6 @@ def test_replay_backend_play_after_seek_from_finished_starts_from_seeked_positio
         backend.shutdown()
 
 
-
 def test_replay_export_job_fails_when_format_has_no_matching_streams(
     tmp_path,
     descriptor_factory,
@@ -355,6 +356,250 @@ def test_replay_export_job_fails_when_format_has_no_matching_streams(
         assert failed.error is not None
     finally:
         backend.shutdown()
+
+
+def test_replay_backend_export_request_writes_single_bundle(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(
+        payload_type="signal",
+        stream_key="signal",
+        chunk_size=2,
+        channel_names=("ch0", "ch1"),
+    )
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=1_100_000_000,
+        status="completed",
+        frame_counts_by_stream={descriptor.stream_id: 1},
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        request = ExportRequest(
+            mode=ExportMode.SINGLE,
+            recording_ids=(recording_id,),
+            streams=(StreamSelection(stream_id=descriptor.stream_id, format_id="signal_csv"),),
+        )
+        job = backend.start_export(request).result(1.0)
+        completed = _wait_for_job(backend, job.job_id, timeout=2.0)
+    finally:
+        backend.shutdown()
+
+    assert completed.state == "completed"
+    assert completed.output_path is not None
+    output_path = Path(completed.output_path)
+    assert (output_path / "manifest.json").is_file()
+    assert (output_path / "README.md").is_file()
+    assert (output_path / "streams" / "signal.csv").is_file()
+
+
+def test_replay_backend_export_request_writes_multi_bundle_without_open_reader(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+) -> None:
+    descriptor = descriptor_factory(
+        payload_type="signal",
+        stream_key="signal",
+        chunk_size=2,
+        channel_names=("ch0", "ch1"),
+    )
+    recording_ids: list[str] = []
+    for index in range(2):
+        recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+        append_recording_frame(
+            tmp_path,
+            recording_id,
+            frame_factory(descriptor, timestamp_ns=1_000_000_000 + index, seq=index),
+            frame_index=1,
+        )
+        finalize_recording(
+            tmp_path,
+            recording_id,
+            started_at_ns=1_000_000_000 + index,
+            stopped_at_ns=1_100_000_000 + index,
+            status="completed",
+            frame_counts_by_stream={descriptor.stream_id: 1},
+        )
+        recording_ids.append(recording_id)
+
+    output_root = tmp_path / "chosen_exports"
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    try:
+        request = ExportRequest(
+            mode=ExportMode.MULTI,
+            recording_ids=tuple(recording_ids),
+            streams=(StreamSelection(stream_id=descriptor.stream_id, format_id="signal_csv"),),
+        )
+        job = backend.start_export(request, output_root).result(1.0)
+        completed = _wait_for_job(backend, job.job_id, timeout=2.0)
+    finally:
+        backend.shutdown()
+
+    assert completed.state == "completed"
+    assert completed.output_path is not None
+    output_path = Path(completed.output_path)
+    assert output_path.is_relative_to(output_root)
+    for recording_id in recording_ids:
+        assert (output_path / "recordings" / recording_id / "streams" / "signal.csv").is_file()
+
+
+def test_replay_export_shutdown_cancels_running_job_and_cleans_tmp(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+    monkeypatch,
+) -> None:
+    descriptor = descriptor_factory(
+        payload_type="signal",
+        stream_key="signal",
+        chunk_size=2,
+        channel_names=("ch0", "ch1"),
+    )
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=1_100_000_000,
+        status="completed",
+        frame_counts_by_stream={descriptor.stream_id: 1},
+    )
+
+    export_started = threading.Event()
+    allow_progress = threading.Event()
+    output_root = tmp_path / "exports"
+
+    def blocking_export(request, reader, output_root_dir, progress_fn):
+        from modlink_core.replay.package_writer import ExportPackageWriter
+
+        with ExportPackageWriter(Path(output_root_dir) / "blocking_bundle") as pkg:
+            (pkg.root / "partial.txt").write_text("partial", encoding="utf-8")
+            export_started.set()
+            allow_progress.wait(1.0)
+            progress_fn(request.streams[0].stream_id)
+        raise AssertionError("cancelled export should not complete")
+
+    monkeypatch.setattr(
+        "modlink_core.replay.export.export_single_recording",
+        blocking_export,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    request = ExportRequest(
+        mode=ExportMode.SINGLE,
+        recording_ids=(recording_id,),
+        streams=(StreamSelection(stream_id=descriptor.stream_id, format_id="signal_csv"),),
+    )
+    job = backend.start_export(request, output_root).result(1.0)
+    assert export_started.wait(1.0)
+
+    backend.shutdown(timeout_ms=50)
+    allow_progress.set()
+    cancelled = _wait_for_job(backend, job.job_id, timeout=2.0)
+    backend.shutdown(timeout_ms=1000)
+
+    assert cancelled.state == "cancelled"
+    assert cancelled.output_path is None
+    assert cancelled.error is None
+    assert not (output_root / "blocking_bundle").exists()
+    assert list(output_root.glob(".tmp_*")) == []
+
+
+def test_replay_export_shutdown_cancels_queued_jobs(
+    tmp_path,
+    descriptor_factory,
+    frame_factory,
+    monkeypatch,
+) -> None:
+    descriptor = descriptor_factory(
+        payload_type="signal",
+        stream_key="signal",
+        chunk_size=2,
+        channel_names=("ch0", "ch1"),
+    )
+    recording_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
+    append_recording_frame(
+        tmp_path,
+        recording_id,
+        frame_factory(descriptor, timestamp_ns=1_000_000_000, seq=1),
+        frame_index=1,
+    )
+    finalize_recording(
+        tmp_path,
+        recording_id,
+        started_at_ns=1_000_000_000,
+        stopped_at_ns=1_100_000_000,
+        status="completed",
+        frame_counts_by_stream={descriptor.stream_id: 1},
+    )
+
+    export_started = threading.Event()
+    release_export = threading.Event()
+    calls = 0
+
+    def blocking_export(request, reader, output_root_dir, progress_fn):
+        nonlocal calls
+        calls += 1
+        export_started.set()
+        release_export.wait(1.0)
+        progress_fn(request.streams[0].stream_id)
+        return Path(output_root_dir) / "unused"
+
+    monkeypatch.setattr(
+        "modlink_core.replay.export.export_single_recording",
+        blocking_export,
+    )
+
+    settings = _build_settings(tmp_path)
+    backend = ReplayBackend(settings=settings)
+    backend.start()
+
+    request = ExportRequest(
+        mode=ExportMode.SINGLE,
+        recording_ids=(recording_id,),
+        streams=(StreamSelection(stream_id=descriptor.stream_id, format_id="signal_csv"),),
+    )
+    running_job = backend.start_export(request).result(1.0)
+    queued_job = backend.start_export(request).result(1.0)
+    assert export_started.wait(1.0)
+
+    backend.shutdown(timeout_ms=50)
+    release_export.set()
+    running = _wait_for_job(backend, running_job.job_id, timeout=2.0)
+    queued = _wait_for_job(backend, queued_job.job_id, timeout=2.0)
+    backend.shutdown(timeout_ms=1000)
+
+    assert running.state == "cancelled"
+    assert queued.state == "cancelled"
+    assert calls == 1
 
 
 def _build_settings(tmp_path: Path) -> SettingsStore:
@@ -393,7 +638,7 @@ def _wait_for_job(backend: ReplayBackend, job_id: str, *, timeout: float) -> Exp
     deadline = time.time() + timeout
     while time.time() < deadline:
         for job in backend.export_jobs():
-            if job.job_id == job_id and job.state in {"completed", "failed"}:
+            if job.job_id == job_id and job.state in {"completed", "failed", "cancelled"}:
                 return job
         time.sleep(0.01)
     raise AssertionError("export job did not finish before timeout")

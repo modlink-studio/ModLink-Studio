@@ -12,6 +12,7 @@ from modlink_core.replay.export_request import ExportMode, ExportRequest, Stream
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_request(mode: ExportMode = ExportMode.SINGLE) -> ExportRequest:
     streams = (StreamSelection(stream_id="s1", format_id="signal_csv"),)
     if mode == ExportMode.MULTI:
@@ -34,7 +35,9 @@ def _make_request(mode: ExportMode = ExportMode.SINGLE) -> ExportRequest:
     )
 
 
-def _wait_for(engine: ExportEngine, job_id: str, target: JobStatus, timeout: float = 3.0) -> ExportJob:
+def _wait_for(
+    engine: ExportEngine, job_id: str, target: JobStatus, timeout: float = 3.0
+) -> ExportJob:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         job = engine.status(job_id)
@@ -42,12 +45,15 @@ def _wait_for(engine: ExportEngine, job_id: str, target: JobStatus, timeout: flo
             return job
         time.sleep(0.01)
     job = engine.status(job_id)
-    raise TimeoutError(f"Job {job_id} did not reach {target} within {timeout}s; last status={job and job.status}")
+    raise TimeoutError(
+        f"Job {job_id} did not reach {target} within {timeout}s; last status={job and job.status}"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Fixture: fresh engine with clean handler registry per test
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def clean_handlers():
@@ -60,6 +66,7 @@ def clean_handlers():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_enqueue_returns_job_id(tmp_path: Path) -> None:
     engine = ExportEngine()

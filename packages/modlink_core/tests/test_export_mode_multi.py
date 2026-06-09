@@ -15,6 +15,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _signal_descriptor(stream_key: str = "demo") -> StreamDescriptor:
     return StreamDescriptor(
         device_id="demo.01",
@@ -96,6 +97,7 @@ def _make_request(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_per_recording_subdirs(tmp_path: Path) -> None:
     """Two recordings → recordings/<id1>/ and recordings/<id2>/ both exist."""

@@ -52,29 +52,43 @@ def export_single_recording(
             frame_refs = reader.frames_in_range(sel.stream_id, 0, 2**63)
 
             if sel.format_id == "signal_csv":
-                write_signal_csv(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.csv")
+                write_signal_csv(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.csv"
+                )
             elif sel.format_id == "signal_npz":
-                write_signal_npz(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz")
+                write_signal_npz(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz"
+                )
             elif sel.format_id == "raster_waterfall_png":
                 write_raster_waterfall_png(reader, sel.stream_id, frame_refs, streams_dir)
             elif sel.format_id == "raster_waterfall_segmented_zip":
                 write_raster_waterfall_segmented_zip(
-                    reader, sel.stream_id, frame_refs,
+                    reader,
+                    sel.stream_id,
+                    frame_refs,
                     segment_chunks=100,
                     output_path=streams_dir / f"{stream_key}_segmented.zip",
                 )
             elif sel.format_id == "raster_npz":
-                write_raster_npz(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz")
+                write_raster_npz(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz"
+                )
             elif sel.format_id == "field_npz":
-                write_field_npz(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz")
+                write_field_npz(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}.npz"
+                )
             elif sel.format_id == "field_mp4":
                 write_field_mp4(reader, sel.stream_id, frame_refs, streams_dir)
             elif sel.format_id == "field_png_zip":
-                write_field_png_zip(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}_frames.zip")
+                write_field_png_zip(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}_frames.zip"
+                )
             elif sel.format_id == "video_mp4":
                 write_video_mp4(reader, sel.stream_id, frame_refs, streams_dir)
             elif sel.format_id == "video_png_zip":
-                write_video_png_zip(reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}_frames.zip")
+                write_video_png_zip(
+                    reader, sel.stream_id, frame_refs, streams_dir / f"{stream_key}_frames.zip"
+                )
             else:
                 raise ValueError(f"unknown format_id {sel.format_id!r}")
 
@@ -95,14 +109,11 @@ def export_single_recording(
             "recording_id": recording_id,
             "mode": "single",
             "streams": [
-                {"stream_id": sel.stream_id, "format_id": sel.format_id}
-                for sel in request.streams
+                {"stream_id": sel.stream_id, "format_id": sel.format_id} for sel in request.streams
             ],
             "created_at": timestamp,
         }
-        (pkg.root / "manifest.json").write_text(
-            json.dumps(manifest, indent=2), encoding="utf-8"
-        )
+        (pkg.root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
         readme = generate_readme(
             bundle_name=bundle_name,

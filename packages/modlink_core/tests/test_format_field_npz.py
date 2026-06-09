@@ -14,6 +14,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_descriptor(
     *,
     channel_names: tuple[str, ...] = ("ch1", "ch2"),
@@ -67,6 +68,7 @@ def _make_reader(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_shape(tmp_path: Path) -> None:
     """2-channel field, 3 chunks each (T=1, H=4, W=5) → data.shape == (2, 3, 4, 5)."""

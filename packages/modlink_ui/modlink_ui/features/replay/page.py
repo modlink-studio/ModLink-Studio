@@ -189,7 +189,7 @@ class ReplayPage(QWidget):
         if dialog.exec():
             request = dialog.build_request()
             if request is not None:
-                self._replay.start_export(request)
+                self._replay.start_export(request, dialog.selected_output_dir())
                 parent = self.window() if isinstance(self.window(), QWidget) else self
                 InfoBar.success(
                     title="导出已开始",

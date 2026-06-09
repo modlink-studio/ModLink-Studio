@@ -18,7 +18,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 
 STREAM_ID = "eeg_stream"
 SAMPLE_RATE = 100.0  # Hz
-CHUNK_SIZE = 4       # samples per frame
+CHUNK_SIZE = 4  # samples per frame
 N_CHANNELS = 2
 
 
@@ -69,10 +69,7 @@ def _make_reader(recording_id: str, n_frames: int = 5, has_stream: bool = True) 
         reader.descriptor.return_value = desc
         reader.descriptors.return_value = {STREAM_ID: desc}
 
-        refs = tuple(
-            _frame_ref(i, i * 10_000_000)
-            for i in range(n_frames)
-        )
+        refs = tuple(_frame_ref(i, i * 10_000_000) for i in range(n_frames))
         reader.frames_for_stream.return_value = refs
 
         def _load(ref: RecordedFrameRef) -> FrameEnvelope:
@@ -109,6 +106,7 @@ def _make_request(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_concat_csv_has_recording_id_column(tmp_path: Path) -> None:
     """concat=True → single CSV whose first column is recording_id."""

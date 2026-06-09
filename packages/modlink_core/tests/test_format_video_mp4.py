@@ -33,9 +33,9 @@ def _make_reader(
     refs = []
     for chunk_idx in range(n_chunks):
         size = n_channels * chunk_t * height * width
-        data = np.arange(
-            chunk_idx * size, chunk_idx * size + size, dtype=np.uint8
-        ).reshape(n_channels, chunk_t, height, width)
+        data = np.arange(chunk_idx * size, chunk_idx * size + size, dtype=np.uint8).reshape(
+            n_channels, chunk_t, height, width
+        )
 
         envelope = MagicMock()
         envelope.data = data
@@ -52,6 +52,7 @@ def _make_reader(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_rgb_video_single_mp4(tmp_path: Path) -> None:
     """3-channel video → exactly one .mp4 path attempted via Mp4Writer.write."""

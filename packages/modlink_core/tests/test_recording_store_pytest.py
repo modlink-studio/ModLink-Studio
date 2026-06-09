@@ -21,20 +21,22 @@ def _make_recording(root: Path, rec_id: str, stream_keys: list[str]) -> None:
         stream_dir = streams_dir / stream_id
         (stream_dir / "frames").mkdir(parents=True, exist_ok=True)
         (stream_dir / "stream.json").write_text(
-            json.dumps({
-                "stream_id": stream_id,
-                "descriptor": {
-                    "device_id": "demo.01",
+            json.dumps(
+                {
                     "stream_id": stream_id,
-                    "stream_key": stream_key,
-                    "payload_type": "signal",
-                    "nominal_sample_rate_hz": 256.0,
-                    "chunk_size": 32,
-                    "channel_names": ["ch0", "ch1"],
-                    "display_name": stream_key,
-                    "metadata": {},
-                },
-            }),
+                    "descriptor": {
+                        "device_id": "demo.01",
+                        "stream_id": stream_id,
+                        "stream_key": stream_key,
+                        "payload_type": "signal",
+                        "nominal_sample_rate_hz": 256.0,
+                        "chunk_size": 32,
+                        "channel_names": ["ch0", "ch1"],
+                        "display_name": stream_key,
+                        "metadata": {},
+                    },
+                }
+            ),
             encoding="utf-8",
         )
         # frames.csv with header only (no data rows)
@@ -44,13 +46,15 @@ def _make_recording(root: Path, rec_id: str, stream_keys: list[str]) -> None:
         )
 
     (rec_dir / "recording.json").write_text(
-        json.dumps({
-            "recording_id": rec_id,
-            "recording_label": None,
-            "session_name": None,
-            "experiment_name": None,
-            "stream_ids": stream_ids,
-        }),
+        json.dumps(
+            {
+                "recording_id": rec_id,
+                "recording_label": None,
+                "session_name": None,
+                "experiment_name": None,
+                "stream_ids": stream_ids,
+            }
+        ),
         encoding="utf-8",
     )
 

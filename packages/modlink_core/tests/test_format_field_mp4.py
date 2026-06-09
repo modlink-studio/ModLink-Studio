@@ -14,6 +14,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_descriptor(
     *,
     stream_key: str = "field",
@@ -32,7 +33,9 @@ def _make_descriptor(
     )
 
 
-def _make_ref(timestamp_ns: int, frame_index: int = 0, stream_id: str = "field") -> RecordedFrameRef:
+def _make_ref(
+    timestamp_ns: int, frame_index: int = 0, stream_id: str = "field"
+) -> RecordedFrameRef:
     return RecordedFrameRef(
         stream_id=stream_id,
         frame_index=frame_index,
@@ -78,6 +81,7 @@ def _field_data(n_channels: int = 2, t: int = 2, h: int = 3, w: int = 4) -> np.n
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_one_mp4_per_channel(tmp_path: Path) -> None:
     """2-channel field → Mp4Writer.write called twice (one per channel)."""

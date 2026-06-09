@@ -335,7 +335,9 @@ class RecordingBackend:
                 frame_counts_by_stream=dict(active_recording.frame_counts_by_stream),
             )
         except Exception as exc:
-            logger.warning("Failed to finalize recording manifest %s: %s", active_recording.recording_id, exc)
+            logger.warning(
+                "Failed to finalize recording manifest %s: %s", active_recording.recording_id, exc
+            )
         return summary
 
     def _add_marker_worker(self, label: object) -> None:
@@ -425,7 +427,11 @@ class RecordingBackend:
                 frame_counts_by_stream=dict(active_recording.frame_counts_by_stream),
             )
         except Exception as exc:
-            logger.warning("Failed to finalize failed recording manifest %s: %s", active_recording.recording_id, exc)
+            logger.warning(
+                "Failed to finalize failed recording manifest %s: %s",
+                active_recording.recording_id,
+                exc,
+            )
         self._publish_recording_failed(
             active_recording,
             stopped_at_ns=stopped_at_ns,

@@ -22,8 +22,10 @@ def _make_reader(
     constant_value: float | None = None,
 ) -> tuple[MagicMock, tuple]:
     """Build a mock RecordingReader and matching frame_refs tuple."""
-    resolved_names = channel_names if channel_names is not None else tuple(
-        f"ch{i + 1}" for i in range(n_channels)
+    resolved_names = (
+        channel_names
+        if channel_names is not None
+        else tuple(f"ch{i + 1}" for i in range(n_channels))
     )
 
     descriptor = MagicMock()
@@ -41,9 +43,9 @@ def _make_reader(
             data = np.full((n_channels, chunk_t, line_length), constant_value, dtype=np.float32)
         else:
             size = n_channels * chunk_t * line_length
-            data = np.arange(
-                chunk_idx * size, chunk_idx * size + size, dtype=np.float32
-            ).reshape(n_channels, chunk_t, line_length)
+            data = np.arange(chunk_idx * size, chunk_idx * size + size, dtype=np.float32).reshape(
+                n_channels, chunk_t, line_length
+            )
 
         envelope = MagicMock()
         envelope.data = data
@@ -68,6 +70,7 @@ def _make_reader(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_one_png_per_channel(tmp_path: Path) -> None:
     """2-channel raster, 3 chunks → 2 PNG files in output_dir."""

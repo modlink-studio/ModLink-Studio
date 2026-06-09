@@ -26,14 +26,12 @@ def _make_reader(
     refs = []
     for chunk_idx in range(n_chunks):
         if constant_value is not None:
-            data = np.full(
-                (n_channels, chunk_t, height, width), constant_value, dtype=np.float32
-            )
+            data = np.full((n_channels, chunk_t, height, width), constant_value, dtype=np.float32)
         else:
             size = n_channels * chunk_t * height * width
-            data = np.arange(
-                chunk_idx * size, chunk_idx * size + size, dtype=np.float32
-            ).reshape(n_channels, chunk_t, height, width)
+            data = np.arange(chunk_idx * size, chunk_idx * size + size, dtype=np.float32).reshape(
+                n_channels, chunk_t, height, width
+            )
 
         envelope = MagicMock()
         envelope.data = data
@@ -57,6 +55,7 @@ def _make_reader(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_png_count(tmp_path: Path) -> None:
     """2-channel × 5 chunks × T=1 → 10 PNG files in ZIP."""

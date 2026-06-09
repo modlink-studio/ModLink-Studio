@@ -43,9 +43,7 @@ def write_video_mp4(
         if c is None:
             c = data.shape[0]
             if c not in (1, 3, 4):
-                raise ValueError(
-                    f"video stream has {c} channels; expected 1, 3, or 4"
-                )
+                raise ValueError(f"video stream has {c} channels; expected 1, 3, or 4")
 
         n_timesteps = data.shape[1]
         for t in range(n_timesteps):

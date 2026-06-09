@@ -54,9 +54,7 @@ def write_field_png_zip(
 
                         filename = f"frame_{global_frame_index:06d}_ch{c + 1:02d}.png"
                         zf.writestr(filename, buf.getvalue())
-                        csv_lines.append(
-                            f"{global_frame_index},{c + 1},{timestamp_ns},{filename}"
-                        )
+                        csv_lines.append(f"{global_frame_index},{c + 1},{timestamp_ns},{filename}")
 
                     global_frame_index += 1
 

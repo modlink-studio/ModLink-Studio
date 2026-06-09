@@ -14,10 +14,7 @@ class RecordingStore:
         recordings_dir = self._root / "recordings"
         if not recordings_dir.exists():
             return ()
-        return tuple(
-            p.name for p in sorted(recordings_dir.iterdir())
-            if p.is_dir()
-        )
+        return tuple(p.name for p in sorted(recordings_dir.iterdir()) if p.is_dir())
 
     def open(self, recording_id: str) -> RecordingReader:
         """Open a RecordingReader for the given recording_id."""

@@ -34,8 +34,7 @@ class Mp4Writer:
             import imageio_ffmpeg
         except ImportError as e:
             raise RuntimeError(
-                "imageio-ffmpeg is required for MP4 export. "
-                "Install it with: uv add imageio-ffmpeg"
+                "imageio-ffmpeg is required for MP4 export. Install it with: uv add imageio-ffmpeg"
             ) from e
 
         frames_list = list(frames)

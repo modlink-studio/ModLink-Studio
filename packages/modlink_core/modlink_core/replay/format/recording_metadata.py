@@ -17,7 +17,9 @@ def write_recording_metadata_json(reader: RecordingReader, output_path: Path) ->
         streams[stream_id] = {
             "device_id": desc.device_id,
             "stream_key": desc.stream_key,
-            "payload_type": desc.payload_type.value if hasattr(desc.payload_type, "value") else str(desc.payload_type),
+            "payload_type": desc.payload_type.value
+            if hasattr(desc.payload_type, "value")
+            else str(desc.payload_type),
             "nominal_sample_rate_hz": desc.nominal_sample_rate_hz,
             "chunk_size": desc.chunk_size,
             "channel_names": list(desc.channel_names),

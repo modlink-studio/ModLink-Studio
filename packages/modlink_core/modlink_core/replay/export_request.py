@@ -5,9 +5,9 @@ from enum import Enum
 
 
 class ExportMode(Enum):
-    SINGLE = "single"          # A: one recording, all streams
-    MULTI = "multi"            # B: multiple recordings merged
-    TIMESLICE = "timeslice"    # C: one recording, time range
+    SINGLE = "single"  # A: one recording, all streams
+    MULTI = "multi"  # B: multiple recordings merged
+    TIMESLICE = "timeslice"  # C: one recording, time range
     CROSS_STREAM = "cross_stream"  # D: one stream_key across recordings
 
 
@@ -16,12 +16,20 @@ class ExportMode(Enum):
 # raster:  "raster_waterfall_png" | "raster_waterfall_segmented_zip" | "raster_npz"
 # field:   "field_npz" | "field_mp4" | "field_png_zip"
 # video:   "video_mp4" | "video_png_zip"
-VALID_FORMAT_IDS = frozenset({
-    "signal_csv", "signal_npz",
-    "raster_waterfall_png", "raster_waterfall_segmented_zip", "raster_npz",
-    "field_npz", "field_mp4", "field_png_zip",
-    "video_mp4", "video_png_zip",
-})
+VALID_FORMAT_IDS = frozenset(
+    {
+        "signal_csv",
+        "signal_npz",
+        "raster_waterfall_png",
+        "raster_waterfall_segmented_zip",
+        "raster_npz",
+        "field_npz",
+        "field_mp4",
+        "field_png_zip",
+        "video_mp4",
+        "video_png_zip",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -33,7 +41,9 @@ class StreamSelection:
         if not self.stream_id:
             raise ValueError("stream_id must not be empty")
         if self.format_id not in VALID_FORMAT_IDS:
-            raise ValueError(f"format_id {self.format_id!r} is not valid; choose from {sorted(VALID_FORMAT_IDS)}")
+            raise ValueError(
+                f"format_id {self.format_id!r} is not valid; choose from {sorted(VALID_FORMAT_IDS)}"
+            )
 
 
 @dataclass(frozen=True)
@@ -51,6 +61,8 @@ class ExportRequest:
     def __post_init__(self) -> None:
         if not self.recording_ids:
             raise ValueError("recording_ids must not be empty")
+        if not self.streams:
+            raise ValueError("streams must not be empty")
         if self.mode == ExportMode.SINGLE and len(self.recording_ids) != 1:
             raise ValueError("SINGLE mode requires exactly 1 recording_id")
         if self.mode == ExportMode.TIMESLICE:

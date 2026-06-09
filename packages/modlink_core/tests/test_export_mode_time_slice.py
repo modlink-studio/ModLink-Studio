@@ -17,6 +17,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _signal_descriptor(stream_key: str = "demo") -> StreamDescriptor:
     return StreamDescriptor(
         device_id="demo.01",
@@ -119,6 +120,7 @@ def _make_reader_with_frames(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_frames_filtered_by_range(tmp_path: Path) -> None:
     """10 frames at [0, 1000, ..., 9000]; slice [2000, 7000) → 5 frames in CSV."""

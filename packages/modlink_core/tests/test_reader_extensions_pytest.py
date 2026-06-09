@@ -62,8 +62,8 @@ def test_frames_in_range_basic(tmp_path, descriptor_factory, frame_factory) -> N
     reader, sid = _make_reader(
         tmp_path, descriptor_factory, frame_factory, timestamps_ns=(1_000, 2_000, 3_000)
     )
-    # half-open [1000, 3000) — should include 1000 and 2000, NOT 3000
-    result = reader.frames_in_range(sid, 1_000, 3_000)
+    # half-open relative [0, 2000) — should include absolute 1000 and 2000, NOT 3000
+    result = reader.frames_in_range(sid, 0, 2_000)
     assert len(result) == 2
     assert all(isinstance(r, RecordedFrameRef) for r in result)
     assert result[0].timestamp_ns == 1_000

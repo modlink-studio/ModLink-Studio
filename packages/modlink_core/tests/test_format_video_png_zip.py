@@ -17,6 +17,7 @@ from modlink_sdk import FrameEnvelope, StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_descriptor(
     *,
     channel_count: int = 3,
@@ -77,19 +78,15 @@ def _make_video_data(
 ) -> np.ndarray:
     """Return (C, T, H, W) uint8 array with sequential values mod 256."""
     size = channel_count * chunk_size * height * width
-    return np.arange(size, dtype=np.uint8).reshape(
-        channel_count, chunk_size, height, width
-    )
+    return np.arange(size, dtype=np.uint8).reshape(channel_count, chunk_size, height, width)
 
 
-def _build_5chunk_reader(channel_count: int = 3, chunk_size: int = 2) -> tuple[MagicMock, tuple[RecordedFrameRef, ...]]:
+def _build_5chunk_reader(
+    channel_count: int = 3, chunk_size: int = 2
+) -> tuple[MagicMock, tuple[RecordedFrameRef, ...]]:
     descriptor = _make_descriptor(channel_count=channel_count, chunk_size=chunk_size)
-    refs = tuple(
-        _make_ref(timestamp_ns=i * 100_000_000, frame_index=i) for i in range(5)
-    )
-    frames = [
-        (ref, _make_video_data(channel_count, chunk_size)) for ref in refs
-    ]
+    refs = tuple(_make_ref(timestamp_ns=i * 100_000_000, frame_index=i) for i in range(5))
+    frames = [(ref, _make_video_data(channel_count, chunk_size)) for ref in refs]
     reader = _make_reader(descriptor, frames)
     return reader, refs
 
@@ -97,6 +94,7 @@ def _build_5chunk_reader(channel_count: int = 3, chunk_size: int = 2) -> tuple[M
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_frame_count(tmp_path: Path) -> None:
     """5 chunks × chunk_size=2 → 10 PNG files in ZIP."""

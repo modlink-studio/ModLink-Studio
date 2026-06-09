@@ -35,9 +35,7 @@ def export_cross_recording_stream(
     stream_key = stream_id
     stream_key_safe = safe_path_component(stream_key)
 
-    bundle_name = (
-        f"cross_{stream_key_safe}_{datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%S')}"
-    )
+    bundle_name = f"cross_{stream_key_safe}_{datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%S')}"
 
     skipped: list[str] = []
     included: list[str] = []
@@ -45,13 +43,27 @@ def export_cross_recording_stream(
     with ExportPackageWriter(output_root / bundle_name) as pkg:
         if request.concat_streams and sel.format_id == "signal_csv":
             _write_concat_csv(
-                pkg, request, store, stream_id, stream_key, stream_key_safe,
-                included, skipped, progress_fn,
+                pkg,
+                request,
+                store,
+                stream_id,
+                stream_key,
+                stream_key_safe,
+                included,
+                skipped,
+                progress_fn,
             )
         else:
             _write_per_recording(
-                pkg, request, store, stream_id, stream_key, stream_key_safe,
-                included, skipped, progress_fn,
+                pkg,
+                request,
+                store,
+                stream_id,
+                stream_key,
+                stream_key_safe,
+                included,
+                skipped,
+                progress_fn,
             )
 
         _write_manifest(pkg, bundle_name, stream_key, included, skipped, request.concat_streams)
@@ -188,9 +200,7 @@ def _write_manifest(
         "concat": concat,
         "created_at": datetime.now(tz=UTC).isoformat(),
     }
-    (pkg.root / "manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8"
-    )
+    (pkg.root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
 def _write_readme(
@@ -201,15 +211,10 @@ def _write_readme(
     concat: bool,
 ) -> None:
     rec_list = "\n".join(f"- `{r}`" for r in included) if included else "*(none)*"
-    structure = (
-        f"{bundle_name}/\n"
-        "├── manifest.json\n"
-        "├── README.md\n"
-        + (
-            f"└── streams/\n    └── {stream_key}_concat.csv"
-            if concat
-            else f"└── recordings/\n    ├── <rec_id>/streams/{stream_key}.csv\n    └── ..."
-        )
+    structure = f"{bundle_name}/\n├── manifest.json\n├── README.md\n" + (
+        f"└── streams/\n    └── {stream_key}_concat.csv"
+        if concat
+        else f"└── recordings/\n    ├── <rec_id>/streams/{stream_key}.csv\n    └── ..."
     )
     readme = f"""\
 # Export Bundle: {bundle_name}

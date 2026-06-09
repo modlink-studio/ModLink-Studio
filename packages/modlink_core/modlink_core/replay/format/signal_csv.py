@@ -23,7 +23,9 @@ def write_signal_csv(
 
     sample_rate_hz = descriptor.nominal_sample_rate_hz
     if sample_rate_hz <= 0:
-        raise ValueError(f"stream {stream_id!r} has invalid nominal_sample_rate_hz {sample_rate_hz!r}")
+        raise ValueError(
+            f"stream {stream_id!r} has invalid nominal_sample_rate_hz {sample_rate_hz!r}"
+        )
 
     ns_per_sample = 1_000_000_000 / sample_rate_hz
 

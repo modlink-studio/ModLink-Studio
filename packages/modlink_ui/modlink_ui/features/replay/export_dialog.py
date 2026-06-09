@@ -80,7 +80,9 @@ class ExportDialog(MessageBoxBase):
         # Multi-recording list
         if len(self._recording_ids) >= 2:
             ids_text = "、".join(self._recording_ids)
-            self.viewLayout.addWidget(BodyLabel(f"已选择 {len(self._recording_ids)} 个录制：{ids_text}"))
+            self.viewLayout.addWidget(
+                BodyLabel(f"已选择 {len(self._recording_ids)} 个录制：{ids_text}")
+            )
 
         # Streams card
         streams_card = SimpleCardWidget()
@@ -154,11 +156,7 @@ class ExportDialog(MessageBoxBase):
         self._cb_annotations.setChecked(True)
         self._cb_metadata = CheckBox("包含 recording 元数据")
         self._cb_metadata.setChecked(True)
-        self._cb_raw = CheckBox("保留原始 raw 流副本")
-        self._cb_raw.setChecked(False)
-        self._cb_zip = CheckBox("打包为 zip")
-        self._cb_zip.setChecked(False)
-        for cb in (self._cb_annotations, self._cb_metadata, self._cb_raw, self._cb_zip):
+        for cb in (self._cb_annotations, self._cb_metadata):
             bundle_layout.addWidget(cb)
         self.viewLayout.addWidget(bundle_card)
 
@@ -215,8 +213,6 @@ class ExportDialog(MessageBoxBase):
             time_range_ns=time_range_ns,
             include_annotations=self._cb_annotations.isChecked(),
             include_recording_metadata=self._cb_metadata.isChecked(),
-            include_raw=self._cb_raw.isChecked(),
-            package_as_zip=self._cb_zip.isChecked(),
         )
 
     def validate(self) -> bool:
@@ -228,7 +224,9 @@ class ExportDialog(MessageBoxBase):
         return self._output_dir
 
     def _on_choose_output_dir(self) -> None:
-        selected = QFileDialog.getExistingDirectory(self, "选择导出输出目录", self._output_dir or "")
+        selected = QFileDialog.getExistingDirectory(
+            self, "选择导出输出目录", self._output_dir or ""
+        )
         if selected:
             self._output_dir = selected
             self._output_dir_edit.setText(selected)

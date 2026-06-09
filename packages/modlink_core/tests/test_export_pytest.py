@@ -4,6 +4,7 @@ Each test builds a real recording (or set of recordings) via the storage helpers
 invokes the corresponding mode handler that ExportEngine dispatches to, and
 verifies the resulting bundle structure.
 """
+
 from __future__ import annotations
 
 import csv
@@ -34,6 +35,7 @@ def mock_mp4_writer(monkeypatch):
     Both video_mp4 and field_mp4 import Mp4Writer from the same module, so a
     single class-level patch covers both paths without requiring real ffmpeg.
     """
+
     def fake_write(frames, fps, output_path):  # noqa: ARG001 - signature must match
         output_path.write_bytes(b"")
 
@@ -46,6 +48,7 @@ def mock_mp4_writer(monkeypatch):
 # ---------------------------------------------------------------------------
 # Mode A: SINGLE — one recording, all streams + annotations + metadata
 # ---------------------------------------------------------------------------
+
 
 def test_single_mode_full_export(tmp_path, descriptor_factory, frame_factory, mock_mp4_writer):
     """One recording with signal+raster+field+video streams, 2 markers, 1 segment."""
@@ -82,23 +85,27 @@ def test_single_mode_full_export(tmp_path, descriptor_factory, frame_factory, mo
     recording_id = create_recording(tmp_path, descriptors, recording_label="full")
 
     append_recording_frame(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         frame_factory(signal_desc, timestamp_ns=0),
         frame_index=1,
     )
     append_recording_frame(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         frame_factory(raster_desc, timestamp_ns=0),
         frame_index=1,
     )
     append_recording_frame(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         frame_factory(field_desc, timestamp_ns=0),
         frame_index=1,
     )
     # video_mp4 requires C in {1, 3, 4}; default channel_count is 2, so override to 3 (RGB).
     append_recording_frame(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         frame_factory(video_desc, timestamp_ns=0, channel_count=3),
         frame_index=1,
     )
@@ -108,7 +115,8 @@ def test_single_mode_full_export(tmp_path, descriptor_factory, frame_factory, mo
     add_recording_segment(tmp_path, recording_id, 0, 1_000_000_000, "seg1")
 
     finalize_recording(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         started_at_ns=0,
         stopped_at_ns=1_000_000_000,
         status="completed",
@@ -186,6 +194,7 @@ def test_single_mode_full_export(tmp_path, descriptor_factory, frame_factory, mo
 # Mode B: MULTI — multiple recordings into per-recording subdirs
 # ---------------------------------------------------------------------------
 
+
 def test_multi_mode_merged_export(tmp_path, descriptor_factory, frame_factory):
     """2 recordings, each with the same signal stream → recordings/<id>/streams/<key>.csv."""
     descriptor = descriptor_factory(
@@ -203,13 +212,15 @@ def test_multi_mode_merged_export(tmp_path, descriptor_factory, frame_factory):
             recording_label=f"rec_{i}",
         )
         append_recording_frame(
-            tmp_path, rec_id,
+            tmp_path,
+            rec_id,
             frame_factory(descriptor, timestamp_ns=i * 1_000_000_000),
             frame_index=1,
         )
         add_recording_marker(tmp_path, rec_id, i * 1_000_000_000 + 50_000_000, f"m_{i}")
         finalize_recording(
-            tmp_path, rec_id,
+            tmp_path,
+            rec_id,
             started_at_ns=i * 1_000_000_000,
             stopped_at_ns=(i + 1) * 1_000_000_000,
             status="completed",
@@ -260,6 +271,7 @@ def test_multi_mode_merged_export(tmp_path, descriptor_factory, frame_factory):
 # Mode C: TIMESLICE — single recording, time range filters frames + markers
 # ---------------------------------------------------------------------------
 
+
 def test_timeslice_mode_with_marker_range(tmp_path, descriptor_factory, frame_factory):
     """5 frames at 0/100/200/300/400 ms; slice [100M, 300M) → 2 frames + 1 marker."""
     descriptor = descriptor_factory(
@@ -276,7 +288,8 @@ def test_timeslice_mode_with_marker_range(tmp_path, descriptor_factory, frame_fa
     # frames_in_range (absolute) and markers_in_range (relative).
     for i in range(5):
         append_recording_frame(
-            tmp_path, recording_id,
+            tmp_path,
+            recording_id,
             frame_factory(
                 descriptor,
                 timestamp_ns=i * 100_000_000,
@@ -292,7 +305,8 @@ def test_timeslice_mode_with_marker_range(tmp_path, descriptor_factory, frame_fa
     add_recording_segment(tmp_path, recording_id, 100_000_000, 300_000_000, "seg")
 
     finalize_recording(
-        tmp_path, recording_id,
+        tmp_path,
+        recording_id,
         started_at_ns=0,
         stopped_at_ns=400_000_000,
         status="completed",
@@ -356,6 +370,7 @@ def test_timeslice_mode_with_marker_range(tmp_path, descriptor_factory, frame_fa
 # Mode D: CROSS_STREAM — one stream across multiple recordings, concat=True
 # ---------------------------------------------------------------------------
 
+
 def test_cross_mode_with_concat(tmp_path, descriptor_factory, frame_factory):
     """2 recordings, same signal stream_key, concat=True → merged CSV with recording_id col."""
     descriptor = descriptor_factory(
@@ -370,12 +385,14 @@ def test_cross_mode_with_concat(tmp_path, descriptor_factory, frame_factory):
     for i in range(2):
         rec_id = create_recording(tmp_path, {descriptor.stream_id: descriptor})
         append_recording_frame(
-            tmp_path, rec_id,
+            tmp_path,
+            rec_id,
             frame_factory(descriptor, timestamp_ns=i * 1_000_000_000, chunk_size=4),
             frame_index=1,
         )
         finalize_recording(
-            tmp_path, rec_id,
+            tmp_path,
+            rec_id,
             started_at_ns=i * 1_000_000_000,
             stopped_at_ns=(i + 1) * 1_000_000_000,
             status="completed",
@@ -404,6 +421,7 @@ def test_cross_mode_with_concat(tmp_path, descriptor_factory, frame_factory):
     # (e.g. ':' on Windows) accept the path. The manifest still records the
     # original stream_key for downstream tooling.
     from modlink_core.storage._internal.ids import safe_path_component
+
     safe_stream = safe_path_component(descriptor.stream_id)
     concat_csv = bundle_path / "streams" / f"{safe_stream}_concat.csv"
     assert concat_csv.is_file()

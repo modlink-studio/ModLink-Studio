@@ -11,6 +11,7 @@ from modlink_sdk import StreamDescriptor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_descriptor(
     *,
     device_id: str = "test.01",
@@ -47,15 +48,20 @@ def _make_reader(
     reader.stopped_at_ns = stopped_at_ns
     reader.status = status
     reader.frame_counts_by_stream = frame_counts if frame_counts is not None else {"eeg": 5}
-    reader.descriptors.return_value = descriptors if descriptors is not None else {
-        "eeg": _make_descriptor(),
-    }
+    reader.descriptors.return_value = (
+        descriptors
+        if descriptors is not None
+        else {
+            "eeg": _make_descriptor(),
+        }
+    )
     return reader
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_json_valid(tmp_path: Path) -> None:
     reader = _make_reader()
@@ -111,4 +117,6 @@ def test_duration_null_when_missing(tmp_path: Path) -> None:
         out = tmp_path / "metadata.json"
         write_recording_metadata_json(reader, out)
         data = json.loads(out.read_text(encoding="utf-8"))
-        assert data["duration_ns"] is None, f"expected null for started={started}, stopped={stopped}"
+        assert data["duration_ns"] is None, (
+            f"expected null for started={started}, stopped={stopped}"
+        )

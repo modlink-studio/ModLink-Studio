@@ -174,7 +174,7 @@ class QtReplayBridgeExportForwardingTests(unittest.TestCase):
 
         bridge.start_export(request)
 
-        backend.start_export.assert_called_once_with(request)
+        backend.start_export.assert_called_once_with(request, None)
 
     def test_bridge_returns_job_id(self) -> None:
         """Bridge forwards the future from backend unchanged; result propagates."""
@@ -192,8 +192,23 @@ class QtReplayBridgeExportForwardingTests(unittest.TestCase):
 
         # The future passed to _watch_command is the one returned by backend.start_export.
         # Verify backend was called with the request and returned the expected future.
-        backend.start_export.assert_called_once_with(request)
+        backend.start_export.assert_called_once_with(request, None)
         self.assertEqual("job123", backend.start_export.return_value.result())
+
+    def test_bridge_forwards_export_output_root(self) -> None:
+        backend = MagicMock()
+        bridge = self._make_bridge(backend)
+
+        request = ExportRequest(
+            mode=ExportMode.SINGLE,
+            recording_ids=("rec-3",),
+            streams=(StreamSelection(stream_id="demo.01/signal", format_id="signal_csv"),),
+        )
+        backend.start_export.return_value = self._done_future(None)
+
+        bridge.start_export(request, "C:/exports")
+
+        backend.start_export.assert_called_once_with(request, "C:/exports")
 
 
 if __name__ == "__main__":

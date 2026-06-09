@@ -195,15 +195,13 @@ class RecordingReader:
         refs = self._frames_by_stream.get(stream_id)
         if not refs:
             return ()
-        return tuple(r for r in refs if start_ns <= r.timestamp_ns < end_ns)
+        return tuple(r for r in refs if start_ns <= r.relative_timestamp_ns < end_ns)
 
     def markers_in_range(self, start_ns: int, end_ns: int) -> tuple[ReplayMarker, ...]:
         return tuple(m for m in self._markers if start_ns <= m.timestamp_ns < end_ns)
 
     def overlapping_segments(self, start_ns: int, end_ns: int) -> tuple[ReplaySegment, ...]:
-        return tuple(
-            s for s in self._segments if s.start_ns < end_ns and s.end_ns > start_ns
-        )
+        return tuple(s for s in self._segments if s.start_ns < end_ns and s.end_ns > start_ns)
 
     def stream_value_range(self, stream_id: str) -> tuple[float, float] | None:
         if stream_id in self._value_range_cache:
